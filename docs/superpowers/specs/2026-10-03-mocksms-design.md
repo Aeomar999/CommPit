@@ -92,11 +92,11 @@ Extension-point packages are **public** (top level, not `internal/`) so the clos
 | Package | Responsibility |
 |---|---|
 | `cmd/mocksms` | Local composition root: config, wiring, subcommands (`serve`, `otp`, `messages`, `reset`, `version`) |
-| `core` | Domain types and service: `SendMessage`, `SendBatch`, `StartVerification`, `CheckVerification`, `ReceiveInbound`; lifecycle runner; canonical errors; `Clock` interface. No HTTP, no provider formats |
-| `store` | `Store` and `BlobStore` interfaces plus the shared conformance test suite |
-| `store/sqlite` | SQLite implementation of both interfaces, plus embedded migrations |
-| `bus` | In-process pub/sub (`Bus` interface) |
-| `sim` | Failure-simulation rule engine, checked by core before accepting a send |
+| `core` | Domain types and service: `SendMessage`, `SendBatch`, `StartVerification`, `CheckVerification`, `ReceiveInbound`; lifecycle runner; canonical errors; and the ports it consumes: `Store`, `BlobStore`, `Bus`, `Simulator`, `Clock`, `ProjectResolver`. No HTTP, no provider formats |
+| `store/storetest` | Shared conformance suite for any `core.Store` / `core.BlobStore` implementation |
+| `store/sqlite` | SQLite implementation of `core.Store` and `core.BlobStore`, plus embedded migrations |
+| `bus` | In-process implementation of `core.Bus` |
+| `sim` | Failure-simulation rule engine implementing `core.Simulator`, checked by core before accepting a send |
 | `extract` | OTP-code and link extraction from SMS and email bodies |
 | `phone` | E.164 parsing (`nyaruka/phonenumbers`), GSM-7/UCS-2 encoding detection, segment counting |
 | `api` | Native REST API (generated from `openapi/openapi.yaml` with `oapi-codegen`), test helpers, SSE hub |
@@ -207,6 +207,8 @@ Runs on every message, outbound and inbound.
 | | `GET /projects/{id}/estimate?volume=…` | Go-live estimate (§8.6) |
 | | `GET /events` | SSE: `message.created`, `message.status`, `verification.updated`, `batch.updated`, `request.logged`, `webhook.delivered` |
 | Ops | `GET /healthz` (unprefixed) | Readiness check |
+
+**Native webhooks:** status callbacks POST `{"event": "message.status", "message": {…}}` to `callback_url`; inbound SMS POST `{"event": "message.inbound", "message": {…}}` to `native.inbound_url`. When the project has an API key, the request carries `X-Mocksms-Signature: sha256=<hex HMAC-SHA256 of the raw body, keyed with that API key>`; projects without a key send unsigned webhooks.
 
 ### 7.2 Error model
 
@@ -424,8 +426,8 @@ YAML values are read-only in the UI. Settings changed in the UI are stored in th
 
 | Interface | Local implementation | Hosted implementation (future, closed source) |
 |---|---|---|
-| `store.Store` / `store.BlobStore` | SQLite | Postgres / S3-compatible object storage |
-| `bus.Bus` | In-process | Postgres `LISTEN/NOTIFY` or NATS |
+| `core.Store` / `core.BlobStore` | SQLite | Postgres / S3-compatible object storage |
+| `core.Bus` | In-process | Postgres `LISTEN/NOTIFY` or NATS |
 | Lifecycle runner, webhook queue | Timers over SQLite rows | Same logic over Postgres with `SKIP LOCKED`, multiple workers |
 | `core.ProjectResolver` (credential → project) | Creates projects automatically | Real API keys, accounts, teams |
 | Settings source | YAML + database | Per-tenant database settings |
@@ -448,7 +450,7 @@ The hosted product is a separate private Go module with its own `cmd/`, composin
 | Layer | What | How |
 |---|---|---|
 | Unit | `core`, `sim`, `phone`, `extract`, `estimate` | Table-driven Go tests. `core` uses the injected `Clock`, so lifecycle and expiry tests are instant and repeatable |
-| Store conformance | Every `Store`/`BlobStore` method | One shared suite in `store/`, run against `store/sqlite` now and against Postgres in the hosted product |
+| Store conformance | Every `Store`/`BlobStore` method | One shared suite in `store/storetest`, run against `store/sqlite` now and against Postgres in the hosted product |
 | Adapter golden tests | Request → response for every adapter endpoint | `testdata/<provider>/` fixtures; changing fields (SIDs, dates) normalized; `-update` flag regenerates them |
 | Spec contract tests | Twilio responses (Wave 2: SendGrid, Vonage) | Validated with `kin-openapi` against pinned copies of the providers' OpenAPI specs; a scheduled CI job refreshes the specs and opens a PR when they change |
 | Real-SDK tests | The drop-in promise | `examples/` run in CI against the built binary: official Twilio Node and Python SDKs send SMS and start/check a verification; the receiving server checks the status webhook with the SDK's own `validateRequest`. Termii via plain HTTP |
