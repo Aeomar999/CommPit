@@ -10,6 +10,7 @@ Provider-compatible adapters follow the real providers' behavior. Fixes that mak
 
 ### Added
 
+- `store/storetest` conformance suite: comprehensive test suite covering all `core.Store` methods (Project, Credential, Message, StatusEvent, Batch, Verification, Unsubscribe, Attachment, WebhookDelivery, RequestLog, Transaction) with in-memory implementation for verification
 - `core` package: domain types (Project, Credential, Message, StatusEvent, Batch, Verification, Unsubscribe, Attachment, WebhookDelivery, RequestLog), canonical errors with HTTP status mapping (validation_error=400, invalid_number=400, rate_limited=429, provider_unavailable=503, etc.), prefixed ULIDs (prj_, msg_, bat_, vrf_, whd_, req_, att_, blob_), ports (Store, BlobStore, Bus, Simulator, Clock, ProjectResolver), service with SendMessage/SendBatch/StartVerification/CheckVerification/ReceiveInbound, lifecycle runner with Clock-driven timers and step delay, FakeClock for deterministic tests
 - `extract` package: OTP code extraction (4-8 digits, keyword-adjacent priority for code/otp/pin/verification/token/passcode), link extraction from text and HTML (href), primary_link detection (verify/confirm/activate/magic/token/reset/login/signin in URL or anchor text)
 - `phone` package: E.164 parsing with `valid`/`possible`/`off` modes (using `nyaruka/phonenumbers`), GSM-7 vs UCS-2 encoding detection, segment counting (160/153 for GSM-7, 70/67 for UCS-2, max 10 segments)

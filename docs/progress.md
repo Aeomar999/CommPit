@@ -8,14 +8,14 @@ Single source of truth for where the project stands. Update it in every PR that 
 |---|---|
 | **Phase** | M1 in progress |
 | **Current milestone** | M1 |
-| **Next action** | M1-05: `store/storetest` conformance suite |
+| **Next action** | M1-06: `store/sqlite` - WAL, single writer + read pool, goose migrations, blobs, transactional batch insert; passes storetest |
 | **Last updated** | 2026-10-03 |
 
 ## Milestones
 
 | Milestone | Release | Status | Tasks done |
 |---|---|---|---|
-| M1: Core, native API, SMTP, inbox | v0.1.0 | In progress | 4 / 21 |
+| M1: Core, native API, SMTP, inbox | v0.1.0 | In progress | 5 / 21 |
 | M2: Twilio, Termii, test API, inspector | v0.2.0 | Not started | 0 / 14 |
 | M3: Webhooks, failure simulation, inbound, batches | v0.3.0 | Not started | 0 / 12 |
 | M4: Estimate, MCP, CI kit | v0.4.0 | Not started | 0 / 8 |
@@ -31,6 +31,11 @@ Single source of truth for where the project stands. Update it in every PR that 
 ## Session log
 
 Newest first. One entry per working session: what changed, decisions made, what's next.
+
+### 2026-10-03
+
+- Completed M1-05: `store/storetest` conformance suite - comprehensive test suite covering all Store interface methods (Project, Credential, Message, StatusEvent, Batch, Verification, Unsubscribe, Attachment, WebhookDelivery, RequestLog, Transaction) with in-memory implementation for verification
+- **Next:** M1-06: `store/sqlite` - WAL, single writer + read pool, goose migrations, blobs, transactional batch insert; passes storetest
 
 ### 2026-10-03
 

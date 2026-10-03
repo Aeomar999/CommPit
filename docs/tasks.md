@@ -23,7 +23,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked
 | [x] | M1-02 | `phone`: E.164 parsing with `valid` / `possible` / `off` modes; GSM-7 vs UCS-2 detection; segment counting (160/153, 70/67) | M1-01 | REQ-063 |
 | [x] | M1-03 | `extract`: OTP codes (4–8 digits, keyword-adjacent first), links from text and HTML, `primary_link` | M1-01 | REQ-006 |
 | [x] | M1-04 | `core` domain types, canonical errors, prefixed ULIDs, ports (`Store`, `BlobStore`, `Bus`, `Simulator`, `Clock`, `ProjectResolver`), fake clock for tests | M1-01 | REQ-013 |
-| [ ] | M1-05 | `store/storetest` conformance suite | M1-04 | — |
+| [x] | M1-05 | `store/storetest` conformance suite | M1-04 | — |
 | [ ] | M1-06 | `store/sqlite`: WAL, single writer + read pool, goose migrations, blobs, transactional batch insert; passes `storetest` | M1-05 | REQ-080 |
 | [ ] | M1-07 | `bus`: in-process pub/sub implementing `core.Bus` | M1-04 | — |
 | [ ] | M1-08 | Core service: projects and credentials (auto-create), `SendMessage`, `SendBatch`, validation, extraction on save | M1-02, M1-03, M1-06, M1-07 | REQ-001, REQ-010, REQ-091 |
