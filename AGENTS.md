@@ -15,6 +15,7 @@ mocksms is a local-first sandbox messaging provider for development. Apps send S
 3. [docs/architecture.md](docs/architecture.md): package boundaries and dependency rules. **Binding.**
 4. [docs/engineering.md](docs/engineering.md): code, test and git standards.
 5. The relevant section of the [design spec](docs/superpowers/specs/2026-10-03-mocksms-design.md) and, if one exists, the milestone plan in `docs/superpowers/plans/`.
+6. **For any UI work:** [docs/design.md](docs/design.md) (tokens, components, voice, accessibility) and [PRODUCT.md](PRODUCT.md). Follow its §16 workflow for the design skills (impeccable, taste, ui-ux-pro-max, design-system).
 
 ## No AI attribution (absolute rule)
 

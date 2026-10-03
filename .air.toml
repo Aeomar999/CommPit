@@ -1,0 +1,37 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  args_bin = ["-tags=dev"]
+  bin = "./tmp/mocksms"
+  cmd = "go build -o ./tmp/mocksms ./cmd/mocksms"
+  delay = 1000
+  exclude_dir = ["assets", "tmp", "vendor", "web", "web/dist", ".git"]
+  exclude_file = []
+  exclude_regex = ["_test.go"]
+  exclude_unchanged = true
+  follow_symlink = true
+  full_bin = ""
+  include_dir = []
+  include_ext = ["go", "tpl", "tmpl", "html"]
+  kill_delay = 500
+  log = "build-errors.log"
+  poll = true
+  poll_interval = 0
+  rerun = false
+  rerun_delay = 1000
+  send_interrupt = false
+  stop_on_error = true
+
+[color]
+  app = ""
+  build = "yellow"
+  main = "magenta"
+  runner = "green"
+  watcher = "cyan"
+
+[log]
+  time = false
+
+[misc]
+  clean_on_exit = true

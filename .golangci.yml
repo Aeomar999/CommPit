@@ -1,0 +1,158 @@
+linters:
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - gosimple
+    - unused
+    - ineffassign
+    - typecheck
+    - bodyclose
+    - copyloopvar
+    - predeclared
+    - errorlint
+    - depguard
+    - gosec
+    - nolintlint
+    - misspell
+    - whitespace
+    - goconst
+    - gocritic
+    - revive
+
+linters-settings:
+  depguard:
+    rules:
+      main:
+        deny:
+          - pkg: "github.com/Aeomar999/mocksms/store/sqlite"
+            desc: "store/sqlite must not be imported outside cmd/mocksms and store/storetest"
+          - pkg: "github.com/Aeomar999/mocksms/config"
+            desc: "config must not be imported outside cmd/mocksms"
+          - pkg: "github.com/Aeomar999/mocksms/web"
+            desc: "web must not be imported outside cmd/mocksms"
+          - pkg: "github.com/Aeomar999/mocksms/adapters/twilio"
+            desc: "adapters/twilio must not be imported outside cmd/mocksms"
+          - pkg: "github.com/Aeomar999/mocksms/adapters/termii"
+            desc: "adapters/termii must not be imported outside cmd/mocksms"
+          - pkg: "github.com/Aeomar999/mocksms/smtpd"
+            desc: "smtpd must not be imported outside cmd/mocksms"
+          - pkg: "github.com/Aeomar999/mocksms/webhooks"
+            desc: "webhooks must not be imported outside cmd/mocksms"
+          - pkg: "github.com/Aeomar999/mocksms/estimate"
+            desc: "estimate must not be imported outside cmd/mocksms"
+          - pkg: "github.com/Aeomar999/mocksms/mcpserver"
+            desc: "mcpserver must not be imported outside cmd/mocksms"
+          - pkg: "github.com/Aeomar999/mocksms/bus"
+            desc: "bus must not be imported outside cmd/mocksms and store/storetest"
+          - pkg: "github.com/Aeomar999/mocksms/sim"
+            desc: "sim must not be imported outside cmd/mocksms"
+          - pkg: "github.com/Aeomar999/mocksms/api"
+            desc: "api must not be imported outside cmd/mocksms"
+          - pkg: "github.com/Aeomar999/mocksms/adapters/adapterkit"
+            desc: "adapters/adapterkit must not be imported outside cmd/mocksms and adapters/*"
+        allow:
+          - pkg: "github.com/Aeomar999/mocksms/phone"
+          - pkg: "github.com/Aeomar999/mocksms/extract"
+          - pkg: "github.com/Aeomar999/mocksms/core"
+          - pkg: "github.com/Aeomar999/mocksms/store/storetest"
+
+  gosec:
+    excludes:
+      - G104 # Errors unhandled (we handle errors explicitly)
+      - G115 # Integer overflow conversion (false positives)
+
+  revive:
+    rules:
+      - name: exported
+        disabled: false
+        arguments:
+          - checkPrivateReceivers
+          - sayRepetitiveInsteadOfStutters
+      - name: package-comments
+        disabled: false
+      - name: var-naming
+        disabled: false
+      - name: early-return
+        disabled: false
+      - name: error-strings
+        disabled: false
+      - name: error-naming
+        disabled: false
+      - name: error-return
+        disabled: false
+      - name: unhandled-error
+        disabled: false
+      - name: unused-parameter
+        disabled: false
+      - name: unreachable-code
+        disabled: false
+      - name: superfluous-else
+        disabled: false
+      - name: redefines-builtin-id
+        disabled: false
+      - name: constant-logical-expr
+        disabled: false
+      - name: waitgroup-by-value
+        disabled: false
+      - name: empty-block
+        disabled: false
+
+  govet:
+    enable:
+      - shadow
+      - structtag
+      - nilfunc
+      - httpresponse
+      - loopclosure
+      - lostcancel
+      - printf
+      - shifts
+      - stdmethods
+      - stringintconv
+      - tests
+      - unmarshal
+      - unreachable
+      - unsafeptr
+      - unusedresult
+      - unusedwrite
+
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - experimental
+      - opinionated
+      - performance
+      - style
+    disabled-checks:
+      - wrapperFunc
+      - dupImport
+      - deprecatedComment
+      - commentFormatting
+      - ifElseChain
+      - singleCaseSwitch
+      - sloppyReassign
+      - sloppyTypeAssert
+      - whyNoLint
+      - unnecessaryBlock
+
+  nolintlint:
+    allow-leading-space: true
+    require-explanation: true
+    require-specific: true
+
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - gosec
+        - goconst
+        - revive
+    - path: examples/
+      linters:
+        - gosec
+
+run:
+  timeout: 5m
+  tests: true
+  modules-download-mode: readonly

@@ -10,5 +10,6 @@ Provider-compatible adapters follow the real providers' behavior. Fixes that mak
 
 ### Added
 
+- Repo scaffolding for M1: `go.mod`, `Taskfile.yml`, `.golangci.yml` (with `depguard` rules), `biome.json`, `.gitattributes`, `.editorconfig`, `.air.toml`, Apache-2.0 `LICENSE`, README stub, CI workflow (lint + test matrix on Linux/macOS/Windows)
 - Design spec for mocksms (`docs/superpowers/specs/2026-10-03-mocksms-design.md`).
 - Project documentation: overview, PRD, architecture, tech stack, engineering standards, tasks, progress, and agent instructions (`AGENTS.md`).

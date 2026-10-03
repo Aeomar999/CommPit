@@ -35,6 +35,8 @@ Every technology in the project, what it does here, and why it was chosen. Entri
 | **openapi-typescript + openapi-fetch** **(post-spec for openapi-fetch)** | API types and typed client generated from `openapi.yaml` | UI and API can't drift apart | Hand-written fetch calls |
 | **pnpm** **(post-spec)** | Package manager | Fast, strict dependency resolution | npm, yarn |
 | **Biome** **(post-spec)** | Linting and formatting for TS/JSON/CSS | One fast tool instead of ESLint + Prettier | ESLint + Prettier |
+| **Phosphor Icons** (`@phosphor-icons/react`) **(design)** | The only icon library; replaces lucide in copied shadcn components | Regular, duotone and fill weights match the design's soft navigation icons; one consistent family ([design.md](design.md) §8) | lucide-react (shadcn default) |
+| **Figtree + JetBrains Mono** via Fontsource (`@fontsource-variable/figtree`, `@fontsource-variable/jetbrains-mono`) **(design)** | UI typeface and code/data typeface, self-hosted | Friendly, legible UI face; unambiguous characters for OTP codes and IDs; no hosted font stylesheets ([design.md](design.md) §6) | Inter + Fira Code |
 
 ## Testing
 

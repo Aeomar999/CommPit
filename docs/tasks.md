@@ -19,7 +19,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked
 
 | | ID | Task | Depends on | REQ |
 |---|---|---|---|---|
-| [ ] | M1-01 | Repo scaffolding: `go.mod`, `Taskfile.yml`, `.golangci.yml` (with `depguard` rules from architecture §3), `biome.json`, `.gitattributes`, `.editorconfig`, Apache-2.0 `LICENSE`, README stub, CI workflow (lint + test matrix) | Open Question 1 (module path) | — |
+| [x] | M1-01 | Repo scaffolding: `go.mod`, `Taskfile.yml`, `.golangci.yml` (with `depguard` rules from architecture §3), `biome.json`, `.gitattributes`, `.editorconfig`, Apache-2.0 `LICENSE`, README stub, CI workflow (lint + test matrix) | Open Question 1 (module path) | — |
 | [ ] | M1-02 | `phone`: E.164 parsing with `valid` / `possible` / `off` modes; GSM-7 vs UCS-2 detection; segment counting (160/153, 70/67) | M1-01 | REQ-063 |
 | [ ] | M1-03 | `extract`: OTP codes (4–8 digits, keyword-adjacent first), links from text and HTML, `primary_link` | M1-01 | REQ-006 |
 | [ ] | M1-04 | `core` domain types, canonical errors, prefixed ULIDs, ports (`Store`, `BlobStore`, `Bus`, `Simulator`, `Clock`, `ProjectResolver`), fake clock for tests | M1-01 | REQ-013 |
@@ -35,8 +35,8 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked
 | [ ] | M1-14 | Security middleware: `Host` allow-list (421), `X-Mocksms` header, no CORS, optional `ui_auth`, non-loopback warning | M1-12 | — |
 | [ ] | M1-15 | `smtpd`: listener, AUTH username → project, enmime parsing, 25 MB limit, optional STARTTLS | M1-08 | REQ-035 |
 | [ ] | M1-16 | Retention prune job with cascading deletes | M1-06 | REQ-093 |
-| [ ] | M1-17 | Web app scaffold: Vite, Tailwind, shadcn/ui, TanStack Router + Query, openapi-typescript/openapi-fetch, `web/embed.go`, Vite proxy for development | M1-12 | — |
-| [ ] | M1-18 | Inbox UI: project switcher, SMS threads, email detail (sandboxed iframe, remote-image toggle), code/link chips, filters, settings page, live updates | M1-13, M1-17 | REQ-002–REQ-007 |
+| [ ] | M1-17 | Web app scaffold: Vite, Tailwind, shadcn/ui, TanStack Router + Query, openapi-typescript/openapi-fetch, `web/embed.go`, Vite proxy for development; design tokens, fonts, Phosphor icons and themed browser surfaces from [design.md](design.md) §5–§9 and §15; record the direction contract (design.md §17) with `impeccable surface-brief write` | M1-12 | — |
+| [ ] | M1-18 | Inbox UI per [design.md](design.md) §10–§11: sidebar, top bar with Sandbox pill, project switcher, message list, code tiles, delivery track, SMS threads, email plate (sandboxed iframe, remote-image toggle), filters, get-started checklist, settings page, live updates; finish with `impeccable detect`, the impeccable finish review, and the impeccable documenter writing root `DESIGN.md` + `.impeccable/design.json` | M1-13, M1-17 | REQ-002–REQ-007 |
 | [ ] | M1-19 | `cmd/mocksms serve`: wiring, startup/shutdown order (architecture §7), banner | M1-09–M1-16 | — |
 | [ ] | M1-20 | Release pipeline: goreleaser (binaries, Docker, Homebrew, Scoop), cosign, release workflow | M1-19 | — |
 | [ ] | M1-21 | Docs: README quick start; SMTP setup for Laravel, Django, Rails, Nodemailer, Spring | M1-19 | — |
