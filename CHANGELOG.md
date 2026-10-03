@@ -10,6 +10,7 @@ Provider-compatible adapters follow the real providers' behavior. Fixes that mak
 
 ### Added
 
+- `extract` package: OTP code extraction (4-8 digits, keyword-adjacent priority for code/otp/pin/verification/token/passcode), link extraction from text and HTML (href), primary_link detection (verify/confirm/activate/magic/token/reset/login/signin in URL path or anchor text)
 - `phone` package: E.164 parsing with `valid`/`possible`/`off` modes (using `nyaruka/phonenumbers`), GSM-7 vs UCS-2 encoding detection, segment counting (160/153 for GSM-7, 70/67 for UCS-2, max 10 segments)
 - Repo scaffolding for M1: `go.mod`, `Taskfile.yml`, `.golangci.yml` (with `depguard` rules), `biome.json`, `.gitattributes`, `.editorconfig`, `.air.toml`, Apache-2.0 `LICENSE`, README stub, CI workflow (lint + test matrix on Linux/macOS/Windows)
 - Design spec for mocksms (`docs/superpowers/specs/2026-10-03-mocksms-design.md`).
