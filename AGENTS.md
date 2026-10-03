@@ -96,3 +96,67 @@ Use `go test ./... -run <Name> -update` to regenerate golden files, then review 
 - Don't make real network calls to providers, in code or tests.
 - Don't commit generated UI builds (`web/dist`) or local data (`*.db`).
 - Don't skip hooks or disable linters to make CI pass.
+
+---
+
+## 🧑‍💻 Project Context
+
+<!-- Fill this in per project -->
+- **Project name:** mocksms (working name)
+- **Type:** (side project / contract / learning exercise)
+- **Stack:** Go backend (single binary, SQLite), React + TypeScript UI embedded via `go:embed`
+- **Goal:** Free local sandbox for SMS, OTP and email so developers only pay a real provider when they go to production
+
+---
+
+## 📚 System Design Learning Journal
+
+This project participates in Jerry's system design learning program.
+
+**The learning journal lives at:**
+```
+C:\Users\Jerry\Desktop\PROJECT 2026\SYSTEM_DESIGN_LESSONS.md
+```
+
+Whenever you make — or help make — a decision that illustrates a system design concept, you MUST:
+
+1. **Append a lesson entry** to `SYSTEM_DESIGN_LESSONS.md` under `## Lessons Learned Per Project`.
+2. **Update the concepts table** at the bottom of that file if you introduce a concept not yet listed.
+3. Follow the exact format in the `<!-- AGENT INSTRUCTIONS -->` comment block inside that file.
+
+**What counts as a lesson-worthy decision:**
+- Choosing SQL vs. NoSQL and why
+- Adding a cache layer
+- Using a background job/queue instead of inline processing
+- Picking JWT vs. sessions for auth
+- Structuring an API (REST vs. webhook vs. WebSocket)
+- Deciding to split or keep a service together
+- Handling failure/retry scenarios
+- Adding rate limiting or scaling decisions
+
+**Tone:** Plain English. No jargon without a definition. Write as if Jerry is reading with fresh eyes.
+
+---
+
+## 🔧 Development Guidelines
+
+- Explicit variable/function names — no cryptic abbreviations
+- All async I/O must use `async/await`
+- Every public function needs a docstring / JSDoc comment
+- Handle errors explicitly — no silent failures
+- Type hints required (TypeScript strict mode / Python type hints)
+- Tests colocated with implementation (`service.ts` → `service.test.ts`)
+- Never commit secrets, API keys, or `.env` files
+- Run the test suite after every significant change
+
+**In this repo's Go code**, the same rules apply as: async I/O → `context.Context` plus goroutines (Go has no `async/await`); docstrings → Go doc comments on exported identifiers; type hints → Go's static types; colocated tests → `service.go` → `service_test.go`. The TypeScript rules apply as written to `web/`.
+
+---
+
+## 📁 Key Files
+
+| File | Purpose |
+|------|---------|
+| `SYSTEM_DESIGN_LESSONS.md` | Shared learning journal — append lessons here |
+| `.env.example` | Template for required environment variables |
+| `README.md` | Project overview and setup |
