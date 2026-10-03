@@ -20,7 +20,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked
 | | ID | Task | Depends on | REQ |
 |---|---|---|---|---|
 | [x] | M1-01 | Repo scaffolding: `go.mod`, `Taskfile.yml`, `.golangci.yml` (with `depguard` rules from architecture §3), `biome.json`, `.gitattributes`, `.editorconfig`, Apache-2.0 `LICENSE`, README stub, CI workflow (lint + test matrix) | Open Question 1 (module path) | — |
-| [ ] | M1-02 | `phone`: E.164 parsing with `valid` / `possible` / `off` modes; GSM-7 vs UCS-2 detection; segment counting (160/153, 70/67) | M1-01 | REQ-063 |
+| [x] | M1-02 | `phone`: E.164 parsing with `valid` / `possible` / `off` modes; GSM-7 vs UCS-2 detection; segment counting (160/153, 70/67) | M1-01 | REQ-063 |
 | [ ] | M1-03 | `extract`: OTP codes (4–8 digits, keyword-adjacent first), links from text and HTML, `primary_link` | M1-01 | REQ-006 |
 | [ ] | M1-04 | `core` domain types, canonical errors, prefixed ULIDs, ports (`Store`, `BlobStore`, `Bus`, `Simulator`, `Clock`, `ProjectResolver`), fake clock for tests | M1-01 | REQ-013 |
 | [ ] | M1-05 | `store/storetest` conformance suite | M1-04 | — |
