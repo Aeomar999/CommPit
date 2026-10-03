@@ -1,4 +1,4 @@
-# mocksms
+# CommPit
 
 A local-first sandbox messaging provider for development. Send SMS, OTP and email to it instead of a real provider; nothing is delivered. Messages appear in a live web inbox, are readable via a test API, and run through a realistic lifecycle with provider-format webhooks.
 
@@ -8,8 +8,8 @@ A local-first sandbox messaging provider for development. Send SMS, OTP and emai
 
 ```bash
 # Install (once binaries are published)
-# brew install aeomar999/tap/mocksms
-# scoop install mocksms
+# brew install aeomar999/tap/commpit
+# scoop install commpit
 
 # Or run from source
 go run ./cmd/mocksms serve

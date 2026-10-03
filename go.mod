@@ -1,3 +1,3 @@
-module github.com/Aeomar999/mocksms
+module github.com/Aeomar999/CommPit
 
 go 1.25.0
