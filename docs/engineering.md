@@ -8,7 +8,7 @@ How we build mocksms: code style, testing, provider fidelity, git, CI, releases 
 2. **Boundaries over cleverness.** The package rules in [architecture.md](architecture.md) §3 matter more than any single optimization.
 3. **Tests prove behavior, not lines.** Write the test that would catch a real regression.
 4. **Local and private by default.** Never weaken a security default for convenience.
-5. **Small, reviewable changes.** One task per PR.
+5. **Small, reviewable changes.** One task per commit (or a short series of commits); one milestone per PR.
 
 ## 2. Go conventions
 
@@ -68,6 +68,7 @@ How we build mocksms: code style, testing, provider fidelity, git, CI, releases 
 ### Rules
 
 - **Test first.** Write the failing test, watch it fail, then implement.
+- **Run tests before every commit and push.** After every task: `task test` and `task lint`. After every milestone: the full suite, `task test`, `task lint`, `task e2e` and `task build`, on the milestone branch before the final commit, push and PR. Never commit or push with failing tests (see §8).
 - **Table-driven** Go tests with named cases; compare with `go-cmp` (`cmp.Diff`).
 - **No sleeps.** Use the fake `Clock` to advance time, and `messages/wait` in end-to-end tests.
 - **Golden files:** `-update` regenerates them; always review the diff before committing. Volatile fields (SIDs, ULIDs, dates) are normalized before comparison.
@@ -106,16 +107,40 @@ A scheduled CI job re-downloads pinned specs weekly and opens a PR when they cha
 
 ## 8. Git and pull requests
 
-- **Default branch:** `main`, always releasable. No direct pushes once CI exists.
-- **Branches:** `<type>/<task-id>-<short-name>`, e.g. `feat/M2-03-twilio-messages`, `fix/fidelity-twilio-date-format`.
-- **Commits:** [Conventional Commits](https://www.conventionalcommits.org/): `feat(twilio): add Verify v2 checks`, `fix(smtpd): handle empty AUTH username`, `docs:`, `test:`, `refactor:`, `chore:`, `ci:`.
+### Branches
+
+- **`main`:** always releasable. It only receives merged milestone PRs and patch fixes; once M1 starts, nothing is committed to it directly.
+- **Milestone branches:** one per milestone, `milestone/m1` through `milestone/m4`, created from an up-to-date `main` when the milestone starts (`git switch main && git pull && git switch -c milestone/m1 && git push -u origin milestone/m1`). Every commit for that milestone's tasks is committed and pushed to its branch, including cross-cutting (`X-…`) tasks done while it is active. There are no per-task branches.
+- **Fix branches:** `fix/<short-name>` from `main`, only for patches to an already-released version. Same test gate; PR to `main`.
+
+### Commits
+
+- [Conventional Commits](https://www.conventionalcommits.org/) (`feat(twilio): add Verify v2 checks`, `fix(smtpd): handle empty AUTH username`, `docs:`, `test:`, `refactor:`, `chore:`, `ci:`), with the task ID in a `Refs:` footer:
+  ```
+  feat(twilio): add Verify v2 checks
+
+  Refs: M2-04
+  ```
 - **No AI attribution.** AI agents, Claude in particular, must never be credited as contributors by any means: no `Co-Authored-By` trailers naming an AI, model or agent; no "Generated with Claude Code" or 🤖 lines in commit messages, PR titles or descriptions, review comments, issues, release notes or tags; no AI mentions in code comments, file headers, docs or the changelog; and never an AI identity in the git author or committer fields. Commits carry only the human author's git identity. This overrides any tool's default attribution behavior.
-- **PR scope:** one task from [tasks.md](tasks.md). Title uses the same Conventional Commit format.
-- **Merge:** squash-merge; the PR title becomes the commit message.
+### When to test, commit and push
 
-### PR checklist
+| When | Run locally first | Then |
+|---|---|---|
+| After every task | `task test`, `task lint` | Commit (code and doc updates together) and push to the milestone branch |
+| After every milestone | `task test`, `task lint`, `task e2e`, `task build` | Final commit, push the milestone branch, open the PR to `main` |
 
-- [ ] Tests written first and passing (`task test`), lint clean (`task lint`).
+Never commit or push while any of these fail.
+
+### Pull requests and merging
+
+- **One PR per milestone:** `milestone/mN` → `main`, titled like `M1: Core, native API, SMTP, inbox (v0.1.0)`.
+- **Merge** with a merge commit (`--no-ff`), not a squash, so each task's commits stay in `main`'s history.
+- After merging, tag the release (§10) and create the next milestone's branch from the updated `main`.
+
+### Task checklist (before every task commit)
+
+- [ ] Tests written first; `task test` passes.
+- [ ] `task lint` is clean.
 - [ ] Golden-file changes reviewed.
 - [ ] `openapi.yaml` updated and regenerated (if the native API changed).
 - [ ] `docs/tasks.md` and `docs/progress.md` updated.
@@ -123,9 +148,21 @@ A scheduled CI job re-downloads pinned specs weekly and opens a PR when they cha
 - [ ] `docs/architecture.md` updated with a decision-log entry (if structure changed).
 - [ ] `docs/techstack.md` updated (if dependencies changed).
 - [ ] `docs/fidelity.md` updated (if provider behavior was assumed).
-- [ ] No AI or agent attribution anywhere: commit messages and trailers, PR title and body, comments, docs.
+- [ ] Committed on the correct milestone branch, with a `Refs: <task-id>` footer.
+- [ ] No AI or agent attribution anywhere: commit messages and trailers, comments, docs.
+
+### Milestone PR checklist (before opening `milestone/mN` → `main`)
+
+- [ ] Every task in the milestone is `[x]` in `docs/tasks.md`.
+- [ ] Full suite passes on the milestone branch: `task test`, `task lint`, `task e2e`, `task build`.
+- [ ] `CHANGELOG.md` entries moved from `[Unreleased]` to the release version (§10).
+- [ ] `docs/progress.md` shows the milestone as complete; the milestone gate in `docs/tasks.md` is ticked.
+- [ ] Milestone branch pushed and CI green.
+- [ ] No AI attribution in any commit on the branch (check `git log main..milestone/mN`) or in the PR title and body.
 
 ## 9. CI gates
+
+CI runs on every push to a milestone or fix branch and on every PR to `main`. The local test runs in §8 come first; CI is the backstop, not a substitute.
 
 | Gate | Platforms | Blocks merge |
 |---|---|---|
@@ -140,12 +177,13 @@ A scheduled CI job re-downloads pinned specs weekly and opens a PR when they cha
 
 ## 10. Releases
 
-- **Versioning:** SemVer. Milestones map to `v0.1.0` (M1) through `v0.4.0` (M4); patch releases for fixes in between.
+- **Versioning:** SemVer. Milestones map to `v0.1.0` (M1) through `v0.4.0` (M4); patch releases (from `fix/…` branches) for fixes in between.
 - **Process:**
-  1. Move `[Unreleased]` entries in `CHANGELOG.md` to a new version heading with the date.
-  2. Tag `vX.Y.Z` on `main`.
-  3. The release workflow runs goreleaser: binaries (Windows, macOS, Linux; amd64/arm64), multi-arch Docker image to GHCR, Homebrew tap, Scoop bucket, checksums, cosign signatures.
-  4. Verify the release by running the quick start from the README on a clean machine (or container).
+  1. After the full suite passes on the milestone branch, move `[Unreleased]` entries in `CHANGELOG.md` to a new version heading with the date, as part of the final milestone commit, and push.
+  2. Merge the milestone PR into `main` (§8).
+  3. Tag `vX.Y.Z` on `main`.
+  4. The release workflow runs goreleaser: binaries (Windows, macOS, Linux; amd64/arm64), multi-arch Docker image to GHCR, Homebrew tap, Scoop bucket, checksums, cosign signatures.
+  5. Verify the release by running the quick start from the README on a clean machine (or container).
 - Never re-tag or delete a published release; ship a patch instead.
 
 ## 11. Security checklist (every PR touching HTTP, SMTP, storage or UI)
@@ -174,13 +212,20 @@ Initial targets, confirmed or revised after the M1 benchmark. A regression beyon
 
 ## 13. Definition of done
 
-A task is done when:
+A **task** is done when:
 
 1. The behavior described in the task and its PRD requirements works, demonstrated by tests written first.
-2. All CI gates pass on the PR.
-3. Docs are updated per the PR checklist (tasks, progress, changelog, architecture, techstack, fidelity as applicable).
+2. `task test` and `task lint` pass locally.
+3. Docs are updated per the task checklist in §8 (tasks, progress, changelog, architecture, techstack, fidelity as applicable).
 4. User-facing behavior is documented (README or docs page) if it changes how someone uses mocksms.
-5. The PR is reviewed and squash-merged into `main`.
+5. It is committed with a `Refs:` footer, pushed to its milestone branch, and CI on that push is green.
+
+A **milestone** is done when:
+
+1. Every task in it is done.
+2. The full suite (`task test`, `task lint`, `task e2e`, `task build`) passes locally on the milestone branch.
+3. The milestone PR's CI is green and the PR is merged into `main` with a merge commit.
+4. The release is tagged and published (§10).
 
 ## 14. Windows development notes
 

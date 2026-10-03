@@ -1,15 +1,21 @@
 # mocksms — Tasks
 
-Milestone breakdown for Wave 1. Each task is small enough for one focused PR. Detailed step-by-step implementation plans (test-first) are written per milestone in `docs/superpowers/plans/` before that milestone starts.
+Milestone breakdown for Wave 1. Each task is small enough for one focused commit (or a short series of commits) on its milestone branch. Detailed step-by-step implementation plans (test-first) are written per milestone in `docs/superpowers/plans/` before that milestone starts.
 
 **How to use this file**
-- Mark a task `[~]` when you start it and `[x]` when it's merged.
+- **One branch per milestone.** Each milestone has its own branch (`milestone/m1` … `milestone/m4`), created from an up-to-date `main` when the milestone starts. Every task and commit for that milestone is committed and pushed to its branch. Cross-cutting tasks go on the branch of the milestone active at the time.
+- **After every task:** run `task test` and `task lint` before committing and pushing. Never commit or push with failing tests.
+- **After every milestone:** run the full suite (`task test`, `task lint`, `task e2e`, `task build`) on the milestone branch before the final commit and push, then open the PR to `main`. Work through the milestone gate under each table, in order.
+- Mark a task `[~]` when you start it and `[x]` when its tests pass and it is committed (with a `Refs: <task-id>` footer) and pushed to the milestone branch.
 - Requirement IDs (`REQ-…`) refer to [PRD.md](PRD.md).
-- Record progress in [progress.md](progress.md) and user-visible changes in [CHANGELOG.md](../CHANGELOG.md) in the same PR.
+- Record progress in [progress.md](progress.md) and user-visible changes in [CHANGELOG.md](../CHANGELOG.md) in the same commit as the task.
+- Full git and test rules: [engineering.md](engineering.md) §8.
 
 Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked
 
 ## M1: Core, native API, SMTP, inbox → v0.1.0
+
+**Branch:** `milestone/m1`. Commit and push every M1 task here.
 
 | | ID | Task | Depends on | REQ |
 |---|---|---|---|---|
@@ -35,7 +41,15 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked
 | [ ] | M1-20 | Release pipeline: goreleaser (binaries, Docker, Homebrew, Scoop), cosign, release workflow | M1-19 | — |
 | [ ] | M1-21 | Docs: README quick start; SMTP setup for Laravel, Django, Rails, Nodemailer, Spring | M1-19 | — |
 
+**M1 milestone gate** (in order, once every task above is `[x]`):
+- [ ] Full suite passes on `milestone/m1`: `task test`, `task lint`, `task e2e`, `task build`
+- [ ] Final commit (changelog `v0.1.0` heading, progress update) pushed to `milestone/m1`
+- [ ] PR `milestone/m1` → `main` merged with a merge commit
+- [ ] `v0.1.0` tagged on `main`; next milestone branch created from `main`
+
 ## M2: Twilio, Termii, test API, inspector → v0.2.0
+
+**Branch:** `milestone/m2`. Commit and push every M2 task here.
 
 | | ID | Task | Depends on | REQ |
 |---|---|---|---|---|
@@ -54,7 +68,15 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked
 | [ ] | M2-13 | UI: OTPs view, request inspector | M2-02, M2-10 | REQ-090 |
 | [ ] | M2-14 | Docs: Twilio and Termii guides, test-API guide with Playwright/Cypress/Jest examples | M2-06, M2-10 | — |
 
+**M2 milestone gate** (in order, once every task above is `[x]`):
+- [ ] Full suite passes on `milestone/m2`: `task test`, `task lint`, `task e2e`, `task build`
+- [ ] Final commit (changelog `v0.2.0` heading, progress update) pushed to `milestone/m2`
+- [ ] PR `milestone/m2` → `main` merged with a merge commit
+- [ ] `v0.2.0` tagged on `main`; next milestone branch created from `main`
+
 ## M3: Webhooks, failure simulation, inbound, batches → v0.3.0
+
+**Branch:** `milestone/m3`. Commit and push every M3 task here.
 
 | | ID | Task | Depends on | REQ |
 |---|---|---|---|---|
@@ -71,7 +93,15 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked
 | [ ] | M3-11 | Playwright smoke tests: live arrival, reply → webhook, inspector, batch progress | M3-10 | — |
 | [ ] | M3-12 | Docs: webhooks guide, magic-values table, sim rule reference | M3-06 | — |
 
+**M3 milestone gate** (in order, once every task above is `[x]`):
+- [ ] Full suite passes on `milestone/m3`: `task test`, `task lint`, `task e2e`, `task build`
+- [ ] Final commit (changelog `v0.3.0` heading, progress update) pushed to `milestone/m3`
+- [ ] PR `milestone/m3` → `main` merged with a merge commit
+- [ ] `v0.3.0` tagged on `main`; next milestone branch created from `main`
+
 ## M4: Estimate, MCP, CI kit → v0.4.0
+
+**Branch:** `milestone/m4`. Commit and push every M4 task here.
 
 | | ID | Task | Depends on | REQ |
 |---|---|---|---|---|
@@ -84,7 +114,17 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked
 | [ ] | M4-07 | Bulk benchmark (10,000 recipients) tracked in CI | M3 | — |
 | [ ] | M4-08 | Docs: MCP setup, CI guide, estimate methodology | M4-03–M4-06 | — |
 
+M4-05 and M4-06 live in separate repositories; use a `milestone/m4` branch and the same test gate there too.
+
+**M4 milestone gate** (in order, once every task above is `[x]`):
+- [ ] Full suite passes on `milestone/m4`: `task test`, `task lint`, `task e2e`, `task build`
+- [ ] Final commit (changelog `v0.4.0` heading, progress update) pushed to `milestone/m4`
+- [ ] PR `milestone/m4` → `main` merged with a merge commit
+- [ ] `v0.4.0` tagged on `main`
+
 ## Cross-cutting
+
+Commit and push these on the branch of the milestone that is active when the work is done.
 
 | | ID | Task | Blocked by |
 |---|---|---|---|

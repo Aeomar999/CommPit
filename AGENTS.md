@@ -66,7 +66,9 @@ Use `go test ./... -run <Name> -update` to regenerate golden files, then review 
 - Table-driven tests in Go. Use `go-cmp` for comparisons.
 - Never `time.Sleep` in tests. Use the injected fake `Clock` or the `messages/wait` endpoint.
 - New `Store` behavior gets a case in `store/storetest`, not only in `store/sqlite`.
-- Run `task test` (with `-race`) and `task lint` before declaring a task done.
+- **After every task, before committing and pushing:** run `task test` (with `-race`) and `task lint`. Both must pass.
+- **After every milestone, before the final commit, push and PR:** run the full suite on the milestone branch: `task test`, `task lint`, `task e2e` and `task build`. All must pass.
+- Never commit or push while any test or lint check fails.
 
 ## API and database changes
 
@@ -81,13 +83,43 @@ Use `go test ./... -run <Name> -update` to regenerate golden files, then review 
 - Mask credentials in request logs and the inspector.
 - No telemetry, and no outbound calls except developer-configured webhooks.
 
+## Git workflow: one branch per milestone
+
+- Every milestone has its own branch: `milestone/m1`, `milestone/m2`, `milestone/m3`, `milestone/m4`.
+- Create it from an up-to-date `main` when the milestone starts:
+  ```bash
+  git switch main && git pull
+  git switch -c milestone/m1
+  git push -u origin milestone/m1
+  ```
+- Every task and commit that belongs to a milestone is committed **and pushed** to that milestone's branch. Never commit milestone work to `main` or to another milestone's branch.
+- No per-task branches. A task is one commit (or a short series of commits) on its milestone branch.
+- Cross-cutting tasks (`X-…`) go on the branch of the milestone that is active when they're done.
+- `main` only receives finished milestones (through a PR) and patch fixes for released versions (branch `fix/<short-name>` from `main`).
+
 ## Workflow for every task
 
-1. Mark the task `[~]` in `docs/tasks.md`.
-2. Branch: `feat/M1-02-phone-package` (type/task-id-short-name).
-3. Implement test-first. Keep the PR to one task.
-4. In the same PR: mark the task `[x]`, update `docs/progress.md` (status table and session log), add user-visible changes to `CHANGELOG.md` under `[Unreleased]`, and update `docs/architecture.md` if structure changed (with a decision-log entry).
-5. Commit with Conventional Commits (`feat(phone): add GSM-7 segment counting`), with no AI attribution (see above).
+1. Switch to the milestone branch and pull: `git switch milestone/m1 && git pull`.
+2. Mark the task `[~]` in `docs/tasks.md`.
+3. Implement test-first.
+4. **Run the tests:** `task test` and `task lint`. Fix every failure until both pass.
+5. In the same commit: mark the task `[x]`, update `docs/progress.md` (status table and session log), add user-visible changes to `CHANGELOG.md` under `[Unreleased]`, and update `docs/architecture.md` if structure changed (with a decision-log entry).
+6. Commit with Conventional Commits and the task ID in a `Refs:` footer, with no AI attribution (see above):
+   ```
+   feat(phone): add GSM-7 segment counting
+
+   Refs: M1-02
+   ```
+7. Push to the milestone branch: `git push origin milestone/m1`.
+
+## Workflow at the end of every milestone
+
+1. Confirm every task in the milestone is `[x]` in `docs/tasks.md`.
+2. **Run the full suite** on the milestone branch: `task test`, `task lint`, `task e2e`, `task build`. Fix any failure in a new commit and re-run until everything passes.
+3. Make the final commit (changelog release heading, progress update, milestone gate ticked in `docs/tasks.md`) and push the milestone branch.
+4. Open a PR from `milestone/mN` to `main` and merge it with a merge commit (not squash), so every task's commits stay in history.
+5. Tag the release on `main` (`v0.1.0` for M1, and so on) per [docs/engineering.md](docs/engineering.md) §10.
+6. Create the next milestone's branch from the updated `main`.
 
 ## Adding a provider adapter (checklist)
 
@@ -106,6 +138,7 @@ Use `go test ./... -run <Name> -update` to regenerate golden files, then review 
 - Don't commit generated UI builds (`web/dist`) or local data (`*.db`).
 - Don't skip hooks or disable linters to make CI pass.
 - Don't credit yourself or any AI tool anywhere (see "No AI attribution").
+- Don't commit or push with failing tests, and don't commit milestone work outside its milestone branch.
 
 ---
 
