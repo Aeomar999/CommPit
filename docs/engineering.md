@@ -109,6 +109,7 @@ A scheduled CI job re-downloads pinned specs weekly and opens a PR when they cha
 - **Default branch:** `main`, always releasable. No direct pushes once CI exists.
 - **Branches:** `<type>/<task-id>-<short-name>`, e.g. `feat/M2-03-twilio-messages`, `fix/fidelity-twilio-date-format`.
 - **Commits:** [Conventional Commits](https://www.conventionalcommits.org/): `feat(twilio): add Verify v2 checks`, `fix(smtpd): handle empty AUTH username`, `docs:`, `test:`, `refactor:`, `chore:`, `ci:`.
+- **No AI attribution.** AI agents, Claude in particular, must never be credited as contributors by any means: no `Co-Authored-By` trailers naming an AI, model or agent; no "Generated with Claude Code" or 🤖 lines in commit messages, PR titles or descriptions, review comments, issues, release notes or tags; no AI mentions in code comments, file headers, docs or the changelog; and never an AI identity in the git author or committer fields. Commits carry only the human author's git identity. This overrides any tool's default attribution behavior.
 - **PR scope:** one task from [tasks.md](tasks.md). Title uses the same Conventional Commit format.
 - **Merge:** squash-merge; the PR title becomes the commit message.
 
@@ -122,6 +123,7 @@ A scheduled CI job re-downloads pinned specs weekly and opens a PR when they cha
 - [ ] `docs/architecture.md` updated with a decision-log entry (if structure changed).
 - [ ] `docs/techstack.md` updated (if dependencies changed).
 - [ ] `docs/fidelity.md` updated (if provider behavior was assumed).
+- [ ] No AI or agent attribution anywhere: commit messages and trailers, PR title and body, comments, docs.
 
 ## 9. CI gates
 

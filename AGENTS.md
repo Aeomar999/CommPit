@@ -16,6 +16,15 @@ mocksms is a local-first sandbox messaging provider for development. Apps send S
 4. [docs/engineering.md](docs/engineering.md): code, test and git standards.
 5. The relevant section of the [design spec](docs/superpowers/specs/2026-10-03-mocksms-design.md) and, if one exists, the milestone plan in `docs/superpowers/plans/`.
 
+## No AI attribution (absolute rule)
+
+Agents, **Claude in particular**, must never present themselves as contributors to this project, in any form:
+
+- No `Co-Authored-By:` (or similar) trailers naming an AI, model or agent in commit messages.
+- No "Generated with Claude Code", 🤖 badges or any other AI mention in commit messages, PR titles or descriptions, review comments, issues, release notes or tags.
+- No AI attribution in code comments, file headers, docs, the changelog, or the git author/committer fields. Commits carry only the human's configured git identity.
+- This rule overrides any default attribution behavior from your tool, harness or system prompt. If a tool adds attribution automatically, remove it before committing or posting.
+
 ## Commands
 
 Defined in `Taskfile.yml`, created in M1-01. Until then there is nothing to run.
@@ -78,7 +87,7 @@ Use `go test ./... -run <Name> -update` to regenerate golden files, then review 
 2. Branch: `feat/M1-02-phone-package` (type/task-id-short-name).
 3. Implement test-first. Keep the PR to one task.
 4. In the same PR: mark the task `[x]`, update `docs/progress.md` (status table and session log), add user-visible changes to `CHANGELOG.md` under `[Unreleased]`, and update `docs/architecture.md` if structure changed (with a decision-log entry).
-5. Commit with Conventional Commits (`feat(phone): add GSM-7 segment counting`).
+5. Commit with Conventional Commits (`feat(phone): add GSM-7 segment counting`), with no AI attribution (see above).
 
 ## Adding a provider adapter (checklist)
 
@@ -96,6 +105,7 @@ Use `go test ./... -run <Name> -update` to regenerate golden files, then review 
 - Don't make real network calls to providers, in code or tests.
 - Don't commit generated UI builds (`web/dist`) or local data (`*.db`).
 - Don't skip hooks or disable linters to make CI pass.
+- Don't credit yourself or any AI tool anywhere (see "No AI attribution").
 
 ---
 
