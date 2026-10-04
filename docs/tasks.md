@@ -25,7 +25,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked
 | [x] | M1-04 | `core` domain types, canonical errors, prefixed ULIDs, ports (`Store`, `BlobStore`, `Bus`, `Simulator`, `Clock`, `ProjectResolver`), fake clock for tests | M1-01 | REQ-013 |
 | [x] | M1-05 | `store/storetest` conformance suite | M1-04 | — |
 | [x] | M1-06 | `store/sqlite`: WAL, single writer + read pool, goose migrations, blobs, transactional batch insert; passes `storetest` | M1-05 | REQ-080 |
-| [ ] | M1-07 | `bus`: in-process pub/sub implementing `core.Bus` | M1-04 | — |
+| [x] | M1-07 | `bus`: in-process pub/sub implementing `core.Bus` | M1-04 | — |
 | [ ] | M1-08 | Core service: projects and credentials (auto-create), `SendMessage`, `SendBatch`, validation, extraction on save | M1-02, M1-03, M1-06, M1-07 | REQ-001, REQ-010, REQ-091 |
 | [ ] | M1-09 | Lifecycle runner: Clock-driven timers, configurable step delay, resume on startup | M1-08 | REQ-050 |
 | [ ] | M1-10 | Verification flow: start, check, attempts, expiry, `otp.fixed_code` | M1-08 | REQ-020, REQ-021, REQ-022 |
