@@ -10,6 +10,7 @@ Provider-compatible adapters follow the real providers' behavior. Fixes that mak
 
 ### Added
 
+- Lifecycle runner: Clock-driven timers using injected `Clock` interface (testable with `FakeClock`), `Schedule`/`advance` with configurable step delay (default 300ms), `ResumeQueuedAndSent` on startup, `Stop()` cancels all pending timers; service exposes `LifecycleRunner()` and `Clock()` getters
 - `config` package: configuration loading with koanf (flags > env > YAML > defaults), all settings from spec §9
 - `cmd/mocksms`: composition root wiring Store, BlobStore, Bus, Simulator, Clock, ProjectResolver, Service; HTTP + SMTP servers with graceful shutdown
 - Core service integration: auto-create projects from credentials, `SendMessage`/`SendBatch` with validation, extraction on save, `ProjectResolver`, `Simulator` with built-in rules (Twilio test numbers + 99990X patterns), configurable latency/failure rate

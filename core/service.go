@@ -56,6 +56,14 @@ func NewService(cfg ServiceConfig) *Service {
 	return s
 }
 
+func (s *Service) LifecycleRunner() *LifecycleRunner {
+	return s.lifecycle
+}
+
+func (s *Service) Clock() Clock {
+	return s.clock
+}
+
 func (s *Service) SendMessage(ctx context.Context, projectID string, req SendRequest) (*SendResponse, error) {
 	if err := s.validateSendRequest(req); err != nil {
 		return nil, err

@@ -18,7 +18,11 @@ type LifecycleRunner struct {
 
 type timerEntry struct {
 	messageID string
-	timer     *time.Timer
+	timer     *timer
+}
+
+type timer struct {
+	cancel func()
 }
 
 func NewLifecycleRunner(s *Service) *LifecycleRunner {
@@ -45,16 +49,27 @@ func (lr *LifecycleRunner) Schedule(msg *Message, simResult *SimResult) {
 	lr.mu.Lock()
 	defer lr.mu.Unlock()
 
-	timer := time.AfterFunc(delay, func() {
-		lr.mu.Lock()
-		delete(lr.timers, msg.ID)
-		lr.mu.Unlock()
-		lr.advance(msg)
-	})
+	ctx, cancel := context.WithCancel(context.Background())
+	
+	t := &timer{cancel: cancel}
+	
+	go func() {
+		select {
+		case <-lr.clock.After(delay):
+			lr.mu.Lock()
+			delete(lr.timers, msg.ID)
+			lr.mu.Unlock()
+			lr.advance(msg)
+		case <-ctx.Done():
+			return
+		case <-lr.stopCh:
+			return
+		}
+	}()
 
 	lr.timers[msg.ID] = &timerEntry{
 		messageID: msg.ID,
-		timer:     timer,
+		timer:     t,
 	}
 }
 
@@ -133,15 +148,26 @@ func (lr *LifecycleRunner) advance(msg *Message) {
 	if nextStatus == StatusSent {
 		delay := lr.stepDelay
 		lr.mu.Lock()
-		timer := time.AfterFunc(delay, func() {
-			lr.mu.Lock()
-			delete(lr.timers, msg.ID)
-			lr.mu.Unlock()
-			lr.advance(msg)
-		})
+		ctx, cancel := context.WithCancel(context.Background())
+		t := &timer{cancel: cancel}
+		
+		go func() {
+			select {
+			case <-lr.clock.After(delay):
+				lr.mu.Lock()
+				delete(lr.timers, msg.ID)
+				lr.mu.Unlock()
+				lr.advance(msg)
+			case <-ctx.Done():
+				return
+			case <-lr.stopCh:
+				return
+			}
+		}()
+		
 		lr.timers[msg.ID] = &timerEntry{
 			messageID: msg.ID,
-			timer:     timer,
+			timer:     t,
 		}
 		lr.mu.Unlock()
 	}
@@ -185,18 +211,14 @@ func ptrStatus(s MessageStatus) *MessageStatus {
 }
 
 func (lr *LifecycleRunner) Start() {
-	lr.wg.Add(1)
-	go func() {
-		defer lr.wg.Done()
-		<-lr.stopCh
-	}()
+	// Lifecycle runner starts automatically when messages are scheduled
 }
 
 func (lr *LifecycleRunner) Stop() {
 	close(lr.stopCh)
 	lr.mu.Lock()
 	for _, entry := range lr.timers {
-		entry.timer.Stop()
+		entry.timer.cancel()
 	}
 	lr.timers = make(map[string]*timerEntry)
 	lr.mu.Unlock()

@@ -8,14 +8,14 @@ Single source of truth for where the project stands. Update it in every PR that 
 |---|---|
 | **Phase** | M1 in progress |
 | **Current milestone** | M1 |
-| **Next action** | M1-09: Lifecycle runner: Clock-driven timers, configurable step delay, resume on startup |
+| **Next action** | M1-10: Verification flow: start, check, attempts, expiry, `otp.fixed_code` |
 | **Last updated** | 2026-10-04 |
 
 ## Milestones
 
 | Milestone | Release | Status | Tasks done |
 |---|---|---|---|
-| M1: Core, native API, SMTP, inbox | v0.1.0 | In progress | 8 / 21 |
+| M1: Core, native API, SMTP, inbox | v0.1.0 | In progress | 9 / 21 |
 | M2: Twilio, Termii, test API, inspector | v0.2.0 | Not started | 0 / 14 |
 | M3: Webhooks, failure simulation, inbound, batches | v0.3.0 | Not started | 0 / 12 |
 | M4: Estimate, MCP, CI kit | v0.4.0 | Not started | 0 / 8 |
@@ -31,6 +31,11 @@ Single source of truth for where the project stands. Update it in every PR that 
 ## Session log
 
 Newest first. One entry per working session: what changed, decisions made, what's next.
+
+### 2026-10-04
+
+- Completed M1-09: Lifecycle runner - uses injected Clock for testability, Schedule/advance with configurable step delay, ResumeQueuedAndSent on startup, Stop() cancels all timers; service exposes LifecycleRunner() and Clock() getters
+- **Next:** M1-10: Verification flow: start, check, attempts, expiry, `otp.fixed_code`
 
 ### 2026-10-04
 
