@@ -28,7 +28,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked
 | [x] | M1-07 | `bus`: in-process pub/sub implementing `core.Bus` | M1-04 | — |
 | [x] | M1-08 | Core service: projects and credentials (auto-create), `SendMessage`, `SendBatch`, validation, extraction on save | M1-02, M1-03, M1-06, M1-07 | REQ-001, REQ-010, REQ-091 |
 | [x] | M1-09 | Lifecycle runner: Clock-driven timers, configurable step delay, resume on startup | M1-08 | REQ-050 |
-| [ ] | M1-10 | Verification flow: start, check, attempts, expiry, `otp.fixed_code` | M1-08 | REQ-020, REQ-021, REQ-022 |
+| [x] | M1-10 | Verification flow: start, check, attempts, expiry, `otp.fixed_code` | M1-08 | REQ-020, REQ-021, REQ-022 |
 | [ ] | M1-11 | `config`: koanf with flags > env > YAML > defaults; all settings from spec §9 | M1-01 | REQ-092 |
 | [ ] | M1-12 | `openapi/openapi.yaml` for M1 endpoints; oapi-codegen setup; `api` handlers for send, read, verifications, projects, `/healthz` | M1-08, M1-10 | REQ-010–REQ-014 |
 | [ ] | M1-13 | SSE hub and `GET /api/v1/events` | M1-07, M1-12 | REQ-002 |

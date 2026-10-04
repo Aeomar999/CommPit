@@ -284,7 +284,7 @@ func (s *Service) StartVerification(ctx context.Context, projectID string, req V
 
 	sendReq := SendRequest{
 		Channel:     req.Channel,
-		From:        "",
+		From:        defaultVerificationSender(req.Channel),
 		To:          []string{req.To},
 		BodyText:    s.defaultVerificationText(req.Channel, code, req.ServiceRef),
 		BodyHTML:    "",
@@ -491,6 +491,13 @@ func (s *Service) defaultVerificationText(channel Channel, code string, serviceR
 		return "Your " + *serviceRef + " verification code is: " + code
 	}
 	return "Your verification code is " + code
+}
+
+func defaultVerificationSender(channel Channel) string {
+	if channel == ChannelEmail {
+		return "verify@example.com"
+	}
+	return "Verify"
 }
 
 func generateCode(length int) string {
