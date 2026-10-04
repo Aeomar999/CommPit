@@ -92,10 +92,6 @@ type Subscription interface {
 	Unsubscribe()
 }
 
-type Simulator interface {
-	Evaluate(ctx context.Context, projectID string, req SendRequest) (*Error, *SimResult)
-}
-
 type SimResult struct {
 	Delay       time.Duration
 	AsyncFail   *AsyncFail
@@ -106,6 +102,33 @@ type SimResult struct {
 type AsyncFail struct {
 	ErrorCode    string
 	ErrorMessage string
+}
+
+type SimMatch struct {
+	To       string
+	From     string
+	Provider string
+	Project  string
+	Channel  Channel
+}
+
+type SimEffect struct {
+	Reject     *Error
+	FailAsync  *AsyncFail
+	Delay      time.Duration
+	Hang       time.Duration
+	RateLimit  int
+}
+
+type SimRule struct {
+	Match SimMatch
+	Effect SimEffect
+}
+
+type Simulator interface {
+	Evaluate(ctx context.Context, projectID string, req SendRequest) (*Error, *SimResult)
+	SetLatency(latency time.Duration)
+	SetFailureRate(rate float64)
 }
 
 type Clock interface {

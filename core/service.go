@@ -549,3 +549,7 @@ var (
 	ErrMessageNotFound = errors.New("message not found")
 	ErrBatchNotFound   = errors.New("batch not found")
 )
+
+func (s *Service) Shutdown() {
+	s.lifecycle.Stop()
+}

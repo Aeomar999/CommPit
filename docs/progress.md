@@ -8,14 +8,14 @@ Single source of truth for where the project stands. Update it in every PR that 
 |---|---|
 | **Phase** | M1 in progress |
 | **Current milestone** | M1 |
-| **Next action** | M1-08: Core service: projects and credentials (auto-create), `SendMessage`, `SendBatch`, validation, extraction on save |
+| **Next action** | M1-09: Lifecycle runner: Clock-driven timers, configurable step delay, resume on startup |
 | **Last updated** | 2026-10-04 |
 
 ## Milestones
 
 | Milestone | Release | Status | Tasks done |
 |---|---|---|---|
-| M1: Core, native API, SMTP, inbox | v0.1.0 | In progress | 7 / 21 |
+| M1: Core, native API, SMTP, inbox | v0.1.0 | In progress | 8 / 21 |
 | M2: Twilio, Termii, test API, inspector | v0.2.0 | Not started | 0 / 14 |
 | M3: Webhooks, failure simulation, inbound, batches | v0.3.0 | Not started | 0 / 12 |
 | M4: Estimate, MCP, CI kit | v0.4.0 | Not started | 0 / 8 |
@@ -31,6 +31,11 @@ Single source of truth for where the project stands. Update it in every PR that 
 ## Session log
 
 Newest first. One entry per working session: what changed, decisions made, what's next.
+
+### 2026-10-04
+
+- Completed M1-08: Core service integration with auto-create projects from credentials, SendMessage/SendBatch with validation, extraction on save, ProjectResolver, Simulator with built-in rules (Twilio test numbers + 99990X patterns), configurable latency/failure rate, config package with koanf (flags > env > YAML > defaults), cmd/mocksms wiring all components (store, bus, simulator, clock, resolver)
+- **Next:** M1-09: Lifecycle runner: Clock-driven timers, configurable step delay, resume on startup
 
 ### 2026-10-04
 
