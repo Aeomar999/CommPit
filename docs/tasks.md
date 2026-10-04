@@ -52,7 +52,7 @@ Same rules as every task: test first, `task test` and `task lint` green, one com
 | [x] | M1-F01 | Make CI run: golangci-lint v2 config with scoped depguard, gate web jobs, align Go version, tidy modules, gofmt | Critical | — |
 | [x] | M1-F02 | Repo hygiene: `.gitignore`, untrack the binary and impeccable session state | High | — |
 | [x] | M1-F03 | Make the local gate match CI: `-race` on Windows, install `task` and `golangci-lint`, one package manager | High | — |
-| [ ] | M1-F04 | API error responses: canonical codes, correct HTTP statuses, JSON content type | Critical | M1-F01 |
+| [x] | M1-F07 | Event bus race and leak: remove the data race and the subscription leak; deterministic tests | Critical | M1-F03 |
 | [ ] | M1-F05 | Clean shutdown and startup failures (no double-close panic, exit on port conflict) | Critical | M1-F01 |
 | [ ] | M1-F06 | Embed database migrations in the binary | Critical | M1-F01 |
 | [ ] | M1-F07 | Event bus: remove the data race and the subscription leak; deterministic tests | Critical | M1-F03 |
