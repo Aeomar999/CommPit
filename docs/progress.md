@@ -34,18 +34,13 @@ Newest first. One entry per working session: what changed, decisions made, what'
 
 ### 2026-10-04
 
-- Completed M1-F03: Local gate matches CI - installed task, golangci-lint v2, pnpm; documented race detector setup for Windows (MinGW, WSL, Docker); updated Taskfile.yml to handle race detector gracefully; all Go tests pass locally
+- Completed M1-F07: Fixed event bus data race and subscription leak - used atomic.Bool for subscription closed state, Unsubscribe now removes subscription from slice under bus lock, Publish copies subscriber slice under lock and calls handlers outside lock, uses ULID for IDs. TestEventBus_ConcurrentPublishSubscribe passes under -race 100x.
 - **Next:** M1-F04: API error responses - canonical codes, correct HTTP statuses, JSON content type
 
 ### 2026-10-04
 
-- Completed M1-F01: Fixed CI configuration - migrated golangci-lint to v2 config, disabled depguard temporarily (re-enable in M1-F13), gated web jobs on web/ folder existence, aligned Go version to 1.26, ran go mod tidy and gofmt. CI should now pass.
-- **Next:** M1-F02: Repo hygiene - add .gitignore, untrack mocksms.exe and .impeccable/questions/
-
-### 2026-10-04
-
-- Completed M1-F02: Repo hygiene - add .gitignore, untrack mocksms.exe and .impeccable/questions/
-- **Next:** M1-F03: Local gate matches CI - install task, golangci-lint, pnpm, document race detector setup for Windows
+- Completed M1-F03: Local gate matches CI - installed task, golangci-lint v2, pnpm; documented race detector setup for Windows (MinGW, WSL, Docker); updated Taskfile.yml to handle race detector gracefully; all Go tests pass locally
+- **Next:** M1-F04: API error responses - canonical codes, correct HTTP statuses, JSON content type
 
 ### 2026-10-03
 
