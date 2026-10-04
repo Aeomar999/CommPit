@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Aeomar999/CommPit/api"
 	"github.com/Aeomar999/CommPit/bus"
 	"github.com/Aeomar999/CommPit/config"
 	"github.com/Aeomar999/CommPit/core"
@@ -105,6 +106,16 @@ func run(cfg *config.Config) error {
 		PhoneMode:    phoneMode,
 	})
 
+	handlers := api.NewHandlers(service, projectResolver, eventBus)
+	
+	server := &http.Server{
+		Addr:         fmt.Sprintf("%s:%d", cfg.HTTP.Host, cfg.HTTP.Port),
+		Handler:      handlers.Routes(),
+		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  120 * time.Second,
+	}
+
 	go func() {
 		<-ctx.Done()
 		service.Shutdown()
@@ -117,14 +128,6 @@ func run(cfg *config.Config) error {
 		fmt.Println("Shutting down...")
 		cancel()
 	}()
-
-	server := &http.Server{
-		Addr:         fmt.Sprintf("%s:%d", cfg.HTTP.Host, cfg.HTTP.Port),
-		Handler:      nil, // TODO: add router
-		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 30 * time.Second,
-		IdleTimeout:  120 * time.Second,
-	}
 
 	go func() {
 		fmt.Printf("Starting HTTP server on %s:%d\n", cfg.HTTP.Host, cfg.HTTP.Port)

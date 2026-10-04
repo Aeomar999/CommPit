@@ -31,7 +31,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked
 | [x] | M1-10 | Verification flow: start, check, attempts, expiry, `otp.fixed_code` | M1-08 | REQ-020, REQ-021, REQ-022 |
 | [x] | M1-11 | `config`: koanf with flags > env > YAML > defaults; all settings from spec §9 | M1-01 | REQ-092 |
 | [x] | M1-12 | `openapi/openapi.yaml` for M1 endpoints; oapi-codegen setup; `api` handlers for send, read, verifications, projects, `/healthz` | M1-08, M1-10 | REQ-010–REQ-014 |
-| [ ] | M1-13 | SSE hub and `GET /api/v1/events` | M1-07, M1-12 | REQ-002 |
+| [x] | M1-13 | SSE hub and `GET /api/v1/events` | M1-07, M1-12 | REQ-002 |
 | [ ] | M1-14 | Security middleware: `Host` allow-list (421), `X-Mocksms` header, no CORS, optional `ui_auth`, non-loopback warning | M1-12 | — |
 | [ ] | M1-15 | `smtpd`: listener, AUTH username → project, enmime parsing, 25 MB limit, optional STARTTLS | M1-08 | REQ-035 |
 | [ ] | M1-16 | Retention prune job with cascading deletes | M1-06 | REQ-093 |

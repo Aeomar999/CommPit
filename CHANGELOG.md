@@ -10,6 +10,7 @@ Provider-compatible adapters follow the real providers' behavior. Fixes that mak
 
 ### Added
 
+- SSE hub: `SSEHub` subscribes to `bus.EventBus` events (message.created, message.status, verification.updated, batch.updated, request.logged, webhook.delivered), fans out to HTTP clients via `GET /api/v1/events` with project filter, heartbeat keepalive (30s), connection event
 - `api` package: OpenAPI 3.1 spec (`openapi/openapi.yaml`) with all M1 endpoints (SMS, email, verifications, messages, batches, attachments, webhooks, projects, requests, test helpers, events); oapi-codegen generating types and chi-server; `api` handlers implementing ServerInterface with Bearer auth, project-scoped access, send/receive endpoints, project management, test helpers (messages/wait, otp/latest, emails/latest), webhook replay
 - `config` package: configuration loading with koanf (flags > env > YAML > defaults), all settings from spec §9
 - `cmd/mocksms`: composition root wiring Store, BlobStore, Bus, Simulator, Clock, ProjectResolver, Service; HTTP + SMTP servers with graceful shutdown

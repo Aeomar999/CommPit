@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Aeomar999/CommPit/bus"
 	"github.com/Aeomar999/CommPit/core"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -14,14 +15,16 @@ import (
 )
 
 type Handlers struct {
-	service          *core.Service
-	projectResolver  core.ProjectResolver
+	service         *core.Service
+	projectResolver core.ProjectResolver
+	sseHub          *SSEHub
 }
 
-func NewHandlers(service *core.Service, resolver core.ProjectResolver) *Handlers {
+func NewHandlers(service *core.Service, resolver core.ProjectResolver, eventBus *bus.EventBus) *Handlers {
 	return &Handlers{
 		service:         service,
 		projectResolver: resolver,
+		sseHub:          NewSSEHub(eventBus),
 	}
 }
 
@@ -989,7 +992,7 @@ func (h *Handlers) LinkCredential(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) SSEEvents(w http.ResponseWriter, r *http.Request) {
-	h.error(w, r, core.NewValidationError("not implemented", ""), http.StatusNotImplemented)
+	h.sseHub.SSEHandler(w, r)
 }
 
 // Store accessor for generated interface compatibility

@@ -8,14 +8,14 @@ Single source of truth for where the project stands. Update it in every PR that 
 |---|---|
 | **Phase** | M1 in progress |
 | **Current milestone** | M1 |
-| **Next action** | M1-13: SSE hub and `GET /api/v1/events` |
+| **Next action** | M1-14: Security middleware: `Host` allow-list (421), `X-Mocksms` header, no CORS, optional `ui_auth`, non-loopback warning |
 | **Last updated** | 2026-10-04 |
 
 ## Milestones
 
 | Milestone | Release | Status | Tasks done |
 |---|---|---|---|
-| M1: Core, native API, SMTP, inbox | v0.1.0 | In progress | 12 / 21 |
+| M1: Core, native API, SMTP, inbox | v0.1.0 | In progress | 13 / 21 |
 | M2: Twilio, Termii, test API, inspector | v0.2.0 | Not started | 0 / 14 |
 | M3: Webhooks, failure simulation, inbound, batches | v0.3.0 | Not started | 0 / 12 |
 | M4: Estimate, MCP, CI kit | v0.4.0 | Not started | 0 / 8 |
@@ -34,8 +34,13 @@ Newest first. One entry per working session: what changed, decisions made, what'
 
 ### 2026-10-04
 
+- Completed M1-13: SSE hub - `SSEHub` subscribes to `bus.EventBus` events (message.created, message.status, verification.updated, batch.updated, request.logged, webhook.delivered), fans out to HTTP clients via `GET /api/v1/events` with project filter, heartbeat keepalive, connection event
+- **Next:** M1-14: Security middleware: `Host` allow-list (421), `X-Mocksms` header, no CORS, optional `ui_auth`, non-loopback warning
+
+### 2026-10-04
+
 - Completed M1-11: `config` package with koanf (flags > env > YAML > defaults) - already implemented earlier
-- Completed M1-12: `openapi/openapi.yaml` for M1 endpoints with all native API routes (SMS, email, verifications, messages, batches, attachments, webhooks, projects, requests, events); oapi-codegen setup generating types and chi-server; `api` handlers implementing ServerInterface with auth middleware, send/receive endpoints, project management, test helpers, webhook replay
+- Completed M1-12: `openapi/openapi.yaml` for M1 endpoints with all native API routes (SMS, email, verifications, messages, batches, attachments, webhooks, projects, requests, test helpers, events); oapi-codegen setup generating types and chi-server; `api` handlers implementing ServerInterface with auth middleware, send/receive endpoints, project management, test helpers, webhook replay
 - **Next:** M1-13: SSE hub and `GET /api/v1/events`
 
 ### 2026-10-04
