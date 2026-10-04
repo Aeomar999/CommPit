@@ -8,7 +8,7 @@ Every technology in the project, what it does here, and why it was chosen. Entri
 
 | Technology | Purpose | Why | Alternatives considered |
 |---|---|---|---|
-| **Go ≥ 1.25** | Backend language | Single static binary, fast startup, easy cross-compilation, strong stdlib for HTTP and concurrency | TypeScript/Node (bigger runtime, `npx` install), Python (hard single-file distribution) |
+| **Go ≥ 1.26** | Backend language | Single static binary, fast startup, easy cross-compilation, strong stdlib for HTTP and concurrency | TypeScript/Node (bigger runtime, `npx` install), Python (hard single-file distribution) |
 | **go-chi/chi v5** | HTTP routing | Lightweight, stdlib-compatible handlers, supports Twilio-style paths (`{sid}.json`), works with `oapi-codegen` | stdlib `ServeMux` (wildcards must be whole path segments), Gin/Echo (non-stdlib handler types) |
 | **oapi-codegen v2** | Generates native-API server interfaces from `openapi/openapi.yaml` | Spec-first API; chi "strict server" mode gives typed request/response handlers | Hand-written handlers (drift from the spec) |
 | **modernc.org/sqlite** | Embedded database | Pure Go, no CGO, so cross-compiling for Windows/macOS/Linux stays trivial | `mattn/go-sqlite3` (needs CGO) |
@@ -33,7 +33,7 @@ Every technology in the project, what it does here, and why it was chosen. Entri
 | **TanStack Query** | Server state and caching | SSE events invalidate queries, giving live updates cheaply | SWR, Redux |
 | **TanStack Router** **(post-spec)** | Routing | Type-safe routes and search params (filters live in the URL) | React Router |
 | **openapi-typescript + openapi-fetch** **(post-spec for openapi-fetch)** | API types and typed client generated from `openapi.yaml` | UI and API can't drift apart | Hand-written fetch calls |
-| **pnpm** **(post-spec)** | Package manager | Fast, strict dependency resolution | npm, yarn |
+| **pnpm** | Package manager | Fast, strict dependency resolution; used in Taskfile, CI, and web/ | npm, yarn |
 | **Biome** **(post-spec)** | Linting and formatting for TS/JSON/CSS | One fast tool instead of ESLint + Prettier | ESLint + Prettier |
 | **Phosphor Icons** (`@phosphor-icons/react`) **(design)** | The only icon library; replaces lucide in copied shadcn components | Regular, duotone and fill weights match the design's soft navigation icons; one consistent family ([design.md](design.md) §8) | lucide-react (shadcn default) |
 | **Figtree + JetBrains Mono** via Fontsource (`@fontsource-variable/figtree`, `@fontsource-variable/jetbrains-mono`) **(design)** | UI typeface and code/data typeface, self-hosted | Friendly, legible UI face; unambiguous characters for OTP codes and IDs; no hosted font stylesheets ([design.md](design.md) §6) | Inter + Fira Code |

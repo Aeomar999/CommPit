@@ -50,9 +50,9 @@ func (lr *LifecycleRunner) Schedule(msg *Message, simResult *SimResult) {
 	defer lr.mu.Unlock()
 
 	ctx, cancel := context.WithCancel(context.Background())
-	
+
 	t := &timer{cancel: cancel}
-	
+
 	go func() {
 		select {
 		case <-lr.clock.After(delay):
@@ -150,7 +150,7 @@ func (lr *LifecycleRunner) advance(msg *Message) {
 		lr.mu.Lock()
 		ctx, cancel := context.WithCancel(context.Background())
 		t := &timer{cancel: cancel}
-		
+
 		go func() {
 			select {
 			case <-lr.clock.After(delay):
@@ -164,7 +164,7 @@ func (lr *LifecycleRunner) advance(msg *Message) {
 				return
 			}
 		}()
-		
+
 		lr.timers[msg.ID] = &timerEntry{
 			messageID: msg.ID,
 			timer:     t,

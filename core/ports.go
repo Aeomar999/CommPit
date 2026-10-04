@@ -113,15 +113,15 @@ type SimMatch struct {
 }
 
 type SimEffect struct {
-	Reject     *Error
-	FailAsync  *AsyncFail
-	Delay      time.Duration
-	Hang       time.Duration
-	RateLimit  int
+	Reject    *Error
+	FailAsync *AsyncFail
+	Delay     time.Duration
+	Hang      time.Duration
+	RateLimit int
 }
 
 type SimRule struct {
-	Match SimMatch
+	Match  SimMatch
 	Effect SimEffect
 }
 

@@ -8,17 +8,17 @@ import (
 )
 
 type simulatorImpl struct {
-	mu           sync.RWMutex
-	rules        []SimRule
-	latency      time.Duration
-	failureRate  float64
-	rand         *rand.Rand
+	mu          sync.RWMutex
+	rules       []SimRule
+	latency     time.Duration
+	failureRate float64
+	rand        *rand.Rand
 }
 
 func NewSimulator() Simulator {
 	s := &simulatorImpl{
-		rules:   defaultSimRules(),
-		rand:    rand.New(rand.NewSource(time.Now().UnixNano())),
+		rules: defaultSimRules(),
+		rand:  rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 	return s
 }
@@ -26,19 +26,19 @@ func NewSimulator() Simulator {
 func defaultSimRules() []SimRule {
 	return []SimRule{
 		{
-			Match: SimMatch{To: "+15005550001"},
+			Match:  SimMatch{To: "+15005550001"},
 			Effect: SimEffect{Reject: NewInvalidNumber("invalid number", "to")},
 		},
 		{
-			Match: SimMatch{To: "+15005550002"},
+			Match:  SimMatch{To: "+15005550002"},
 			Effect: SimEffect{Reject: NewUnroutable("unroutable", "to")},
 		},
 		{
-			Match: SimMatch{To: "+15005550004"},
+			Match:  SimMatch{To: "+15005550004"},
 			Effect: SimEffect{Reject: NewUnsubscribed("unsubscribed", "to")},
 		},
 		{
-			Match: SimMatch{To: "+15005550009"},
+			Match:  SimMatch{To: "+15005550009"},
 			Effect: SimEffect{Reject: NewNotSMSCapable("not sms capable", "to")},
 		},
 	}
@@ -138,7 +138,7 @@ func (s *simulatorImpl) applyPatternEffect(req SendRequest) (*Error, *SimResult)
 		return nil, &SimResult{}
 	}
 	digit := to[len(to)-1]
-	
+
 	switch digit {
 	case '1':
 		return NewInvalidNumber("invalid number", "to"), &SimResult{}

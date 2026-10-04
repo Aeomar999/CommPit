@@ -39,12 +39,12 @@ func TestSQLiteStore_VerificationFlow(t *testing.T) {
 
 	t.Run("StartVerification_SMS", func(t *testing.T) {
 		resp, err := service.StartVerification(ctx, prjID, core.VerificationRequest{
-			To:         "+14155552671",
-			Channel:    core.ChannelSMS,
-			CodeLength: 6,
-			TTLSeconds: 300,
+			To:          "+14155552671",
+			Channel:     core.ChannelSMS,
+			CodeLength:  6,
+			TTLSeconds:  300,
 			MaxAttempts: 3,
-			Provider:   "native",
+			Provider:    "native",
 		})
 		if err != nil {
 			t.Fatalf("StartVerification: %v", err)
@@ -72,12 +72,12 @@ func TestSQLiteStore_VerificationFlow(t *testing.T) {
 
 	t.Run("StartVerification_Email", func(t *testing.T) {
 		resp, err := service.StartVerification(ctx, prjID, core.VerificationRequest{
-			To:         "test@example.com",
-			Channel:    core.ChannelEmail,
-			CodeLength: 6,
-			TTLSeconds: 300,
+			To:          "test@example.com",
+			Channel:     core.ChannelEmail,
+			CodeLength:  6,
+			TTLSeconds:  300,
 			MaxAttempts: 5,
-			Provider:   "native",
+			Provider:    "native",
 		})
 		if err != nil {
 			t.Fatalf("StartVerification: %v", err)
@@ -100,11 +100,11 @@ func TestSQLiteStore_VerificationFlow(t *testing.T) {
 	t.Run("StartVerification_WithServiceRef", func(t *testing.T) {
 		serviceRef := "MyService"
 		resp, err := service.StartVerification(ctx, prjID, core.VerificationRequest{
-			To:          "+14155552671",
-			Channel:     core.ChannelSMS,
-			CodeLength:  6,
-			ServiceRef:  &serviceRef,
-			Provider:    "twilio",
+			To:         "+14155552671",
+			Channel:    core.ChannelSMS,
+			CodeLength: 6,
+			ServiceRef: &serviceRef,
+			Provider:   "twilio",
 		})
 		if err != nil {
 			t.Fatalf("StartVerification: %v", err)
@@ -301,4 +301,3 @@ func TestSQLiteStore_VerificationFlow(t *testing.T) {
 func stringPtr(s string) *string {
 	return &s
 }
-

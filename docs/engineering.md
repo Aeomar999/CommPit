@@ -233,6 +233,26 @@ Windows is a primary development platform.
 
 - Use `task` instead of `make` (installed via `winget install Task.Task` or `go install github.com/go-task/task/v3/cmd/task@latest`).
 - `.gitattributes` enforces LF line endings for source, fixtures and golden files so tests pass identically on every OS.
-- No CGO, so no C toolchain is needed.
+- **No CGO by default**, so no C toolchain is needed for normal development.
 - Use `filepath` (not string concatenation) for paths; data defaults to `%LOCALAPPDATA%\mocksms`.
 - Windows Defender can slow `go test` on large trees; exclude the repo folder if builds are slow.
+
+### Race detector on Windows
+
+The race detector (`go test -race`) requires CGO and a C compiler (MinGW-w64). Options:
+
+1. **Install MinGW-w64** (if you want to run `-race` locally):
+   - `scoop install mingw` (recommended) or `winget install BrechtSanders.WinLibs.POSIX.UCRT`
+   - Then: `go env -w CGO_ENABLED=1`
+   - Run `task test` (which includes `-race`)
+
+2. **Use WSL2** (recommended for full parity with CI):
+   - `wsl -d Ubuntu -- bash -c "cd /mnt/c/Users/.../mock-sms && go test -race ./..."`
+   - Or run the full test suite in WSL for exact CI parity.
+
+3. **Run in Docker** (same environment as CI):
+   - `docker run --rm -v ${PWD}:/workspace -w /workspace golang:1.26 bash -c "go test -race ./..."`
+
+**Note:** `task test` runs `go test -race ./...` and will fail on Windows without CGO enabled. If no C toolchain is available, you can temporarily run `go test ./...` (without `-race`) for development, but **always run with `-race` in WSL/Docker before pushing**. CI runs with `-race` on all platforms and will catch data races.
+
+When the MinGW installation is complete, run `go env -w CGO_ENABLED=1` once to enable CGO permanently.

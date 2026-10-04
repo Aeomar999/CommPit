@@ -21,16 +21,16 @@ type Config struct {
 		Host string
 		Port int
 	}
-	DataDir        string
-	Memory         bool
-	Store          StoreConfig
-	Lifecycle      LifecycleConfig
-	OTP            OTPConfig
-	Validation     ValidationConfig
-	Sim            SimConfig
-	UIAuth         string
+	DataDir             string
+	Memory              bool
+	Store               StoreConfig
+	Lifecycle           LifecycleConfig
+	OTP                 OTPConfig
+	Validation          ValidationConfig
+	Sim                 SimConfig
+	UIAuth              string
 	NoDockerHostRewrite bool
-	Version        bool
+	Version             bool
 }
 
 type StoreConfig struct {
@@ -50,8 +50,8 @@ type ValidationConfig struct {
 }
 
 type SimConfig struct {
-	Latency      time.Duration
-	FailureRate  float64
+	Latency     time.Duration
+	FailureRate float64
 }
 
 func Load() *Config {
