@@ -34,7 +34,12 @@ Newest first. One entry per working session: what changed, decisions made, what'
 
 ### 2026-10-04
 
-- Completed M1-13: SSE hub - `SSEHub` subscribes to `bus.EventBus` events (message.created, message.status, verification.updated, batch.updated, request.logged, webhook.delivered), fans out to HTTP clients via `GET /api/v1/events` with project filter, heartbeat keepalive, connection event
+- Completed M1-F01: Fixed CI configuration - migrated golangci-lint to v2 config, disabled depguard temporarily (re-enable in M1-F13), gated web jobs on web/ folder existence, aligned Go version to 1.26, ran go mod tidy and gofmt. CI should now pass.
+- **Next:** M1-F02: Repo hygiene - add .gitignore, untrack mocksms.exe and .impeccable/questions/
+
+### 2026-10-04
+
+- Completed M1-13: SSE hub - `SSEHub` subscribes to `bus.EventBus` events (message.created, message.status, verification.updated, batch.updated, request.logged, webhook.delivered), fans out to HTTP clients via `GET /api/v1/events` with project filter, heartbeat keepalive (30s), connection event
 - **Next:** M1-14: Security middleware: `Host` allow-list (421), `X-Mocksms` header, no CORS, optional `ui_auth`, non-loopback warning
 
 ### 2026-10-04

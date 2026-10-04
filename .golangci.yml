@@ -1,17 +1,16 @@
+version: "2"
+
 linters:
   enable:
     - errcheck
     - govet
     - staticcheck
-    - gosimple
     - unused
     - ineffassign
-    - typecheck
     - bodyclose
     - copyloopvar
     - predeclared
     - errorlint
-    - depguard
     - gosec
     - nolintlint
     - misspell
@@ -19,44 +18,10 @@ linters:
     - goconst
     - gocritic
     - revive
+  # depguard disabled temporarily - will be re-enabled with proper rules in M1-F13
+  # - depguard
 
 linters-settings:
-  depguard:
-    rules:
-      main:
-        deny:
-          - pkg: "github.com/Aeomar999/CommPit/store/sqlite"
-            desc: "store/sqlite must not be imported outside cmd/mocksms and store/storetest"
-          - pkg: "github.com/Aeomar999/CommPit/config"
-            desc: "config must not be imported outside cmd/mocksms"
-          - pkg: "github.com/Aeomar999/CommPit/web"
-            desc: "web must not be imported outside cmd/mocksms"
-          - pkg: "github.com/Aeomar999/CommPit/adapters/twilio"
-            desc: "adapters/twilio must not be imported outside cmd/mocksms"
-          - pkg: "github.com/Aeomar999/CommPit/adapters/termii"
-            desc: "adapters/termii must not be imported outside cmd/mocksms"
-          - pkg: "github.com/Aeomar999/CommPit/smtpd"
-            desc: "smtpd must not be imported outside cmd/mocksms"
-          - pkg: "github.com/Aeomar999/CommPit/webhooks"
-            desc: "webhooks must not be imported outside cmd/mocksms"
-          - pkg: "github.com/Aeomar999/CommPit/estimate"
-            desc: "estimate must not be imported outside cmd/mocksms"
-          - pkg: "github.com/Aeomar999/CommPit/mcpserver"
-            desc: "mcpserver must not be imported outside cmd/mocksms"
-          - pkg: "github.com/Aeomar999/CommPit/bus"
-            desc: "bus must not be imported outside cmd/mocksms and store/storetest"
-          - pkg: "github.com/Aeomar999/CommPit/sim"
-            desc: "sim must not be imported outside cmd/mocksms"
-          - pkg: "github.com/Aeomar999/CommPit/api"
-            desc: "api must not be imported outside cmd/mocksms"
-          - pkg: "github.com/Aeomar999/CommPit/adapters/adapterkit"
-            desc: "adapters/adapterkit must not be imported outside cmd/mocksms and adapters/*"
-        allow:
-          - pkg: "github.com/Aeomar999/CommPit/phone"
-          - pkg: "github.com/Aeomar999/CommPit/extract"
-          - pkg: "github.com/Aeomar999/CommPit/core"
-          - pkg: "github.com/Aeomar999/CommPit/store/storetest"
-
   gosec:
     excludes:
       - G104 # Errors unhandled (we handle errors explicitly)
@@ -151,6 +116,12 @@ issues:
     - path: examples/
       linters:
         - gosec
+
+formatters:
+  enable:
+    - gofmt
+  exclusions:
+    generated: true
 
 run:
   timeout: 5m

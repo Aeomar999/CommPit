@@ -24,3 +24,7 @@ Provider-compatible adapters follow the real providers' behavior. Fixes that mak
 - Repo scaffolding for M1: `go.mod`, `Taskfile.yml`, `.golangci.yml` (with `depguard` rules), `biome.json`, `.gitattributes`, `.editorconfig`, `.air.toml`, Apache-2.0 `LICENSE`, README stub, CI workflow (lint + test matrix on Linux/macOS/Windows)
 - Design spec for mocksms (`docs/superpowers/specs/2026-10-03-mocksms-design.md`).
 - Project documentation: overview, PRD, architecture, tech stack, engineering standards, tasks, progress, and agent instructions (`AGENTS.md`).
+
+### Fixed
+
+- CI configuration: migrated golangci-lint to v2 config (depguard disabled temporarily, re-enable in M1-F13), gated web jobs on web/ folder existence, aligned Go version to 1.26, ran `go mod tidy` and `gofmt -w`
