@@ -8,14 +8,14 @@ Single source of truth for where the project stands. Update it in every PR that 
 |---|---|
 | **Phase** | M1 in progress |
 | **Current milestone** | M1 |
-| **Next action** | M1-11: `config`: koanf with flags > env > YAML > defaults; all settings from spec §9 |
+| **Next action** | M1-13: SSE hub and `GET /api/v1/events` |
 | **Last updated** | 2026-10-04 |
 
 ## Milestones
 
 | Milestone | Release | Status | Tasks done |
 |---|---|---|---|
-| M1: Core, native API, SMTP, inbox | v0.1.0 | In progress | 10 / 21 |
+| M1: Core, native API, SMTP, inbox | v0.1.0 | In progress | 12 / 21 |
 | M2: Twilio, Termii, test API, inspector | v0.2.0 | Not started | 0 / 14 |
 | M3: Webhooks, failure simulation, inbound, batches | v0.3.0 | Not started | 0 / 12 |
 | M4: Estimate, MCP, CI kit | v0.4.0 | Not started | 0 / 8 |
@@ -34,7 +34,13 @@ Newest first. One entry per working session: what changed, decisions made, what'
 
 ### 2026-10-04
 
-- Completed M1-10: Verification flow - StartVerification (SMS/Email, code length, TTL, max attempts, serviceRef, fixed code), CheckVerification (correct/wrong code, attempts tracking, max attempts, expiry, already approved), tests in sqlite store; fixed default sender for verification messages
+- Completed M1-11: `config` package with koanf (flags > env > YAML > defaults) - already implemented earlier
+- Completed M1-12: `openapi/openapi.yaml` for M1 endpoints with all native API routes (SMS, email, verifications, messages, batches, attachments, webhooks, projects, requests, events); oapi-codegen setup generating types and chi-server; `api` handlers implementing ServerInterface with auth middleware, send/receive endpoints, project management, test helpers, webhook replay
+- **Next:** M1-13: SSE hub and `GET /api/v1/events`
+
+### 2026-10-04
+
+- Completed M1-10: Verification flow - StartVerification (SMS/Email, code length, TTL, max attempts, serviceRef, fixed code via `otp.fixed_code`), CheckVerification (correct/wrong code, attempts tracking, max attempts, expiry, already approved), default sender ("Verify" for SMS, "verify@example.com" for email); tests in sqlite store; fixed default sender for verification messages
 - **Next:** M1-11: `config`: koanf with flags > env > YAML > defaults; all settings from spec §9
 
 ### 2026-10-04

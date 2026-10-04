@@ -1,0 +1,1556 @@
+openapi: "3.1.0"
+info:
+  title: CommPit Native API
+  version: "0.1.0"
+  description: |
+    Local-first sandbox messaging provider for development.
+    Send SMS, OTP and email to CommPit instead of a real provider; nothing is delivered.
+servers:
+  - url: http://127.0.0.1:4010/api/v1
+    description: Local development server
+paths:
+  /healthz:
+    get:
+      operationId: healthz
+      summary: Readiness check
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
+                  version:
+                    type: string
+
+  /sms:
+    post:
+      operationId: sendSMS
+      summary: Send SMS
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendSMSRequest'
+      responses:
+        '201':
+          description: Single recipient - message created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '202':
+          description: Multiple recipients - batch created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Batch'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /email:
+    post:
+      operationId: sendEmail
+      summary: Send email
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendEmailRequest'
+      responses:
+        '201':
+          description: Single recipient - message created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '202':
+          description: Multiple recipients - batch created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Batch'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /verifications:
+    post:
+      operationId: startVerification
+      summary: Start verification (OTP)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartVerificationRequest'
+      responses:
+        '201':
+          description: Verification started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    get:
+      operationId: listVerifications
+      summary: List verifications
+      security:
+        - BearerAuth: []
+        - ProjectQuery: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: cursor
+          in: query
+          schema:
+            type: string
+        - name: project
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of verifications
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationListResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /verifications/{id}/check:
+    post:
+      operationId: checkVerification
+      summary: Check verification code
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: ulid
+            pattern: '^vrf_[A-Z0-9]{26}$'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckVerificationRequest'
+      responses:
+        '200':
+          description: Check result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckVerificationResponse'
+        '404':
+          description: Verification not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /verifications/{id}/expire:
+    post:
+      operationId: expireVerification
+      summary: Force verification expiry
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: ulid
+            pattern: '^vrf_[A-Z0-9]{26}$'
+      responses:
+        '200':
+          description: Verification expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Verification'
+        '404':
+          description: Verification not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /verifications/{id}:
+    get:
+      operationId: getVerification
+      summary: Get verification by ID
+      security:
+        - BearerAuth: []
+        - ProjectQuery: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: ulid
+            pattern: '^vrf_[A-Z0-9]{26}$'
+        - name: project
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Verification details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Verification'
+        '404':
+          description: Verification not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /messages:
+    get:
+      operationId: listMessages
+      summary: List messages
+      security:
+        - BearerAuth: []
+        - ProjectQuery: []
+      parameters:
+        - name: channel
+          in: query
+          schema:
+            type: string
+            enum: [sms, email]
+        - name: to
+          in: query
+          schema:
+            type: string
+        - name: from
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [queued, sent, delivered, undelivered, failed, received]
+        - name: batch_id
+          in: query
+          schema:
+            type: string
+        - name: direction
+          in: query
+          schema:
+            type: string
+            enum: [outbound, inbound]
+        - name: since
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: cursor
+          in: query
+          schema:
+            type: string
+        - name: project
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of messages
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageListResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: deleteMessages
+      summary: Delete all messages in project
+      security:
+        - BearerAuth: []
+        - ProjectQuery: []
+      parameters:
+        - name: project
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Messages deleted
+        '400':
+          description: Project required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /messages/{id}:
+    get:
+      operationId: getMessage
+      summary: Get message by ID
+      security:
+        - BearerAuth: []
+        - ProjectQuery: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: ulid
+            pattern: '^msg_[A-Z0-9]{26}$'
+        - name: project
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Message with status events
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageWithEvents'
+        '404':
+          description: Message not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /messages/{id}/raw:
+    get:
+      operationId: getMessageRaw
+      summary: Get raw message (.eml for email)
+      security:
+        - BearerAuth: []
+        - ProjectQuery: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: ulid
+            pattern: '^msg_[A-Z0-9]{26}$'
+        - name: project
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Raw message content
+          content:
+            message/rfc822:
+              schema:
+                type: string
+        '404':
+          description: Message not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /messages/wait:
+    get:
+      operationId: waitForMessage
+      summary: Wait for message matching filters (long-poll)
+      security:
+        - BearerAuth: []
+        - ProjectQuery: []
+      parameters:
+        - name: to
+          in: query
+          schema:
+            type: string
+        - name: channel
+          in: query
+          schema:
+            type: string
+            enum: [sms, email]
+        - name: since
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: timeout
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 60
+            default: 10
+        - name: project
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Message found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '408':
+          description: Wait timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /otp/latest:
+    get:
+      operationId: getLatestOTP
+      summary: Get latest OTP for a recipient
+      security:
+        - BearerAuth: []
+        - ProjectQuery: []
+      parameters:
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: since
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: project
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Latest OTP
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OTPLatestResponse'
+        '404':
+          description: No OTP found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /emails/latest:
+    get:
+      operationId: getLatestEmail
+      summary: Get latest email for a recipient
+      security:
+        - BearerAuth: []
+        - ProjectQuery: []
+      parameters:
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: since
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: project
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Latest email
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailLatestResponse'
+        '404':
+          description: No email found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /inbound:
+    post:
+      operationId: simulateInbound
+      summary: Simulate inbound SMS
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InboundRequest'
+      responses:
+        '201':
+          description: Inbound message created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /attachments/{id}:
+    get:
+      operationId: getAttachment
+      summary: Get attachment by ID
+      security:
+        - BearerAuth: []
+        - ProjectQuery: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: ulid
+            pattern: '^att_[A-Z0-9]{26}$'
+        - name: project
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Attachment content
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: Attachment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /batches/{id}:
+    get:
+      operationId: getBatch
+      summary: Get batch by ID
+      security:
+        - BearerAuth: []
+        - ProjectQuery: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: ulid
+            pattern: '^bat_[A-Z0-9]{26}$'
+        - name: project
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Batch details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Batch'
+        '404':
+          description: Batch not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /requests:
+    get:
+      operationId: listRequestLogs
+      summary: List request logs
+      security:
+        - BearerAuth: []
+        - ProjectQuery: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: cursor
+          in: query
+          schema:
+            type: string
+        - name: project
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of request logs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestLogListResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /requests/{id}:
+    get:
+      operationId: getRequestLog
+      summary: Get request log by ID
+      security:
+        - BearerAuth: []
+        - ProjectQuery: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: ulid
+            pattern: '^req_[A-Z0-9]{26}$'
+        - name: project
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Request log details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestLog'
+        '404':
+          description: Request log not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /webhooks:
+    get:
+      operationId: listWebhooks
+      summary: List webhook deliveries
+      security:
+        - BearerAuth: []
+        - ProjectQuery: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: cursor
+          in: query
+          schema:
+            type: string
+        - name: project
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of webhook deliveries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookDeliveryListResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /webhooks/{id}/replay:
+    post:
+      operationId: replayWebhook
+      summary: Replay webhook delivery
+      security:
+        - BearerAuth: []
+        - ProjectQuery: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: ulid
+            pattern: '^whd_[A-Z0-9]{26}$'
+        - name: project
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Webhook replayed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookDelivery'
+        '404':
+          description: Webhook delivery not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /projects:
+    get:
+      operationId: listProjects
+      summary: List projects
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: cursor
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of projects
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectListResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /projects/{id}:
+    get:
+      operationId: getProject
+      summary: Get project by ID
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: ulid
+            pattern: '^prj_[A-Z0-9]{26}$'
+      responses:
+        '200':
+          description: Project details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      operationId: updateProject
+      summary: Update project
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: ulid
+            pattern: '^prj_[A-Z0-9]{26}$'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProjectRequest'
+      responses:
+        '200':
+          description: Updated project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /projects/{id}/credentials:
+    post:
+      operationId: linkCredential
+      summary: Link credential to project
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: ulid
+            pattern: '^prj_[A-Z0-9]{26}$'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LinkCredentialRequest'
+      responses:
+        '200':
+          description: Credential linked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /events:
+    get:
+      operationId: sseEvents
+      summary: Server-Sent Events stream
+      security:
+        - BearerAuth: []
+        - ProjectQuery: []
+      parameters:
+        - name: project
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: SSE stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: API Key
+    ProjectQuery:
+      type: apiKey
+      in: query
+      name: project
+
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            field:
+              type: string
+          required: [code, message]
+
+    SendSMSRequest:
+      type: object
+      required: [from, to, body]
+      properties:
+        from:
+          type: string
+          description: Sender ID (E.164 phone number or alphanumeric)
+        to:
+          oneOf:
+            - type: string
+              description: Single recipient
+            - type: array
+              items:
+                type: string
+              description: Multiple recipients
+        body:
+          type: string
+          maxLength: 1600
+        callback_url:
+          type: string
+          format: uri
+
+    SendEmailRequest:
+      type: object
+      required: [from, to, subject]
+      properties:
+        from:
+          type: string
+          format: email
+        to:
+          type: array
+          items:
+            type: string
+            format: email
+          minItems: 1
+        cc:
+          type: array
+          items:
+            type: string
+            format: email
+        bcc:
+          type: array
+          items:
+            type: string
+            format: email
+        subject:
+          type: string
+        text:
+          type: string
+        html:
+          type: string
+        attachments:
+          type: array
+          items:
+            $ref: '#/components/schemas/AttachmentInput'
+        callback_url:
+          type: string
+          format: uri
+
+    AttachmentInput:
+      type: object
+      required: [filename, content_type, content_base64]
+      properties:
+        filename:
+          type: string
+        content_type:
+          type: string
+        content_base64:
+          type: string
+          format: byte
+        inline_cid:
+          type: string
+
+    StartVerificationRequest:
+      type: object
+      required: [to, channel]
+      properties:
+        to:
+          type: string
+          description: Recipient (E.164 phone for SMS, email for email)
+        channel:
+          type: string
+          enum: [sms, email]
+        code_length:
+          type: integer
+          minimum: 4
+          maximum: 8
+          default: 6
+        ttl_seconds:
+          type: integer
+          minimum: 60
+          maximum: 3600
+          default: 600
+        max_attempts:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 5
+
+    CheckVerificationRequest:
+      type: object
+      required: [code]
+      properties:
+        code:
+          type: string
+
+    InboundRequest:
+      type: object
+      required: [from, to, body]
+      properties:
+        from:
+          type: string
+        to:
+          type: string
+        body:
+          type: string
+
+    LinkCredentialRequest:
+      type: object
+      required: [provider, key]
+      properties:
+        provider:
+          type: string
+        key:
+          type: string
+
+    UpdateProjectRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        settings:
+          type: object
+
+    Message:
+      type: object
+      properties:
+        id:
+          type: string
+          format: ulid
+          pattern: '^msg_[A-Z0-9]{26}$'
+        project_id:
+          type: string
+          format: ulid
+          pattern: '^prj_[A-Z0-9]{26}$'
+        batch_id:
+          type: string
+          format: ulid
+          pattern: '^bat_[A-Z0-9]{26}$'
+        channel:
+          type: string
+          enum: [sms, email]
+        direction:
+          type: string
+          enum: [outbound, inbound]
+        provider:
+          type: string
+        provider_ref:
+          type: string
+        from:
+          type: string
+        to:
+          type: string
+        cc:
+          type: array
+          items:
+            type: string
+        bcc:
+          type: array
+          items:
+            type: string
+        subject:
+          type: string
+        body_text:
+          type: string
+        body_html:
+          type: string
+        encoding:
+          type: string
+          enum: [gsm7, ucs2]
+        segments:
+          type: integer
+        status:
+          type: string
+          enum: [queued, sent, delivered, undelivered, failed, received]
+        error_code:
+          type: string
+        error_message:
+          type: string
+        callback_url:
+          type: string
+        extracted_codes:
+          type: array
+          items:
+            type: string
+        extracted_links:
+          type: array
+          items:
+            type: string
+        primary_link:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    MessageWithEvents:
+      allOf:
+        - $ref: '#/components/schemas/Message'
+        - type: object
+          properties:
+            status_events:
+              type: array
+              items:
+                $ref: '#/components/schemas/StatusEvent'
+
+    StatusEvent:
+      type: object
+      properties:
+        id:
+          type: string
+        message_id:
+          type: string
+        status:
+          type: string
+          enum: [queued, sent, delivered, undelivered, failed, received]
+        error_code:
+          type: string
+        at:
+          type: string
+          format: date-time
+
+    Batch:
+      type: object
+      properties:
+        id:
+          type: string
+          format: ulid
+          pattern: '^bat_[A-Z0-9]{26}$'
+        project_id:
+          type: string
+          format: ulid
+          pattern: '^prj_[A-Z0-9]{26}$'
+        provider:
+          type: string
+        channel:
+          type: string
+          enum: [sms, email]
+        total:
+          type: integer
+        counts:
+          type: object
+          additionalProperties:
+            type: integer
+        created_at:
+          type: string
+          format: date-time
+
+    Verification:
+      type: object
+      properties:
+        id:
+          type: string
+          format: ulid
+          pattern: '^vrf_[A-Z0-9]{26}$'
+        project_id:
+          type: string
+          format: ulid
+          pattern: '^prj_[A-Z0-9]{26}$'
+        provider:
+          type: string
+        provider_ref:
+          type: string
+        service_ref:
+          type: string
+        to:
+          type: string
+        channel:
+          type: string
+          enum: [sms, email]
+        code:
+          type: string
+        status:
+          type: string
+          enum: [pending, approved, canceled, expired, max_attempts]
+        attempts:
+          type: integer
+        max_attempts:
+          type: integer
+        expires_at:
+          type: string
+          format: date-time
+        message_id:
+          type: string
+          format: ulid
+          pattern: '^msg_[A-Z0-9]{26}$'
+        created_at:
+          type: string
+          format: date-time
+
+    VerificationResponse:
+      type: object
+      properties:
+        verification:
+          $ref: '#/components/schemas/Verification'
+        message:
+          $ref: '#/components/schemas/Message'
+
+    CheckVerificationResponse:
+      type: object
+      required: [valid, status]
+      properties:
+        valid:
+          type: boolean
+        status:
+          type: string
+          enum: [pending, approved, canceled, expired, max_attempts]
+
+    OTPLatestResponse:
+      type: object
+      required: [code, source, message_id]
+      properties:
+        code:
+          type: string
+        source:
+          type: string
+          enum: [verification, extracted]
+        message_id:
+          type: string
+          format: ulid
+          pattern: '^msg_[A-Z0-9]{26}$'
+        verification_id:
+          type: string
+          format: ulid
+          pattern: '^vrf_[A-Z0-9]{26}$'
+
+    EmailLatestResponse:
+      type: object
+      required: [message, codes, links, primary_link]
+      properties:
+        message:
+          $ref: '#/components/schemas/Message'
+        codes:
+          type: array
+          items:
+            type: string
+        links:
+          type: array
+          items:
+            type: string
+        primary_link:
+          type: string
+
+    Project:
+      type: object
+      properties:
+        id:
+          type: string
+          format: ulid
+          pattern: '^prj_[A-Z0-9]{26}$'
+        name:
+          type: string
+        settings:
+          type: object
+        created_at:
+          type: string
+          format: date-time
+
+    RequestLog:
+      type: object
+      properties:
+        id:
+          type: string
+          format: ulid
+          pattern: '^req_[A-Z0-9]{26}$'
+        project_id:
+          type: string
+          format: ulid
+          pattern: '^prj_[A-Z0-9]{26}$'
+        adapter:
+          type: string
+        method:
+          type: string
+        path:
+          type: string
+        request_headers:
+          type: object
+          additionalProperties:
+            type: string
+        request_body:
+          type: string
+        response_status:
+          type: integer
+        response_body:
+          type: string
+        duration_ms:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+
+    WebhookDelivery:
+      type: object
+      properties:
+        id:
+          type: string
+          format: ulid
+          pattern: '^whd_[A-Z0-9]{26}$'
+        project_id:
+          type: string
+          format: ulid
+          pattern: '^prj_[A-Z0-9]{26}$'
+        message_id:
+          type: string
+          format: ulid
+          pattern: '^msg_[A-Z0-9]{26}$'
+        verification_id:
+          type: string
+          format: ulid
+          pattern: '^vrf_[A-Z0-9]{26}$'
+        kind:
+          type: string
+          enum: [status, inbound]
+        url:
+          type: string
+        payload:
+          type: object
+        headers:
+          type: object
+          additionalProperties:
+            type: string
+        attempt:
+          type: integer
+        status:
+          type: string
+          enum: [pending, succeeded, failed]
+        response_status:
+          type: integer
+        response_body:
+          type: string
+        next_retry_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+
+    MessageListResponse:
+      type: object
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/Message'
+        next_cursor:
+          type: string
+
+    VerificationListResponse:
+      type: object
+      properties:
+        verifications:
+          type: array
+          items:
+            $ref: '#/components/schemas/Verification'
+        next_cursor:
+          type: string
+
+    ProjectListResponse:
+      type: object
+      properties:
+        projects:
+          type: array
+          items:
+            $ref: '#/components/schemas/Project'
+        next_cursor:
+          type: string
+
+    RequestLogListResponse:
+      type: object
+      properties:
+        logs:
+          type: array
+          items:
+            $ref: '#/components/schemas/RequestLog'
+        next_cursor:
+          type: string
+
+    WebhookDeliveryListResponse:
+      type: object
+      properties:
+        deliveries:
+          type: array
+          items:
+            $ref: '#/components/schemas/WebhookDelivery'
+        next_cursor:
+          type: string

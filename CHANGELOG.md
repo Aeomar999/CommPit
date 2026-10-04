@@ -10,8 +10,7 @@ Provider-compatible adapters follow the real providers' behavior. Fixes that mak
 
 ### Added
 
-- Verification flow: `StartVerification` (SMS/Email, code length 4-8, TTL, max attempts, serviceRef, fixed code via `otp.fixed_code`), `CheckVerification` (correct/wrong code, attempt tracking, max attempts → `max_attempts`, expiry → `expired`, already approved), default sender ("Verify" for SMS, "verify@example.com" for email); tests in sqlite store
-- Lifecycle runner: Clock-driven timers using injected `Clock` interface (testable with `FakeClock`), `Schedule`/`advance` with configurable step delay (default 300ms), `ResumeQueuedAndSent` on startup, `Stop()` cancels all pending timers; service exposes `LifecycleRunner()` and `Clock()` getters
+- `api` package: OpenAPI 3.1 spec (`openapi/openapi.yaml`) with all M1 endpoints (SMS, email, verifications, messages, batches, attachments, webhooks, projects, requests, test helpers, events); oapi-codegen generating types and chi-server; `api` handlers implementing ServerInterface with Bearer auth, project-scoped access, send/receive endpoints, project management, test helpers (messages/wait, otp/latest, emails/latest), webhook replay
 - `config` package: configuration loading with koanf (flags > env > YAML > defaults), all settings from spec §9
 - `cmd/mocksms`: composition root wiring Store, BlobStore, Bus, Simulator, Clock, ProjectResolver, Service; HTTP + SMTP servers with graceful shutdown
 - Core service integration: auto-create projects from credentials, `SendMessage`/`SendBatch` with validation, extraction on save, `ProjectResolver`, `Simulator` with built-in rules (Twilio test numbers + 99990X patterns), configurable latency/failure rate

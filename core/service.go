@@ -568,3 +568,19 @@ var (
 func (s *Service) Shutdown() {
 	s.lifecycle.Stop()
 }
+
+func (s *Service) Store() Store {
+	return s.store
+}
+
+func (s *Service) BlobStore() BlobStore {
+	return s.blobStore
+}
+
+func (s *Service) Bus() Bus {
+	return s.bus
+}
+
+func (s *Service) Resolver() ProjectResolver {
+	return s.resolver
+}
