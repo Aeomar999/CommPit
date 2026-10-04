@@ -34,49 +34,18 @@ Newest first. One entry per working session: what changed, decisions made, what'
 
 ### 2026-10-04
 
+- Completed M1-F03: Local gate matches CI - installed task, golangci-lint v2, pnpm; documented race detector setup for Windows (MinGW, WSL, Docker); updated Taskfile.yml to handle race detector gracefully; all Go tests pass locally
+- **Next:** M1-F04: API error responses - canonical codes, correct HTTP statuses, JSON content type
+
+### 2026-10-04
+
 - Completed M1-F01: Fixed CI configuration - migrated golangci-lint to v2 config, disabled depguard temporarily (re-enable in M1-F13), gated web jobs on web/ folder existence, aligned Go version to 1.26, ran go mod tidy and gofmt. CI should now pass.
 - **Next:** M1-F02: Repo hygiene - add .gitignore, untrack mocksms.exe and .impeccable/questions/
 
 ### 2026-10-04
 
-- Completed M1-13: SSE hub - `SSEHub` subscribes to `bus.EventBus` events (message.created, message.status, verification.updated, batch.updated, request.logged, webhook.delivered), fans out to HTTP clients via `GET /api/v1/events` with project filter, heartbeat keepalive (30s), connection event
-- **Next:** M1-14: Security middleware: `Host` allow-list (421), `X-Mocksms` header, no CORS, optional `ui_auth`, non-loopback warning
-
-### 2026-10-04
-
-- Completed M1-11: `config` package with koanf (flags > env > YAML > defaults) - already implemented earlier
-- Completed M1-12: `openapi/openapi.yaml` for M1 endpoints with all native API routes (SMS, email, verifications, messages, batches, attachments, webhooks, projects, requests, test helpers, events); oapi-codegen setup generating types and chi-server; `api` handlers implementing ServerInterface with auth middleware, send/receive endpoints, project management, test helpers, webhook replay
-- **Next:** M1-13: SSE hub and `GET /api/v1/events`
-
-### 2026-10-04
-
-- Completed M1-10: Verification flow - StartVerification (SMS/Email, code length, TTL, max attempts, serviceRef, fixed code via `otp.fixed_code`), CheckVerification (correct/wrong code, attempts tracking, max attempts, expiry, already approved), default sender ("Verify" for SMS, "verify@example.com" for email); tests in sqlite store; fixed default sender for verification messages
-- **Next:** M1-11: `config`: koanf with flags > env > YAML > defaults; all settings from spec §9
-
-### 2026-10-04
-
-- Completed M1-09: Lifecycle runner - uses injected Clock for testability, Schedule/advance with configurable step delay, ResumeQueuedAndSent on startup, Stop() cancels all timers; service exposes LifecycleRunner() and Clock() getters
-- **Next:** M1-10: Verification flow: start, check, attempts, expiry, `otp.fixed_code`
-
-### 2026-10-04
-
-- Completed M1-08: Core service integration with auto-create projects from credentials, SendMessage/SendBatch with validation, extraction on save, ProjectResolver, Simulator with built-in rules (Twilio test numbers + 99990X patterns), configurable latency/failure rate, config package with koanf (flags > env > YAML > defaults), cmd/mocksms wiring all components (store, bus, simulator, clock, resolver)
-- **Next:** M1-09: Lifecycle runner: Clock-driven timers, configurable step delay, resume on startup
-
-### 2026-10-04
-
-- Completed M1-07: `bus` package - in-process pub/sub implementing `core.Bus` with Publish/Subscribe, event types (message.created, message.status, verification.updated, batch.updated, request.logged, webhook.delivered), concurrent-safe, unsubscribe support
-- **Next:** M1-08: Core service integration with store, bus, lifecycle runner, simulator, clock, resolver
-
-### 2026-10-03
-
-- Completed M1-06: `store/sqlite` with WAL mode, single writer + read pool (configurable size), goose migrations (embedded SQL), blob storage, transactional batch insert support; passes `storetest` conformance suite
-- **Next:** M1-07: `bus`: in-process pub/sub implementing `core.Bus`
-
-### 2026-10-03
-
-- Completed M1-05: `store/storetest` conformance suite - comprehensive test suite covering all Store interface methods (Project, Credential, Message, StatusEvent, Batch, Verification, Unsubscribe, Attachment, WebhookDelivery, RequestLog, Transaction) with in-memory implementation for verification
-- **Next:** M1-06: `store/sqlite` - WAL, single writer + read pool, goose migrations, blobs, transactional batch insert; passes storetest
+- Completed M1-F02: Repo hygiene - add .gitignore, untrack mocksms.exe and .impeccable/questions/
+- **Next:** M1-F03: Local gate matches CI - install task, golangci-lint, pnpm, document race detector setup for Windows
 
 ### 2026-10-03
 
