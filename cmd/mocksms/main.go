@@ -112,6 +112,8 @@ func runWithContext(ctx context.Context, cfg *config.Config) error {
 
 	handlers := api.NewHandlers(service, projectResolver, eventBus)
 
+	service.LifecycleRunner().ResumeQueuedAndSent(ctx)
+
 	server := &http.Server{
 		Addr:         fmt.Sprintf("%s:%d", cfg.HTTP.Host, cfg.HTTP.Port),
 		Handler:      handlers.Routes(),

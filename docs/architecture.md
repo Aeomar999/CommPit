@@ -97,7 +97,7 @@ Project 1───* RequestLog
 Project 1───* Unsubscribe
 ```
 
-- IDs: prefixed ULIDs (`prj_`, `msg_`, `bat_`, `vrf_`, `whd_`, `req_`). Provider-format IDs (`SM…`, `VE…`, Termii `pinId`) live in `provider_ref`.
+- IDs: prefixed ULIDs (`prj_`, `msg_`, `bat_`, `vrf_`, `whd_`, `req_`, `att_`, `blob_`, `sev_`). Provider-format IDs (`SM…`, `VE…`, Termii `pinId`) live in `provider_ref`.
 - Canonical statuses: `queued`, `sent`, `delivered`, `undelivered`, `failed`, `received`.
 - Canonical errors: `validation_error`, `invalid_number`, `invalid_sender`, `unroutable`, `not_sms_capable`, `invalid_address`, `unsubscribed`, `rate_limited`, `provider_unavailable`, `verification_not_found`, `max_attempts`, `internal`.
 

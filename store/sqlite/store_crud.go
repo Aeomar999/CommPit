@@ -414,3 +414,33 @@ func (s *Store) ListBatches(ctx context.Context, projectID string, limit int, cu
 	}
 	return batches, nextCursor, nil
 }
+
+func (s *Store) ListInFlightMessages(ctx context.Context) ([]*core.Message, error) {
+	rows, err := s.queryContext(ctx,
+		`SELECT id, project_id, batch_id, channel, direction, provider, provider_ref, from_addr, to_addr, cc, bcc, subject, body_text, body_html, raw_blob_id, encoding, segments, status, error_code, error_message, callback_url, extracted_codes, extracted_links, primary_link, created_at, updated_at
+		 FROM messages WHERE status IN ('queued', 'sent') ORDER BY created_at ASC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var messages []*core.Message
+	for rows.Next() {
+		m, err := scanMessage(rows)
+		if err != nil {
+			return nil, err
+		}
+		messages = append(messages, m)
+	}
+	return messages, nil
+}
+
+func (s *Store) RecomputeBatchCounts(ctx context.Context, projectID, batchID string) (*core.Batch, error) {
+	var batch *core.Batch
+	err := s.Transaction(ctx, func(txStore core.Store) error {
+		var err error
+		batch, err = txStore.RecomputeBatchCounts(ctx, projectID, batchID)
+		return err
+	})
+	return batch, err
+}

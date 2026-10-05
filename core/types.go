@@ -15,10 +15,15 @@ const (
 	RequestLogIDPrefix      = "req_"
 	AttachmentIDPrefix      = "att_"
 	BlobIDPrefix            = "blob_"
+	StatusEventIDPrefix     = "sev_"
 )
 
 func NewProjectID() string {
 	return ProjectIDPrefix + ulid.Make().String()
+}
+
+func NewStatusEventID() string {
+	return StatusEventIDPrefix + ulid.Make().String()
 }
 
 func NewMessageID() string {

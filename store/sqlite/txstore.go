@@ -169,6 +169,26 @@ func (t *txStore) DeleteMessage(ctx context.Context, projectID, messageID string
 	return err
 }
 
+func (t *txStore) ListInFlightMessages(ctx context.Context) ([]*core.Message, error) {
+	rows, err := t.tx.QueryContext(ctx,
+		`SELECT id, project_id, batch_id, channel, direction, provider, provider_ref, from_addr, to_addr, cc, bcc, subject, body_text, body_html, raw_blob_id, encoding, segments, status, error_code, error_message, callback_url, extracted_codes, extracted_links, primary_link, created_at, updated_at
+		 FROM messages WHERE status IN ('queued', 'sent') ORDER BY created_at ASC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var messages []*core.Message
+	for rows.Next() {
+		m, err := scanMessage(rows)
+		if err != nil {
+			return nil, err
+		}
+		messages = append(messages, m)
+	}
+	return messages, nil
+}
+
 func (t *txStore) CreateStatusEvent(ctx context.Context, e *core.StatusEvent) error {
 	_, err := t.tx.ExecContext(ctx,
 		`INSERT INTO status_events (id, message_id, status, error_code, at) VALUES (?, ?, ?, ?, ?)`,
@@ -202,6 +222,42 @@ func (t *txStore) UpdateBatch(ctx context.Context, b *core.Batch) error {
 
 func (t *txStore) ListBatches(ctx context.Context, projectID string, limit int, cursor string) ([]*core.Batch, string, error) {
 	return t.base.ListBatches(ctx, projectID, limit, cursor)
+}
+
+func (t *txStore) RecomputeBatchCounts(ctx context.Context, projectID, batchID string) (*core.Batch, error) {
+	rows, err := t.tx.QueryContext(ctx,
+		`SELECT status, COUNT(*) FROM messages WHERE project_id = ? AND batch_id = ? GROUP BY status`,
+		projectID, batchID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	counts := make(map[string]int)
+	total := 0
+	for rows.Next() {
+		var status string
+		var count int
+		if err := rows.Scan(&status, &count); err != nil {
+			return nil, err
+		}
+		counts[status] = count
+		total += count
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	batch, err := t.GetBatch(ctx, projectID, batchID)
+	if err != nil {
+		return nil, err
+	}
+	batch.Counts = counts
+	batch.Total = total
+	if err := t.UpdateBatch(ctx, batch); err != nil {
+		return nil, err
+	}
+	return batch, nil
 }
 
 func (t *txStore) CreateVerification(ctx context.Context, v *core.Verification) error {

@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"io"
+	"sync"
 	"time"
 )
 
@@ -24,6 +25,7 @@ type Store interface {
 	ListMessages(ctx context.Context, projectID string, filter MessageFilter) ([]*Message, string, error)
 	DeleteMessages(ctx context.Context, projectID string) error
 	DeleteMessage(ctx context.Context, projectID, messageID string) error
+	ListInFlightMessages(ctx context.Context) ([]*Message, error)
 
 	CreateStatusEvent(ctx context.Context, event *StatusEvent) error
 	GetStatusEvents(ctx context.Context, messageID string) ([]*StatusEvent, error)
@@ -32,6 +34,7 @@ type Store interface {
 	GetBatch(ctx context.Context, projectID, batchID string) (*Batch, error)
 	UpdateBatch(ctx context.Context, batch *Batch) error
 	ListBatches(ctx context.Context, projectID string, limit int, cursor string) ([]*Batch, string, error)
+	RecomputeBatchCounts(ctx context.Context, projectID, batchID string) (*Batch, error)
 
 	CreateVerification(ctx context.Context, v *Verification) error
 	GetVerification(ctx context.Context, projectID, verificationID string) (*Verification, error)
@@ -145,26 +148,94 @@ func (RealClock) Now() time.Time                         { return time.Now() }
 func (RealClock) After(d time.Duration) <-chan time.Time { return time.After(d) }
 func (RealClock) Sleep(d time.Duration)                  { time.Sleep(d) }
 
+type fakeTimer struct {
+	target time.Time
+	ch     chan time.Time
+}
+
 type FakeClock struct {
-	now time.Time
+	mu     sync.Mutex
+	cond   *sync.Cond
+	now    time.Time
+	timers []*fakeTimer
 }
 
 func NewFakeClock() *FakeClock {
-	return &FakeClock{now: time.Now()}
+	fc := &FakeClock{now: time.Now()}
+	fc.cond = sync.NewCond(&fc.mu)
+	return fc
 }
 
-func (fc *FakeClock) Now() time.Time { return fc.now }
+func (fc *FakeClock) Now() time.Time {
+	fc.mu.Lock()
+	defer fc.mu.Unlock()
+	return fc.now
+}
+
 func (fc *FakeClock) After(d time.Duration) <-chan time.Time {
+	fc.mu.Lock()
+	defer fc.mu.Unlock()
 	ch := make(chan time.Time, 1)
-	go func() {
-		<-time.After(d)
-		ch <- fc.now.Add(d)
-	}()
+	if d <= 0 {
+		ch <- fc.now
+		return ch
+	}
+	target := fc.now.Add(d)
+	fc.timers = append(fc.timers, &fakeTimer{target: target, ch: ch})
+	if fc.cond != nil {
+		fc.cond.Broadcast()
+	}
 	return ch
 }
-func (fc *FakeClock) Sleep(d time.Duration)   { fc.now = fc.now.Add(d) }
-func (fc *FakeClock) Advance(d time.Duration) { fc.now = fc.now.Add(d) }
-func (fc *FakeClock) Set(t time.Time)         { fc.now = t }
+
+func (fc *FakeClock) Sleep(d time.Duration) {
+	fc.Advance(d)
+}
+
+func (fc *FakeClock) Advance(d time.Duration) {
+	fc.mu.Lock()
+	defer fc.mu.Unlock()
+	fc.now = fc.now.Add(d)
+	var remaining []*fakeTimer
+	for _, t := range fc.timers {
+		if !t.target.After(fc.now) {
+			t.ch <- fc.now
+		} else {
+			remaining = append(remaining, t)
+		}
+	}
+	fc.timers = remaining
+}
+
+func (fc *FakeClock) Set(t time.Time) {
+	fc.mu.Lock()
+	diff := t.Sub(fc.now)
+	fc.mu.Unlock()
+	if diff > 0 {
+		fc.Advance(diff)
+	} else {
+		fc.mu.Lock()
+		fc.now = t
+		fc.mu.Unlock()
+	}
+}
+
+func (fc *FakeClock) Waiters() int {
+	fc.mu.Lock()
+	defer fc.mu.Unlock()
+	return len(fc.timers)
+}
+
+func (fc *FakeClock) BlockUntilWaiters(count int) {
+	fc.mu.Lock()
+	defer fc.mu.Unlock()
+	if fc.cond == nil {
+		fc.cond = sync.NewCond(&fc.mu)
+	}
+	for len(fc.timers) < count {
+		fc.cond.Wait()
+	}
+}
 
 type ProjectResolver interface {
 	Resolve(ctx context.Context, provider, key string) (string, error)

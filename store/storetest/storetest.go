@@ -1030,6 +1030,98 @@ func RunStoreTests(t *testing.T, newStore func() (core.Store, func())) {
 			t.Error("store2 should not see store1's project")
 		}
 	})
+
+	t.Run("ListInFlightMessages", func(t *testing.T) {
+		store, cleanup := newStore()
+		defer cleanup()
+		ctx := context.Background()
+
+		prjA := &core.Project{ID: core.NewProjectID(), Name: "prj-a", Settings: map[string]interface{}{}, CreatedAt: time.Now()}
+		prjB := &core.Project{ID: core.NewProjectID(), Name: "prj-b", Settings: map[string]interface{}{}, CreatedAt: time.Now()}
+		if err := store.CreateProject(ctx, prjA); err != nil {
+			t.Fatalf("CreateProject A: %v", err)
+		}
+		if err := store.CreateProject(ctx, prjB); err != nil {
+			t.Fatalf("CreateProject B: %v", err)
+		}
+
+		now := time.Now()
+		msg1 := &core.Message{ID: core.NewMessageID(), ProjectID: prjA.ID, Channel: core.ChannelSMS, Direction: core.DirectionOutbound, Provider: "native", From: "+1", To: "+2", BodyText: "1", Status: core.StatusQueued, CreatedAt: now, UpdatedAt: now}
+		msg2 := &core.Message{ID: core.NewMessageID(), ProjectID: prjA.ID, Channel: core.ChannelSMS, Direction: core.DirectionOutbound, Provider: "native", From: "+1", To: "+2", BodyText: "2", Status: core.StatusSent, CreatedAt: now.Add(time.Second), UpdatedAt: now}
+		msg3 := &core.Message{ID: core.NewMessageID(), ProjectID: prjB.ID, Channel: core.ChannelSMS, Direction: core.DirectionOutbound, Provider: "native", From: "+1", To: "+2", BodyText: "3", Status: core.StatusQueued, CreatedAt: now.Add(2 * time.Second), UpdatedAt: now}
+		msg4 := &core.Message{ID: core.NewMessageID(), ProjectID: prjB.ID, Channel: core.ChannelSMS, Direction: core.DirectionOutbound, Provider: "native", From: "+1", To: "+2", BodyText: "4", Status: core.StatusDelivered, CreatedAt: now.Add(3 * time.Second), UpdatedAt: now}
+
+		for _, m := range []*core.Message{msg1, msg2, msg3, msg4} {
+			if err := store.CreateMessage(ctx, m); err != nil {
+				t.Fatalf("CreateMessage %s: %v", m.ID, err)
+			}
+		}
+
+		inFlight, err := store.ListInFlightMessages(ctx)
+		if err != nil {
+			t.Fatalf("ListInFlightMessages: %v", err)
+		}
+		if len(inFlight) != 3 {
+			t.Fatalf("expected 3 in-flight messages, got %d", len(inFlight))
+		}
+		for _, m := range inFlight {
+			if m.Status != core.StatusQueued && m.Status != core.StatusSent {
+				t.Errorf("expected status queued or sent, got %s", m.Status)
+			}
+		}
+	})
+
+	t.Run("RecomputeBatchCounts", func(t *testing.T) {
+		store, cleanup := newStore()
+		defer cleanup()
+		ctx := context.Background()
+
+		prj := &core.Project{ID: core.NewProjectID(), Name: "prj-batch", Settings: map[string]interface{}{}, CreatedAt: time.Now()}
+		if err := store.CreateProject(ctx, prj); err != nil {
+			t.Fatalf("CreateProject: %v", err)
+		}
+
+		batch := &core.Batch{
+			ID:        core.NewBatchID(),
+			ProjectID: prj.ID,
+			Provider:  "native",
+			Channel:   core.ChannelSMS,
+			Total:     3,
+			Counts:    map[string]int{string(core.StatusQueued): 3},
+			CreatedAt: time.Now(),
+		}
+		if err := store.CreateBatch(ctx, batch); err != nil {
+			t.Fatalf("CreateBatch: %v", err)
+		}
+
+		now := time.Now()
+		m1 := &core.Message{ID: core.NewMessageID(), ProjectID: prj.ID, BatchID: &batch.ID, Channel: core.ChannelSMS, Direction: core.DirectionOutbound, Provider: "native", From: "+1", To: "+2", BodyText: "1", Status: core.StatusQueued, CreatedAt: now, UpdatedAt: now}
+		m2 := &core.Message{ID: core.NewMessageID(), ProjectID: prj.ID, BatchID: &batch.ID, Channel: core.ChannelSMS, Direction: core.DirectionOutbound, Provider: "native", From: "+1", To: "+3", BodyText: "2", Status: core.StatusSent, CreatedAt: now, UpdatedAt: now}
+		m3 := &core.Message{ID: core.NewMessageID(), ProjectID: prj.ID, BatchID: &batch.ID, Channel: core.ChannelSMS, Direction: core.DirectionOutbound, Provider: "native", From: "+1", To: "+4", BodyText: "3", Status: core.StatusDelivered, CreatedAt: now, UpdatedAt: now}
+
+		for _, m := range []*core.Message{m1, m2, m3} {
+			if err := store.CreateMessage(ctx, m); err != nil {
+				t.Fatalf("CreateMessage: %v", err)
+			}
+		}
+
+		updated, err := store.RecomputeBatchCounts(ctx, prj.ID, batch.ID)
+		if err != nil {
+			t.Fatalf("RecomputeBatchCounts: %v", err)
+		}
+		if updated.Total != 3 {
+			t.Errorf("expected total 3, got %d", updated.Total)
+		}
+		if updated.Counts[string(core.StatusQueued)] != 1 {
+			t.Errorf("expected queued 1, got %d", updated.Counts[string(core.StatusQueued)])
+		}
+		if updated.Counts[string(core.StatusSent)] != 1 {
+			t.Errorf("expected sent 1, got %d", updated.Counts[string(core.StatusSent)])
+		}
+		if updated.Counts[string(core.StatusDelivered)] != 1 {
+			t.Errorf("expected delivered 1, got %d", updated.Counts[string(core.StatusDelivered)])
+		}
+	})
 }
 
 func ptrChannel(c core.Channel) *core.Channel {

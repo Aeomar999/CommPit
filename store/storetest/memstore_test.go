@@ -352,6 +352,18 @@ func (s *memStore) DeleteMessage(ctx context.Context, projectID, messageID strin
 	return nil
 }
 
+func (s *memStore) ListInFlightMessages(ctx context.Context) ([]*core.Message, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var result []*core.Message
+	for _, m := range s.messages {
+		if m.Status == core.StatusQueued || m.Status == core.StatusSent {
+			result = append(result, m)
+		}
+	}
+	return result, nil
+}
+
 func (s *memStore) CreateStatusEvent(ctx context.Context, e *core.StatusEvent) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -402,6 +414,27 @@ func (s *memStore) ListBatches(ctx context.Context, projectID string, limit int,
 		}
 	}
 	return result, "", nil
+}
+
+func (s *memStore) RecomputeBatchCounts(ctx context.Context, projectID, batchID string) (*core.Batch, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	batch, ok := s.batches[batchID]
+	if !ok || batch.ProjectID != projectID {
+		return nil, core.NewNotFound("batch not found", "id")
+	}
+
+	counts := make(map[string]int)
+	total := 0
+	for _, m := range s.messages {
+		if m.ProjectID == projectID && m.BatchID != nil && *m.BatchID == batchID {
+			counts[string(m.Status)]++
+			total++
+		}
+	}
+	batch.Counts = counts
+	batch.Total = total
+	return batch, nil
 }
 
 func (s *memStore) CreateVerification(ctx context.Context, v *core.Verification) error {

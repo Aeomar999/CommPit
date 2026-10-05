@@ -2,132 +2,172 @@ package core
 
 import (
 	"context"
+	"log/slog"
 	"sync"
 	"time"
 )
 
 type LifecycleRunner struct {
-	service   *Service
-	clock     Clock
-	stepDelay time.Duration
-	timers    map[string]*timerEntry
-	mu        sync.Mutex
-	stopCh    chan struct{}
-	stopOnce  sync.Once
-	wg        sync.WaitGroup
+	service          *Service
+	clock            Clock
+	stepDelay        time.Duration
+	timers           map[string]*timerEntry
+	mu               sync.Mutex
+	stopCh           chan struct{}
+	stopOnce         sync.Once
+	wg               sync.WaitGroup
+	batchMu          sync.Mutex
+	lastBatchPublish map[string]time.Time
 }
 
 type timerEntry struct {
 	messageID string
-	timer     *timer
-}
-
-type timer struct {
-	cancel func()
+	cancel    context.CancelFunc
 }
 
 func NewLifecycleRunner(s *Service) *LifecycleRunner {
 	return &LifecycleRunner{
-		service:   s,
-		clock:     s.clock,
-		stepDelay: s.stepDelay,
-		timers:    make(map[string]*timerEntry),
-		stopCh:    make(chan struct{}),
+		service:          s,
+		clock:            s.clock,
+		stepDelay:        s.stepDelay,
+		timers:           make(map[string]*timerEntry),
+		stopCh:           make(chan struct{}),
+		lastBatchPublish: make(map[string]time.Time),
 	}
 }
 
-func (lr *LifecycleRunner) Schedule(msg *Message, simResult *SimResult) {
-	if lr.stepDelay == 0 {
-		lr.advanceImmediately(msg)
+func (lr *LifecycleRunner) Schedule(projectID, messageID string, simResult *SimResult) {
+	lr.mu.Lock()
+	select {
+	case <-lr.stopCh:
+		lr.mu.Unlock()
 		return
+	default:
 	}
+	lr.mu.Unlock()
 
 	delay := lr.stepDelay
 	if simResult != nil && simResult.Delay > 0 {
 		delay += simResult.Delay
 	}
 
-	lr.mu.Lock()
-	defer lr.mu.Unlock()
+	if delay == 0 {
+		ctx := context.Background()
+		for {
+			status, err := lr.advance(ctx, projectID, messageID, simResult)
+			if err != nil || isTerminalStatus(status) {
+				break
+			}
+		}
+		return
+	}
 
+	lr.armTimer(projectID, messageID, delay, simResult)
+}
+
+func (lr *LifecycleRunner) armTimer(projectID, messageID string, delay time.Duration, simResult *SimResult) {
+	lr.mu.Lock()
 	select {
 	case <-lr.stopCh:
+		lr.mu.Unlock()
 		return
 	default:
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	if existing, ok := lr.timers[messageID]; ok {
+		existing.cancel()
+		delete(lr.timers, messageID)
+	}
 
-	t := &timer{cancel: cancel}
+	ctx, cancel := context.WithCancel(context.Background())
+	lr.timers[messageID] = &timerEntry{
+		messageID: messageID,
+		cancel:    cancel,
+	}
+	lr.mu.Unlock()
+
+	timerCh := lr.clock.After(delay)
 
 	lr.wg.Add(1)
 	go func() {
 		defer lr.wg.Done()
 		select {
-		case <-lr.clock.After(delay):
+		case <-timerCh:
 			lr.mu.Lock()
-			delete(lr.timers, msg.ID)
+			delete(lr.timers, messageID)
 			lr.mu.Unlock()
-			lr.advance(msg)
+
+			status, err := lr.advance(ctx, projectID, messageID, simResult)
+			if err == nil && !isTerminalStatus(status) {
+				lr.armTimer(projectID, messageID, delay, simResult)
+			}
 		case <-ctx.Done():
 			return
 		case <-lr.stopCh:
 			return
 		}
 	}()
-
-	lr.timers[msg.ID] = &timerEntry{
-		messageID: msg.ID,
-		timer:     t,
-	}
 }
 
-func (lr *LifecycleRunner) advanceImmediately(msg *Message) {
-	for msg.Status == StatusQueued || msg.Status == StatusSent {
-		lr.advance(msg)
-		if lr.stepDelay > 0 {
-			lr.clock.Sleep(lr.stepDelay)
-		}
+func (lr *LifecycleRunner) advance(ctx context.Context, projectID, messageID string, simResult *SimResult) (MessageStatus, error) {
+	lr.mu.Lock()
+	select {
+	case <-lr.stopCh:
+		lr.mu.Unlock()
+		return "", context.Canceled
+	default:
 	}
-}
+	lr.mu.Unlock()
 
-func (lr *LifecycleRunner) advance(msg *Message) {
+	msg, err := lr.service.store.GetMessage(ctx, projectID, messageID)
+	if err != nil {
+		slog.Error("lifecycle runner: failed to get message", "project_id", projectID, "message_id", messageID, "error", err)
+		return "", err
+	}
+
 	var nextStatus MessageStatus
 	var errCode *string
+	var errMsg *string
 
 	switch msg.Status {
 	case StatusQueued:
 		nextStatus = StatusSent
 	case StatusSent:
-		nextStatus = StatusDelivered
-	default:
-		return
-	}
-
-	if nextStatus == StatusDelivered {
-		if msg.Segments > 1 {
+		if simResult != nil && simResult.AsyncFail != nil {
+			nextStatus = StatusUndelivered
+			errCode = &simResult.AsyncFail.ErrorCode
+			errMsg = &simResult.AsyncFail.ErrorMessage
+		} else {
 			nextStatus = StatusDelivered
 		}
+	default:
+		return msg.Status, nil
 	}
 
 	msg.Status = nextStatus
 	msg.UpdatedAt = lr.clock.Now()
-
-	ctx := context.Background()
+	if errCode != nil {
+		msg.ErrorCode = errCode
+	}
+	if errMsg != nil {
+		msg.ErrorMessage = errMsg
+	}
 
 	if err := lr.service.store.UpdateMessage(ctx, msg); err != nil {
-		return
+		slog.Error("lifecycle runner: failed to update message", "project_id", projectID, "message_id", messageID, "error", err)
+		return "", err
 	}
 
 	event := &StatusEvent{
-		ID:        NewWebhookDeliveryID(),
+		ID:        NewStatusEventID(),
 		MessageID: msg.ID,
 		Status:    nextStatus,
 		ErrorCode: errCode,
 		At:        lr.clock.Now(),
 	}
 	if err := lr.service.store.CreateStatusEvent(ctx, event); err != nil {
-		return
+		slog.Error("lifecycle runner: failed to create status event", "project_id", projectID, "message_id", messageID, "error", err)
+		return "", err
 	}
 
 	lr.service.bus.Publish(ctx, Event{
@@ -138,94 +178,68 @@ func (lr *LifecycleRunner) advance(msg *Message) {
 	})
 
 	if msg.BatchID != nil {
-		batch, err := lr.service.store.GetBatch(ctx, msg.ProjectID, *msg.BatchID)
-		if err == nil {
-			batch.Counts[string(msg.Status)]++
-			if prevCount, ok := batch.Counts[string(prevStatus(msg.Status))]; ok && prevCount > 0 {
-				batch.Counts[string(prevStatus(msg.Status))]--
-			}
-			lr.service.store.UpdateBatch(ctx, batch)
-			lr.service.bus.Publish(ctx, Event{
-				Type:      EventBatchUpdated,
-				Payload:   batch,
-				ProjectID: msg.ProjectID,
-				Timestamp: lr.clock.Now(),
-			})
-		}
+		lr.updateAndPublishBatch(ctx, msg.ProjectID, *msg.BatchID)
 	}
 
-	if nextStatus == StatusSent {
-		delay := lr.stepDelay
-		lr.mu.Lock()
-		select {
-		case <-lr.stopCh:
-			lr.mu.Unlock()
-			return
-		default:
-		}
+	return nextStatus, nil
+}
 
-		ctx, cancel := context.WithCancel(context.Background())
-		t := &timer{cancel: cancel}
+func (lr *LifecycleRunner) updateAndPublishBatch(ctx context.Context, projectID, batchID string) {
+	batch, err := lr.service.store.RecomputeBatchCounts(ctx, projectID, batchID)
+	if err != nil {
+		slog.Error("lifecycle runner: failed to recompute batch counts", "project_id", projectID, "batch_id", batchID, "error", err)
+		return
+	}
 
-		lr.wg.Add(1)
-		go func() {
-			defer lr.wg.Done()
-			select {
-			case <-lr.clock.After(delay):
-				lr.mu.Lock()
-				delete(lr.timers, msg.ID)
-				lr.mu.Unlock()
-				lr.advance(msg)
-			case <-ctx.Done():
-				return
-			case <-lr.stopCh:
-				return
-			}
-		}()
+	lr.batchMu.Lock()
+	lastPublish := lr.lastBatchPublish[batchID]
+	now := lr.clock.Now()
 
-		lr.timers[msg.ID] = &timerEntry{
-			messageID: msg.ID,
-			timer:     t,
-		}
-		lr.mu.Unlock()
+	completed := isBatchComplete(batch)
+	shouldPublish := completed || lastPublish.IsZero() || now.Sub(lastPublish) >= 250*time.Millisecond
+
+	if shouldPublish {
+		lr.lastBatchPublish[batchID] = now
+		lr.batchMu.Unlock()
+		lr.service.bus.Publish(ctx, Event{
+			Type:      EventBatchUpdated,
+			Payload:   batch,
+			ProjectID: projectID,
+			Timestamp: now,
+		})
+	} else {
+		lr.batchMu.Unlock()
 	}
 }
 
-func prevStatus(current MessageStatus) MessageStatus {
-	switch current {
-	case StatusSent:
-		return StatusQueued
-	case StatusDelivered, StatusUndelivered, StatusFailed:
-		return StatusSent
+func isBatchComplete(batch *Batch) bool {
+	if batch.Total == 0 {
+		return true
+	}
+	delivered := batch.Counts[string(StatusDelivered)]
+	undelivered := batch.Counts[string(StatusUndelivered)]
+	failed := batch.Counts[string(StatusFailed)]
+	return delivered+undelivered+failed >= batch.Total
+}
+
+func isTerminalStatus(status MessageStatus) bool {
+	switch status {
+	case StatusDelivered, StatusUndelivered, StatusFailed, StatusReceived:
+		return true
 	default:
-		return current
+		return false
 	}
 }
 
 func (lr *LifecycleRunner) ResumeQueuedAndSent(ctx context.Context) {
-	messages, _, err := lr.service.store.ListMessages(ctx, "", MessageFilter{
-		Status: ptrStatus(StatusQueued),
-		Limit:  1000,
-	})
-	if err == nil {
-		for _, msg := range messages {
-			lr.Schedule(msg, nil)
-		}
+	messages, err := lr.service.store.ListInFlightMessages(ctx)
+	if err != nil {
+		slog.Error("lifecycle runner: failed to list in-flight messages for resume", "error", err)
+		return
 	}
-
-	messages, _, err = lr.service.store.ListMessages(ctx, "", MessageFilter{
-		Status: ptrStatus(StatusSent),
-		Limit:  1000,
-	})
-	if err == nil {
-		for _, msg := range messages {
-			lr.Schedule(msg, nil)
-		}
+	for _, msg := range messages {
+		lr.Schedule(msg.ProjectID, msg.ID, nil)
 	}
-}
-
-func ptrStatus(s MessageStatus) *MessageStatus {
-	return &s
 }
 
 func (lr *LifecycleRunner) Start() {
@@ -237,7 +251,7 @@ func (lr *LifecycleRunner) Stop() {
 		close(lr.stopCh)
 		lr.mu.Lock()
 		for _, entry := range lr.timers {
-			entry.timer.cancel()
+			entry.cancel()
 		}
 		lr.timers = make(map[string]*timerEntry)
 		lr.mu.Unlock()

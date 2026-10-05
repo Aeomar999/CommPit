@@ -130,7 +130,7 @@ func (s *Service) SendMessage(ctx context.Context, projectID string, req SendReq
 		Timestamp: s.clock.Now(),
 	})
 
-	s.lifecycle.Schedule(msg, simResult)
+	s.lifecycle.Schedule(msg.ProjectID, msg.ID, simResult)
 
 	return &SendResponse{Message: msg}, nil
 }
@@ -220,7 +220,7 @@ func (s *Service) sendBatch(ctx context.Context, projectID string, req SendReque
 			ProjectID: projectID,
 			Timestamp: s.clock.Now(),
 		})
-		s.lifecycle.Schedule(msg, &SimResult{})
+		s.lifecycle.Schedule(msg.ProjectID, msg.ID, &SimResult{})
 	}
 
 	s.bus.Publish(ctx, Event{
