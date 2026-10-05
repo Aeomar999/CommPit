@@ -447,7 +447,8 @@ func (h *Handlers) ListMessages(w http.ResponseWriter, r *http.Request) {
 		filter.Channel = &c
 	}
 	if to := r.URL.Query().Get("to"); to != "" {
-		filter.To = &to
+		normalized := core.NormalizePhone(to)
+		filter.To = &normalized
 	}
 	if from := r.URL.Query().Get("from"); from != "" {
 		filter.From = &from
@@ -580,6 +581,9 @@ func (h *Handlers) WaitForMessage(w http.ResponseWriter, r *http.Request) {
 	projectID := h.getProjectID(r)
 
 	to := r.URL.Query().Get("to")
+	if to != "" {
+		to = core.NormalizePhone(to)
+	}
 	channelStr := r.URL.Query().Get("channel")
 	sinceStr := r.URL.Query().Get("since")
 	timeoutStr := r.URL.Query().Get("timeout")

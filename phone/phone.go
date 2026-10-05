@@ -98,3 +98,13 @@ func Parse(input string, mode Mode) (*Parsed, error) {
 		Possible: possible,
 	}, nil
 }
+
+// Normalize returns the E.164 representation of input if it can be parsed in ModePossible,
+// or the trimmed input string if parsing fails.
+func Normalize(input string) string {
+	parsed, err := Parse(input, ModePossible)
+	if err != nil {
+		return strings.TrimSpace(input)
+	}
+	return parsed.E164
+}

@@ -5,6 +5,8 @@ import (
 	"math/rand"
 	"sync"
 	"time"
+
+	"github.com/Aeomar999/CommPit/phone"
 )
 
 type simulatorImpl struct {
@@ -99,8 +101,15 @@ func (s *simulatorImpl) Evaluate(ctx context.Context, projectID string, req Send
 }
 
 func (s *simulatorImpl) matchRule(match SimMatch, projectID string, req SendRequest) bool {
-	if match.To != "" && !matchString(match.To, req.To[0]) {
-		return false
+	if match.To != "" {
+		matchTo := phone.Normalize(match.To)
+		reqTo := ""
+		if len(req.To) > 0 {
+			reqTo = phone.Normalize(req.To[0])
+		}
+		if !matchString(matchTo, reqTo) {
+			return false
+		}
 	}
 	if match.From != "" && !matchString(match.From, req.From) {
 		return false
@@ -121,7 +130,7 @@ func (s *simulatorImpl) matchPatternRules(req SendRequest) bool {
 	if len(req.To) == 0 {
 		return false
 	}
-	to := req.To[0]
+	to := phone.Normalize(req.To[0])
 	if len(to) < 6 {
 		return false
 	}
@@ -133,7 +142,7 @@ func (s *simulatorImpl) applyPatternEffect(req SendRequest) (*Error, *SimResult)
 	if len(req.To) == 0 {
 		return nil, &SimResult{}
 	}
-	to := req.To[0]
+	to := phone.Normalize(req.To[0])
 	if len(to) < 6 {
 		return nil, &SimResult{}
 	}

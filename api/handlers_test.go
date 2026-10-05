@@ -419,3 +419,113 @@ func TestHandlers_ValidationErrorReturns400(t *testing.T) {
 		t.Errorf("expected code validation_error, got %v", errObj["code"])
 	}
 }
+
+func TestHandlers_FormattedRecipientResolvesToConversation(t *testing.T) {
+	router, _, _ := setupTestRouter(t, nil, nil)
+
+	// Send message to formatted recipient
+	sendBody := map[string]any{
+		"from": "+15555550100",
+		"to":   "+1 (500) 555-0006",
+		"body": "Test message",
+	}
+	sendPayload, _ := json.Marshal(sendBody)
+	sendReq := httptest.NewRequest(http.MethodPost, "/sms", bytes.NewReader(sendPayload))
+	sendReq.Header.Set("Content-Type", "application/json")
+	sendRec := httptest.NewRecorder()
+	router.ServeHTTP(sendRec, sendReq)
+
+	if sendRec.Code != http.StatusCreated {
+		t.Fatalf("expected status 201, got %d: %s", sendRec.Code, sendRec.Body.String())
+	}
+
+	// Query with unformatted E.164
+	listReq1 := httptest.NewRequest(http.MethodGet, "/messages?to=%2B15005550006", nil)
+	listRec1 := httptest.NewRecorder()
+	router.ServeHTTP(listRec1, listReq1)
+
+	if listRec1.Code != http.StatusOK {
+		t.Fatalf("list with normalized to failed: %d", listRec1.Code)
+	}
+	var resp1 map[string]any
+	json.Unmarshal(listRec1.Body.Bytes(), &resp1)
+	items1, _ := resp1["messages"].([]any)
+	if len(items1) != 1 {
+		t.Fatalf("expected 1 message for normalized query, got %d (body: %s)", len(items1), listRec1.Body.String())
+	}
+
+	// Query with formatted number (with spaces and parentheses URL-encoded)
+	listReq2 := httptest.NewRequest(http.MethodGet, "/messages?to=%2B1%20(500)%20555-0006", nil)
+	listRec2 := httptest.NewRecorder()
+	router.ServeHTTP(listRec2, listReq2)
+
+	if listRec2.Code != http.StatusOK {
+		t.Fatalf("list with formatted to failed: %d", listRec2.Code)
+	}
+	var resp2 map[string]any
+	json.Unmarshal(listRec2.Body.Bytes(), &resp2)
+	items2, _ := resp2["messages"].([]any)
+	if len(items2) != 1 {
+		t.Fatalf("expected 1 message for formatted query, got %d (body: %s)", len(items2), listRec2.Body.String())
+	}
+}
+
+func TestHandlers_BatchWithRejectedRecipients(t *testing.T) {
+	router, _, _ := setupTestRouter(t, nil, nil)
+
+	batchBody := map[string]any{
+		"from": "+15555550100",
+		"to":   []string{"+1 (500) 555-0006", "invalid-phone", "+15005550001", "+15005550007"},
+		"body": "Batch announcement",
+	}
+	payload, _ := json.Marshal(batchBody)
+	req := httptest.NewRequest(http.MethodPost, "/sms", bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("expected status 202, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var batchResp map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &batchResp); err != nil {
+		t.Fatalf("failed to decode batch response: %v", err)
+	}
+
+	total, _ := batchResp["total"].(float64)
+	if int(total) != 2 {
+		t.Errorf("expected total 2, got %v", total)
+	}
+
+	rejected, ok := batchResp["rejected"].([]any)
+	if !ok || len(rejected) != 2 {
+		t.Fatalf("expected 2 rejected entries, got %v", rejected)
+	}
+}
+
+func TestHandlers_CallbackURLOmittedWhenEmpty(t *testing.T) {
+	router, _, _ := setupTestRouter(t, nil, nil)
+
+	body := map[string]any{
+		"from":         "+15555550100",
+		"to":           "+15005550006",
+		"body":         "No callback test",
+		"callback_url": "",
+	}
+	payload, _ := json.Marshal(body)
+	req := httptest.NewRequest(http.MethodPost, "/sms", bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected status 201, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var msgResp map[string]any
+	json.Unmarshal(rec.Body.Bytes(), &msgResp)
+	if cb, ok := msgResp["callback_url"]; ok && cb != nil && cb != "" {
+		t.Errorf("expected callback_url to be omitted or nil, got %v", cb)
+	}
+}

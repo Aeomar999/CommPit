@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/Aeomar999/CommPit/extract"
@@ -65,22 +66,41 @@ func (s *Service) Clock() Clock {
 }
 
 func (s *Service) SendMessage(ctx context.Context, projectID string, req SendRequest) (*SendResponse, error) {
-	if err := s.validateSendRequest(req); err != nil {
-		return nil, err
-	}
-
 	if len(req.To) > 1 {
 		return s.sendBatch(ctx, projectID, req)
 	}
 
-	to := req.To[0]
+	if err := s.validateSendRequest(req); err != nil {
+		return nil, err
+	}
+
+	to := strings.TrimSpace(req.To[0])
+	if req.Channel == ChannelSMS {
+		parsed, err := phone.Parse(to, s.phoneMode)
+		if err != nil {
+			var pe *phone.Error
+			if errors.As(err, &pe) {
+				return nil, NewError(ErrorCode(pe.Code), pe.Message, pe.Field)
+			}
+			return nil, NewInvalidNumber("invalid phone number", "to")
+		}
+		to = parsed.E164
+	}
+
 	if err := s.validateRecipient(ctx, projectID, to); err != nil {
 		return nil, err
 	}
 
-	simErr, simResult := s.simulator.Evaluate(ctx, projectID, req)
+	simReq := req
+	simReq.To = []string{to}
+	simErr, simResult := s.simulator.Evaluate(ctx, projectID, simReq)
 	if simErr != nil {
 		return nil, simErr
+	}
+
+	var callbackURL *string
+	if cb := strings.TrimSpace(req.CallbackURL); cb != "" {
+		callbackURL = &cb
 	}
 
 	msg := &Message{
@@ -100,7 +120,7 @@ func (s *Service) SendMessage(ctx context.Context, projectID string, req SendReq
 		Encoding:    "",
 		Segments:    0,
 		Status:      StatusQueued,
-		CallbackURL: &req.CallbackURL,
+		CallbackURL: callbackURL,
 		CreatedAt:   s.clock.Now(),
 		UpdatedAt:   s.clock.Now(),
 	}
@@ -136,26 +156,86 @@ func (s *Service) SendMessage(ctx context.Context, projectID string, req SendReq
 }
 
 func (s *Service) sendBatch(ctx context.Context, projectID string, req SendRequest) (*SendResponse, error) {
+	if req.From == "" {
+		return nil, NewValidationError("sender is required", "from")
+	}
+	if len(req.To) == 0 {
+		return nil, NewValidationError("recipient is required", "to")
+	}
+	if req.Channel == ChannelEmail && req.BodyText == "" && req.BodyHTML == "" {
+		return nil, NewValidationError("body_text or body_html is required", "body")
+	}
+
+	var callbackURL *string
+	if cb := strings.TrimSpace(req.CallbackURL); cb != "" {
+		callbackURL = &cb
+	}
+
 	batch := &Batch{
 		ID:        NewBatchID(),
 		ProjectID: projectID,
 		Provider:  req.Provider,
 		Channel:   req.Channel,
-		Total:     len(req.To),
-		Counts: map[string]int{
-			string(StatusQueued): len(req.To),
-		},
+		Total:     0,
+		Counts:    map[string]int{},
 		CreatedAt: s.clock.Now(),
 	}
 
 	var messages []*Message
-	for _, to := range req.To {
-		if err := s.validateRecipient(ctx, projectID, to); err != nil {
+	var simResults []*SimResult
+	var rejected []BatchRejectedRecipient
+
+	for _, rawTo := range req.To {
+		to := strings.TrimSpace(rawTo)
+		if to == "" {
+			rejected = append(rejected, BatchRejectedRecipient{
+				To:      rawTo,
+				Code:    "validation_error",
+				Message: "recipient is required",
+			})
 			continue
 		}
 
-		simErr, _ := s.simulator.Evaluate(ctx, projectID, req)
+		if req.Channel == ChannelSMS {
+			parsed, err := phone.Parse(to, s.phoneMode)
+			if err != nil {
+				var pe *phone.Error
+				code := "invalid_number"
+				msg := "invalid phone number"
+				if errors.As(err, &pe) {
+					code = pe.Code
+					msg = pe.Message
+				}
+				rejected = append(rejected, BatchRejectedRecipient{
+					To:      rawTo,
+					Code:    code,
+					Message: msg,
+				})
+				continue
+			}
+			to = parsed.E164
+		}
+
+		if unsubscribed, err := s.store.IsUnsubscribed(ctx, projectID, to); err != nil {
+			return nil, NewInternal("failed to check unsubscribe: " + err.Error())
+		} else if unsubscribed {
+			rejected = append(rejected, BatchRejectedRecipient{
+				To:      rawTo,
+				Code:    "unsubscribed",
+				Message: "recipient has unsubscribed",
+			})
+			continue
+		}
+
+		singleReq := req
+		singleReq.To = []string{to}
+		simErr, simResult := s.simulator.Evaluate(ctx, projectID, singleReq)
 		if simErr != nil {
+			rejected = append(rejected, BatchRejectedRecipient{
+				To:      rawTo,
+				Code:    string(simErr.Code),
+				Message: simErr.Message,
+			})
 			continue
 		}
 
@@ -177,7 +257,7 @@ func (s *Service) sendBatch(ctx context.Context, projectID string, req SendReque
 			Encoding:    "",
 			Segments:    0,
 			Status:      StatusQueued,
-			CallbackURL: &req.CallbackURL,
+			CallbackURL: callbackURL,
 			CreatedAt:   s.clock.Now(),
 			UpdatedAt:   s.clock.Now(),
 		}
@@ -193,10 +273,12 @@ func (s *Service) sendBatch(ctx context.Context, projectID string, req SendReque
 		}
 
 		messages = append(messages, msg)
+		simResults = append(simResults, simResult)
 	}
 
-	batch.Counts[string(StatusQueued)] = len(messages)
 	batch.Total = len(messages)
+	batch.Counts[string(StatusQueued)] = len(messages)
+	batch.Rejected = rejected
 
 	err := s.store.Transaction(ctx, func(txStore Store) error {
 		if err := txStore.CreateBatch(ctx, batch); err != nil {
@@ -213,14 +295,14 @@ func (s *Service) sendBatch(ctx context.Context, projectID string, req SendReque
 		return nil, NewInternal("failed to create batch: " + err.Error())
 	}
 
-	for _, msg := range messages {
+	for i, msg := range messages {
 		s.bus.Publish(ctx, Event{
 			Type:      EventMessageCreated,
 			Payload:   msg,
 			ProjectID: projectID,
 			Timestamp: s.clock.Now(),
 		})
-		s.lifecycle.Schedule(msg.ProjectID, msg.ID, &SimResult{})
+		s.lifecycle.Schedule(msg.ProjectID, msg.ID, simResults[i])
 	}
 
 	s.bus.Publish(ctx, Event{
@@ -243,6 +325,19 @@ func (s *Service) StartVerification(ctx context.Context, projectID string, req V
 	}
 	if req.Channel != ChannelSMS && req.Channel != ChannelEmail {
 		return nil, NewValidationError("channel must be sms or email", "channel")
+	}
+
+	to := strings.TrimSpace(req.To)
+	if req.Channel == ChannelSMS {
+		parsed, err := phone.Parse(to, s.phoneMode)
+		if err != nil {
+			var pe *phone.Error
+			if errors.As(err, &pe) {
+				return nil, NewError(ErrorCode(pe.Code), pe.Message, pe.Field)
+			}
+			return nil, NewInvalidNumber("invalid phone number", "to")
+		}
+		to = parsed.E164
 	}
 
 	codeLength := req.CodeLength
@@ -277,7 +372,7 @@ func (s *Service) StartVerification(ctx context.Context, projectID string, req V
 		Provider:    req.Provider,
 		ProviderRef: req.ProviderRef,
 		ServiceRef:  req.ServiceRef,
-		To:          req.To,
+		To:          to,
 		Channel:     req.Channel,
 		Code:        code,
 		Status:      VerificationPending,
@@ -290,7 +385,7 @@ func (s *Service) StartVerification(ctx context.Context, projectID string, req V
 	sendReq := SendRequest{
 		Channel:     req.Channel,
 		From:        defaultVerificationSender(req.Channel),
-		To:          []string{req.To},
+		To:          []string{to},
 		BodyText:    s.defaultVerificationText(req.Channel, code, req.ServiceRef),
 		BodyHTML:    "",
 		CallbackURL: "",
@@ -368,20 +463,26 @@ func (s *Service) ReceiveInbound(ctx context.Context, projectID string, req Inbo
 		return nil, NewValidationError("from and to are required", "")
 	}
 
-	if unsubscribed, err := s.store.IsUnsubscribed(ctx, projectID, req.From); err != nil {
-		return nil, NewInternal("failed to check unsubscribe: " + err.Error())
-	} else if unsubscribed {
-		return nil, NewUnsubscribed("recipient has unsubscribed", "from")
+	from := strings.TrimSpace(req.From)
+	to := strings.TrimSpace(req.To)
+	if parsed, err := phone.Parse(from, s.phoneMode); err == nil {
+		from = parsed.E164
+	}
+	if parsed, err := phone.Parse(to, s.phoneMode); err == nil {
+		to = parsed.E164
 	}
 
-	bodyLower := req.Body
-	if isSTOPKeyword(bodyLower) {
-		if err := s.store.CreateUnsubscribe(ctx, &Unsubscribe{ProjectID: projectID, Number: req.From, At: s.clock.Now()}); err != nil {
+	bodyClean := strings.TrimSpace(strings.ToLower(req.Body))
+	if isSTOPKeyword(bodyClean) {
+		if err := s.store.CreateUnsubscribe(ctx, &Unsubscribe{
+			ProjectID: projectID,
+			Number:    from,
+			At:        s.clock.Now(),
+		}); err != nil {
 			return nil, NewInternal("failed to create unsubscribe: " + err.Error())
 		}
-	}
-	if isSTARTKeyword(bodyLower) {
-		if err := s.store.DeleteUnsubscribe(ctx, projectID, req.From); err != nil {
+	} else if isSTARTKeyword(bodyClean) {
+		if err := s.store.DeleteUnsubscribe(ctx, projectID, from); err != nil {
 			return nil, NewInternal("failed to delete unsubscribe: " + err.Error())
 		}
 	}
@@ -392,8 +493,8 @@ func (s *Service) ReceiveInbound(ctx context.Context, projectID string, req Inbo
 		Channel:   ChannelSMS,
 		Direction: DirectionInbound,
 		Provider:  "native",
-		From:      req.From,
-		To:        req.To,
+		From:      from,
+		To:        to,
 		BodyText:  req.Body,
 		Status:    StatusReceived,
 		CreatedAt: s.clock.Now(),
@@ -425,18 +526,16 @@ func (s *Service) validateSendRequest(req SendRequest) error {
 	if len(req.To) == 0 {
 		return NewValidationError("recipient is required", "to")
 	}
-	if req.Channel == ChannelSMS {
-		for _, to := range req.To {
-			parsed, err := phone.Parse(to, s.phoneMode)
-			if err != nil {
-				var pe *phone.Error
-				if errors.As(err, &pe) {
-					return NewError(ErrorCode(pe.Code), pe.Message, pe.Field)
-				}
-				return NewInvalidNumber("invalid phone number", "to")
+	if len(req.To) == 1 && req.Channel == ChannelSMS {
+		parsed, err := phone.Parse(req.To[0], s.phoneMode)
+		if err != nil {
+			var pe *phone.Error
+			if errors.As(err, &pe) {
+				return NewError(ErrorCode(pe.Code), pe.Message, pe.Field)
 			}
-			_ = parsed
+			return NewInvalidNumber("invalid phone number", "to")
 		}
+		_ = parsed
 	}
 	if req.Channel == ChannelEmail {
 		if req.BodyText == "" && req.BodyHTML == "" {
@@ -509,6 +608,12 @@ func defaultVerificationSender(channel Channel) string {
 	return "Verify"
 }
 
+// NormalizePhone returns the E.164 normalized form of a phone number,
+// or the trimmed input if it cannot be parsed.
+func NormalizePhone(number string) string {
+	return phone.Normalize(number)
+}
+
 func generateCode(length int) string {
 	const digits = "0123456789"
 	code := make([]byte, length)
@@ -520,53 +625,19 @@ func generateCode(length int) string {
 }
 
 func isSTOPKeyword(body string) bool {
-	stopKeywords := []string{"stop", "stopall", "unsubscribe", "cancel", "end", "quit"}
-	bodyLower := ""
-	for _, r := range body {
-		if r >= 'A' && r <= 'Z' {
-			bodyLower += string(r + 32)
-		} else {
-			bodyLower += string(r)
-		}
-	}
-	bodyLower = trimSpace(bodyLower)
-	for _, kw := range stopKeywords {
-		if bodyLower == kw {
-			return true
-		}
+	switch strings.TrimSpace(strings.ToLower(body)) {
+	case "stop", "stopall", "unsubscribe", "cancel", "end", "quit":
+		return true
 	}
 	return false
 }
 
 func isSTARTKeyword(body string) bool {
-	startKeywords := []string{"start", "yes", "unstop"}
-	bodyLower := ""
-	for _, r := range body {
-		if r >= 'A' && r <= 'Z' {
-			bodyLower += string(r + 32)
-		} else {
-			bodyLower += string(r)
-		}
-	}
-	bodyLower = trimSpace(bodyLower)
-	for _, kw := range startKeywords {
-		if bodyLower == kw {
-			return true
-		}
+	switch strings.TrimSpace(strings.ToLower(body)) {
+	case "start", "yes", "unstop":
+		return true
 	}
 	return false
-}
-
-func trimSpace(s string) string {
-	start := 0
-	for start < len(s) && (s[start] == ' ' || s[start] == '\t' || s[start] == '\n' || s[start] == '\r') {
-		start++
-	}
-	end := len(s)
-	for end > start && (s[end-1] == ' ' || s[end-1] == '\t' || s[end-1] == '\n' || s[end-1] == '\r') {
-		end--
-	}
-	return s[start:end]
 }
 
 var (

@@ -150,13 +150,20 @@ type StatusEvent struct {
 }
 
 type Batch struct {
-	ID        string         `json:"id"`
-	ProjectID string         `json:"project_id"`
-	Provider  string         `json:"provider"`
-	Channel   Channel        `json:"channel"`
-	Total     int            `json:"total"`
-	Counts    map[string]int `json:"counts"`
-	CreatedAt time.Time      `json:"created_at"`
+	ID        string                   `json:"id"`
+	ProjectID string                   `json:"project_id"`
+	Provider  string                   `json:"provider"`
+	Channel   Channel                  `json:"channel"`
+	Total     int                      `json:"total"`
+	Counts    map[string]int           `json:"counts"`
+	Rejected  []BatchRejectedRecipient `json:"rejected,omitempty"`
+	CreatedAt time.Time                `json:"created_at"`
+}
+
+type BatchRejectedRecipient struct {
+	To      string `json:"to"`
+	Code    string `json:"code"`
+	Message string `json:"message"`
 }
 
 type Verification struct {

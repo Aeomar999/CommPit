@@ -1312,9 +1312,27 @@ components:
           type: object
           additionalProperties:
             type: integer
+        rejected:
+          type: array
+          items:
+            $ref: '#/components/schemas/BatchRejectedRecipient'
         created_at:
           type: string
           format: date-time
+
+    BatchRejectedRecipient:
+      type: object
+      required:
+        - to
+        - code
+        - message
+      properties:
+        to:
+          type: string
+        code:
+          type: string
+        message:
+          type: string
 
     Verification:
       type: object

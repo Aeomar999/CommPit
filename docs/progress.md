@@ -8,14 +8,14 @@ Single source of truth for where the project stands. Update it in every PR that 
 |---|---|
 | **Phase** | M1 in progress |
 | **Current milestone** | M1 |
-| **Next action** | M1-F10: Recipients: store normalised E.164, START after STOP, no empty callbacks, no silent batch drops |
+| **Next action** | M1-F11: Simulator: move to sim, goroutine-safe randomness, correct rule precedence; secure OTP generation |
 | **Last updated** | 2026-10-05 |
 
 ## Milestones
 
 | Milestone | Release | Status | Tasks done |
 |---|---|---|---|
-| M1: Core, native API, SMTP, inbox | v0.1.0 | In progress | 15 / 21 |
+| M1: Core, native API, SMTP, inbox | v0.1.0 | In progress | 16 / 21 |
 | M2: Twilio, Termii, test API, inspector | v0.2.0 | Not started | 0 / 14 |
 | M3: Webhooks, failure simulation, inbound, batches | v0.3.0 | Not started | 0 / 12 |
 | M4: Estimate, MCP, CI kit | v0.4.0 | Not started | 0 / 8 |
@@ -34,6 +34,8 @@ Newest first. One entry per working session: what changed, decisions made, what'
 
 ### 2026-10-05
 
+- Completed M1-F10: Recipient handling - stored and matched recipients in normalized E.164 via phone.Parse/phone.Normalize, applying normalization to ListMessages/WaitForMessage filters, unsubscribe suppression records, and simulator matching. In ReceiveInbound, evaluated STOP and START keywords first using strings.ToLower and strings.TrimSpace, allowed START to remove unsubscribe suppression, and always accepted inbound messages without rejecting on unsubscribe status. Set CallbackURL to nil unless non-empty. In batches, validated and simulated each recipient individually, returning rejected recipients in batch response (openapi schema and core types updated with BatchRejectedRecipient) while delivering all valid recipients. Added tests in core/service_test.go and api/handlers_test.go.
+- **Next:** M1-F11: Simulator: move to sim, goroutine-safe randomness, correct rule precedence; secure OTP generation
 - Completed M1-F08: Lifecycle runner correctness - schedule by message ID instead of shared mutable pointer, reloading from store per transition step to eliminate concurrent data races. Unified transition logic so step-delay 0 loops synchronously without spawning background timers or duplicate events. Applied SimResult with AsyncFail ending in undelivered status with error code. Recomputed batch counts from transactional grouping queries and throttled event publishing to at most every 250ms. Added StatusEventIDPrefix ("sev_") and NewStatusEventID(). Added Store.ListInFlightMessages port method, called ResumeQueuedAndSent on server startup, and created deterministic virtual FakeClock with condition synchronization. All FakeClock and lifecycle concurrency tests pass.
 - **Next:** M1-F10: Recipients: store normalised E.164, START after STOP, no empty callbacks, no silent batch drops
 - Completed M1-F09: SQLite store fixes - enabled foreign_keys(1) and busy_timeout(5000) pragmas on both file and in-memory DSNs so ON DELETE CASCADE triggers across all child tables. Replaced readDBs slice with a single read pool with SetMaxOpenConns(readPoolSize) while writeDB has max 1 connection. Isolated in-memory stores with unique ULIDs (file:mocksms-<ulid>?mode=memory&cache=shared). Wrapped batch insertions in a single transaction in core.Service. Added storetest conformance tests for message cascade deletion, project cascade deletion, and in-memory store isolation. Added 10k batch insert benchmark passing in 0.57s (under 3s requirement).
