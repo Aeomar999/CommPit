@@ -4,18 +4,15 @@ import (
 	"context"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/Aeomar999/CommPit/core"
 	"github.com/Aeomar999/CommPit/store/storetest"
 )
 
 func TestSQLiteStoreConformance(t *testing.T) {
-	// Use in-memory database for testing
-	store, cleanup := newTestStore(t)
-	defer cleanup()
-
 	storetest.RunStoreTests(t, func() (core.Store, func()) {
-		return store, func() {}
+		return newTestStore(t)
 	})
 }
 
@@ -166,6 +163,66 @@ func TestSQLiteStoreBatchInsert(t *testing.T) {
 	gotBatch, _ := store.GetBatch(ctx, prjID, batch.ID)
 	if gotBatch.Total != 3 {
 		t.Errorf("expected batch total 3, got %d", gotBatch.Total)
+	}
+}
+
+func TestSQLiteStoreBatchInsert10k(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping 10k batch insert test in short mode")
+	}
+	store, cleanup := newTestStore(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	prjID := core.NewProjectID()
+	if err := store.CreateProject(ctx, &core.Project{ID: prjID, Name: "test-10k"}); err != nil {
+		t.Fatalf("CreateProject: %v", err)
+	}
+
+	batch := &core.Batch{
+		ID:        core.NewBatchID(),
+		ProjectID: prjID,
+		Provider:  "native",
+		Channel:   core.ChannelSMS,
+		Total:     10000,
+		Counts:    map[string]int{string(core.StatusQueued): 10000},
+		CreatedAt: core.RealClock{}.Now(),
+	}
+	if err := store.CreateBatch(ctx, batch); err != nil {
+		t.Fatalf("CreateBatch: %v", err)
+	}
+
+	start := time.Now()
+	err := store.Transaction(ctx, func(s core.Store) error {
+		for i := 0; i < 10000; i++ {
+			msg := &core.Message{
+				ID:        core.NewMessageID(),
+				ProjectID: prjID,
+				BatchID:   &batch.ID,
+				Channel:   core.ChannelSMS,
+				Direction: core.DirectionOutbound,
+				Provider:  "native",
+				From:      "+15551234567",
+				To:        "+15557654321",
+				BodyText:  "Bulk message",
+				Status:    core.StatusQueued,
+				Segments:  1,
+				Encoding:  "gsm7",
+				CreatedAt: core.RealClock{}.Now(),
+				UpdatedAt: core.RealClock{}.Now(),
+			}
+			if err := s.CreateMessage(ctx, msg); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	elapsed := time.Since(start)
+	if err != nil {
+		t.Fatalf("Transaction: %v", err)
+	}
+	if elapsed > 3*time.Second {
+		t.Errorf("10k batch insert took %v, expected under 3s", elapsed)
 	}
 }
 

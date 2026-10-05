@@ -148,10 +148,6 @@ func (s *Service) sendBatch(ctx context.Context, projectID string, req SendReque
 		CreatedAt: s.clock.Now(),
 	}
 
-	if err := s.store.CreateBatch(ctx, batch); err != nil {
-		return nil, NewInternal("failed to create batch: " + err.Error())
-	}
-
 	var messages []*Message
 	for _, to := range req.To {
 		if err := s.validateRecipient(ctx, projectID, to); err != nil {
@@ -199,10 +195,25 @@ func (s *Service) sendBatch(ctx context.Context, projectID string, req SendReque
 		messages = append(messages, msg)
 	}
 
-	for _, msg := range messages {
-		if err := s.store.CreateMessage(ctx, msg); err != nil {
-			continue
+	batch.Counts[string(StatusQueued)] = len(messages)
+	batch.Total = len(messages)
+
+	err := s.store.Transaction(ctx, func(txStore Store) error {
+		if err := txStore.CreateBatch(ctx, batch); err != nil {
+			return err
 		}
+		for _, msg := range messages {
+			if err := txStore.CreateMessage(ctx, msg); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, NewInternal("failed to create batch: " + err.Error())
+	}
+
+	for _, msg := range messages {
 		s.bus.Publish(ctx, Event{
 			Type:      EventMessageCreated,
 			Payload:   msg,
@@ -210,12 +221,6 @@ func (s *Service) sendBatch(ctx context.Context, projectID string, req SendReque
 			Timestamp: s.clock.Now(),
 		})
 		s.lifecycle.Schedule(msg, &SimResult{})
-	}
-
-	batch.Counts[string(StatusQueued)] = len(messages)
-	batch.Total = len(messages)
-	if err := s.store.UpdateBatch(ctx, batch); err != nil {
-		return nil, NewInternal("failed to update batch: " + err.Error())
 	}
 
 	s.bus.Publish(ctx, Event{

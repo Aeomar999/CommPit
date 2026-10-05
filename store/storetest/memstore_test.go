@@ -20,8 +20,6 @@ type memStore struct {
 	attachments       map[string]*core.Attachment
 	webhookDeliveries map[string]*core.WebhookDelivery
 	requestLogs       map[string]*core.RequestLog
-	inTx              bool
-	txSnapshot        *txSnapshot
 }
 
 type txSnapshot struct {
@@ -163,6 +161,62 @@ func (s *memStore) ListProjects(ctx context.Context, limit int, cursor string) (
 	return result, "", nil
 }
 
+func (s *memStore) DeleteProject(ctx context.Context, id string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.projects, id)
+
+	for k, c := range s.credentials {
+		if c.ProjectID == id {
+			delete(s.credentials, k)
+		}
+	}
+
+	var msgIDs []string
+	for msgID, m := range s.messages {
+		if m.ProjectID == id {
+			delete(s.messages, msgID)
+			msgIDs = append(msgIDs, msgID)
+		}
+	}
+	for _, msgID := range msgIDs {
+		delete(s.statusEvents, msgID)
+		for attID, a := range s.attachments {
+			if a.MessageID == msgID {
+				delete(s.attachments, attID)
+			}
+		}
+	}
+
+	for bID, b := range s.batches {
+		if b.ProjectID == id {
+			delete(s.batches, bID)
+		}
+	}
+
+	for vID, v := range s.verifications {
+		if v.ProjectID == id {
+			delete(s.verifications, vID)
+		}
+	}
+
+	delete(s.unsubscribes, id)
+
+	for wID, w := range s.webhookDeliveries {
+		if w.ProjectID == id {
+			delete(s.webhookDeliveries, wID)
+		}
+	}
+
+	for rID, r := range s.requestLogs {
+		if r.ProjectID == id {
+			delete(s.requestLogs, rID)
+		}
+	}
+
+	return nil
+}
+
 func (s *memStore) CreateCredential(ctx context.Context, c *core.Credential) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -272,6 +326,27 @@ func (s *memStore) DeleteMessages(ctx context.Context, projectID string) error {
 	for id, m := range s.messages {
 		if m.ProjectID == projectID {
 			delete(s.messages, id)
+			delete(s.statusEvents, id)
+			for attID, a := range s.attachments {
+				if a.MessageID == id {
+					delete(s.attachments, attID)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (s *memStore) DeleteMessage(ctx context.Context, projectID, messageID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if m, ok := s.messages[messageID]; ok && m.ProjectID == projectID {
+		delete(s.messages, messageID)
+		delete(s.statusEvents, messageID)
+		for attID, a := range s.attachments {
+			if a.MessageID == messageID {
+				delete(s.attachments, attID)
+			}
 		}
 	}
 	return nil

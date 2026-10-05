@@ -11,6 +11,7 @@ type Store interface {
 	GetProject(ctx context.Context, projectID string) (*Project, error)
 	UpdateProject(ctx context.Context, project *Project) error
 	ListProjects(ctx context.Context, limit int, cursor string) ([]*Project, string, error)
+	DeleteProject(ctx context.Context, id string) error
 
 	CreateCredential(ctx context.Context, cred *Credential) error
 	GetCredential(ctx context.Context, provider, key string) (*Credential, error)
@@ -22,6 +23,7 @@ type Store interface {
 	UpdateMessage(ctx context.Context, msg *Message) error
 	ListMessages(ctx context.Context, projectID string, filter MessageFilter) ([]*Message, string, error)
 	DeleteMessages(ctx context.Context, projectID string) error
+	DeleteMessage(ctx context.Context, projectID, messageID string) error
 
 	CreateStatusEvent(ctx context.Context, event *StatusEvent) error
 	GetStatusEvents(ctx context.Context, messageID string) ([]*StatusEvent, error)

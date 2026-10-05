@@ -45,6 +45,11 @@ func (t *txStore) ListProjects(ctx context.Context, limit int, cursor string) ([
 	return t.base.ListProjects(ctx, limit, cursor)
 }
 
+func (t *txStore) DeleteProject(ctx context.Context, id string) error {
+	_, err := t.tx.ExecContext(ctx, `DELETE FROM projects WHERE id = ?`, id)
+	return err
+}
+
 func (t *txStore) CreateCredential(ctx context.Context, c *core.Credential) error {
 	_, err := t.tx.ExecContext(ctx,
 		`INSERT INTO credentials (id, provider, key, project_id, created_at) VALUES (?, ?, ?, ?, ?)`,
@@ -156,6 +161,11 @@ func (t *txStore) ListMessages(ctx context.Context, projectID string, filter cor
 
 func (t *txStore) DeleteMessages(ctx context.Context, projectID string) error {
 	_, err := t.tx.ExecContext(ctx, `DELETE FROM messages WHERE project_id = ?`, projectID)
+	return err
+}
+
+func (t *txStore) DeleteMessage(ctx context.Context, projectID, messageID string) error {
+	_, err := t.tx.ExecContext(ctx, `DELETE FROM messages WHERE project_id = ? AND id = ?`, projectID, messageID)
 	return err
 }
 

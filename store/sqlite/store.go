@@ -10,13 +10,14 @@ import (
 	"time"
 
 	"github.com/Aeomar999/CommPit/core"
+	"github.com/oklog/ulid/v2"
 	"github.com/pressly/goose/v3"
 	_ "modernc.org/sqlite"
 )
 
 type Store struct {
 	writeDB *sql.DB
-	readDBs []*sql.DB
+	readDB  *sql.DB
 	mu      sync.Mutex
 	closed  bool
 }
@@ -26,60 +27,46 @@ func NewStore(dataDir string, readPoolSize int) (*Store, error) {
 		readPoolSize = 4
 	}
 
-	writeDB, err := openDB(dataDir, true)
+	var dsn string
+	if dataDir == ":memory:" {
+		dsn = fmt.Sprintf("file:mocksms-%s?mode=memory&cache=shared&_pragma=busy_timeout(5000)&_pragma=foreign_keys(1)", ulid.Make().String())
+	} else {
+		// Use filepath.ToSlash to ensure forward slashes for SQLite URI
+		dataDir = filepath.ToSlash(dataDir)
+		dsn = fmt.Sprintf("file:%s/mocksms.db?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)&_pragma=foreign_keys(1)", dataDir)
+	}
+
+	writeDB, err := openDB(dsn, 1)
 	if err != nil {
 		return nil, fmt.Errorf("open write db: %w", err)
 	}
 
-	readDBs := make([]*sql.DB, readPoolSize)
-	for i := 0; i < readPoolSize; i++ {
-		readDB, err := openDB(dataDir, false)
-		if err != nil {
-			writeDB.Close()
-			for j := 0; j < i; j++ {
-				readDBs[j].Close()
-			}
-			return nil, fmt.Errorf("open read db %d: %w", i, err)
-		}
-		readDBs[i] = readDB
+	readDB, err := openDB(dsn, readPoolSize)
+	if err != nil {
+		writeDB.Close()
+		return nil, fmt.Errorf("open read db: %w", err)
 	}
 
 	if err := runMigrations(writeDB); err != nil {
 		writeDB.Close()
-		for _, db := range readDBs {
-			db.Close()
-		}
+		readDB.Close()
 		return nil, fmt.Errorf("run migrations: %w", err)
 	}
 
 	return &Store{
 		writeDB: writeDB,
-		readDBs: readDBs,
+		readDB:  readDB,
 	}, nil
 }
 
-func openDB(dataDir string, write bool) (*sql.DB, error) {
-	var dsn string
-	if dataDir == ":memory:" {
-		dsn = "file::memory:?cache=shared"
-	} else {
-		// Use filepath.ToSlash to ensure forward slashes for SQLite URI
-		dataDir = filepath.ToSlash(dataDir)
-		dsn = fmt.Sprintf("file:%s/mocksms.db?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=synchronous(NORMAL)", dataDir)
-	}
-
+func openDB(dsn string, maxConns int) (*sql.DB, error) {
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, err
 	}
 
-	if write {
-		db.SetMaxOpenConns(1)
-		db.SetMaxIdleConns(1)
-	} else {
-		db.SetMaxOpenConns(1)
-		db.SetMaxIdleConns(1)
-	}
+	db.SetMaxOpenConns(maxConns)
+	db.SetMaxIdleConns(maxConns)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -105,10 +92,10 @@ func runMigrations(db *sql.DB) error {
 func (s *Store) getReadDB() *sql.DB {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.closed || len(s.readDBs) == 0 {
+	if s.closed || s.readDB == nil {
 		return s.writeDB
 	}
-	return s.readDBs[0]
+	return s.readDB
 }
 
 func (s *Store) getWriteDB() *sql.DB {
@@ -129,8 +116,8 @@ func (s *Store) Close() error {
 	if err := s.writeDB.Close(); err != nil {
 		errs = append(errs, err)
 	}
-	for _, db := range s.readDBs {
-		if err := db.Close(); err != nil {
+	if s.readDB != nil {
+		if err := s.readDB.Close(); err != nil {
 			errs = append(errs, err)
 		}
 	}
@@ -176,17 +163,4 @@ type txStore struct {
 func (t *txStore) Transaction(ctx context.Context, fn func(core.Store) error) error {
 	// Nested transactions not supported, just execute the function
 	return fn(t)
-}
-
-func (t *txStore) execContext(ctx context.Context, query string, args ...interface{}) error {
-	_, err := t.tx.ExecContext(ctx, query, args...)
-	return err
-}
-
-func (t *txStore) queryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error) {
-	return t.tx.QueryContext(ctx, query, args...)
-}
-
-func (t *txStore) queryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row {
-	return t.tx.QueryRowContext(ctx, query, args...)
 }

@@ -75,6 +75,10 @@ func (s *Store) ListProjects(ctx context.Context, limit int, cursor string) ([]*
 	return projects, nextCursor, nil
 }
 
+func (s *Store) DeleteProject(ctx context.Context, id string) error {
+	return s.execContext(ctx, `DELETE FROM projects WHERE id = ?`, id)
+}
+
 func (s *Store) CreateCredential(ctx context.Context, c *core.Credential) error {
 	err := s.execContext(ctx,
 		`INSERT INTO credentials (id, provider, key, project_id, created_at) VALUES (?, ?, ?, ?, ?)`,
@@ -308,6 +312,10 @@ func (s *Store) ListMessages(ctx context.Context, projectID string, filter core.
 func (s *Store) DeleteMessages(ctx context.Context, projectID string) error {
 	err := s.execContext(ctx, `DELETE FROM messages WHERE project_id = ?`, projectID)
 	return err
+}
+
+func (s *Store) DeleteMessage(ctx context.Context, projectID, messageID string) error {
+	return s.execContext(ctx, `DELETE FROM messages WHERE project_id = ? AND id = ?`, projectID, messageID)
 }
 
 func (s *Store) CreateStatusEvent(ctx context.Context, e *core.StatusEvent) error {

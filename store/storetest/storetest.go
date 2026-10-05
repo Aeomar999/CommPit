@@ -1,6 +1,7 @@
 package storetest
 
 import (
+	"bytes"
 	"context"
 	"testing"
 	"time"
@@ -341,6 +342,24 @@ func RunStoreTests(t *testing.T, newStore func() (core.Store, func())) {
 			t.Fatalf("CreateProject: %v", err)
 		}
 
+		msg := &core.Message{
+			ID:        core.NewMessageID(),
+			ProjectID: prjID,
+			Channel:   core.ChannelSMS,
+			Direction: core.DirectionOutbound,
+			Provider:  "native",
+			From:      "+15551234567",
+			To:        "+15551234567",
+			BodyText:  "code: 123456",
+			Status:    core.StatusQueued,
+			Segments:  1,
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		}
+		if err := store.CreateMessage(ctx, msg); err != nil {
+			t.Fatalf("CreateMessage: %v", err)
+		}
+
 		// CreateVerification
 		v := &core.Verification{
 			ID:          core.NewVerificationID(),
@@ -354,7 +373,7 @@ func RunStoreTests(t *testing.T, newStore func() (core.Store, func())) {
 			Attempts:    0,
 			MaxAttempts: 5,
 			ExpiresAt:   time.Now().Add(10 * time.Minute),
-			MessageID:   core.NewMessageID(),
+			MessageID:   msg.ID,
 			CreatedAt:   time.Now(),
 		}
 		if err := store.CreateVerification(ctx, v); err != nil {
@@ -484,13 +503,20 @@ func RunStoreTests(t *testing.T, newStore func() (core.Store, func())) {
 		}
 
 		// CreateAttachment
+		blobID := core.NewBlobID()
+		if blobStore, ok := store.(core.BlobStore); ok {
+			if _, err := blobStore.Put(ctx, blobID, bytes.NewReader([]byte("test attachment content"))); err != nil {
+				t.Fatalf("Put blob: %v", err)
+			}
+		}
+
 		att := &core.Attachment{
 			ID:          core.NewAttachmentID(),
 			MessageID:   msg.ID,
 			Filename:    "test.txt",
 			ContentType: "text/plain",
 			Size:        123,
-			BlobID:      core.NewBlobID(),
+			BlobID:      blobID,
 			InlineCID:   "",
 		}
 		if err := store.CreateAttachment(ctx, att); err != nil {
@@ -713,6 +739,295 @@ func RunStoreTests(t *testing.T, newStore func() (core.Store, func())) {
 		messages, _, _ = store.ListMessages(ctx, prjID, core.MessageFilter{Limit: 10})
 		if len(messages) != 1 {
 			t.Errorf("expected 1 message after rolled back transaction, got %d", len(messages))
+		}
+	})
+
+	t.Run("CascadeDeleteMessage", func(t *testing.T) {
+		store, cleanup := newStore()
+		defer cleanup()
+		ctx := context.Background()
+
+		prj := &core.Project{
+			ID:        core.NewProjectID(),
+			Name:      "test-cascade-msg",
+			Settings:  map[string]interface{}{},
+			CreatedAt: time.Now(),
+		}
+		if err := store.CreateProject(ctx, prj); err != nil {
+			t.Fatalf("CreateProject: %v", err)
+		}
+
+		msg := &core.Message{
+			ID:        core.NewMessageID(),
+			ProjectID: prj.ID,
+			Channel:   core.ChannelSMS,
+			Direction: core.DirectionOutbound,
+			Provider:  "native",
+			From:      "+15551234567",
+			To:        "+15557654321",
+			BodyText:  "Hello",
+			Status:    core.StatusQueued,
+			Segments:  1,
+			Encoding:  "gsm7",
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		}
+		if err := store.CreateMessage(ctx, msg); err != nil {
+			t.Fatalf("CreateMessage: %v", err)
+		}
+
+		event := &core.StatusEvent{
+			ID:        core.NewWebhookDeliveryID(),
+			MessageID: msg.ID,
+			Status:    core.StatusSent,
+			At:        time.Now(),
+		}
+		if err := store.CreateStatusEvent(ctx, event); err != nil {
+			t.Fatalf("CreateStatusEvent: %v", err)
+		}
+
+		blobStore, isBlobStore := store.(core.BlobStore)
+		blobID := "blob_123"
+		if isBlobStore {
+			_, err := blobStore.Put(ctx, blobID, bytes.NewReader([]byte("attachment data")))
+			if err != nil {
+				t.Fatalf("Put blob: %v", err)
+			}
+		}
+
+		att := &core.Attachment{
+			ID:          core.NewAttachmentID(),
+			MessageID:   msg.ID,
+			Filename:    "test.txt",
+			ContentType: "text/plain",
+			Size:        15,
+			BlobID:      blobID,
+		}
+		if err := store.CreateAttachment(ctx, att); err != nil {
+			t.Fatalf("CreateAttachment: %v", err)
+		}
+
+		// Delete the message
+		if err := store.DeleteMessage(ctx, prj.ID, msg.ID); err != nil {
+			t.Fatalf("DeleteMessage: %v", err)
+		}
+
+		// Message should be gone
+		_, err := store.GetMessage(ctx, prj.ID, msg.ID)
+		if err == nil {
+			t.Error("expected message to be deleted")
+		}
+
+		// Status events should be gone
+		events, err := store.GetStatusEvents(ctx, msg.ID)
+		if err != nil {
+			t.Fatalf("GetStatusEvents: %v", err)
+		}
+		if len(events) != 0 {
+			t.Errorf("expected 0 status events after message delete, got %d", len(events))
+		}
+
+		// Attachments should be gone
+		atts, err := store.ListAttachments(ctx, msg.ID)
+		if err != nil {
+			t.Fatalf("ListAttachments: %v", err)
+		}
+		if len(atts) != 0 {
+			t.Errorf("expected 0 attachments after message delete, got %d", len(atts))
+		}
+	})
+
+	t.Run("CascadeDeleteProject", func(t *testing.T) {
+		store, cleanup := newStore()
+		defer cleanup()
+		ctx := context.Background()
+
+		prj := &core.Project{
+			ID:        core.NewProjectID(),
+			Name:      "test-cascade-prj",
+			Settings:  map[string]interface{}{},
+			CreatedAt: time.Now(),
+		}
+		if err := store.CreateProject(ctx, prj); err != nil {
+			t.Fatalf("CreateProject: %v", err)
+		}
+
+		cred := &core.Credential{
+			ID:        "crd_1",
+			Provider:  "native",
+			Key:       "key_" + prj.ID,
+			ProjectID: prj.ID,
+			CreatedAt: time.Now(),
+		}
+		if err := store.CreateCredential(ctx, cred); err != nil {
+			t.Fatalf("CreateCredential: %v", err)
+		}
+
+		msg := &core.Message{
+			ID:        core.NewMessageID(),
+			ProjectID: prj.ID,
+			Channel:   core.ChannelSMS,
+			Direction: core.DirectionOutbound,
+			Provider:  "native",
+			From:      "+15551234567",
+			To:        "+15557654321",
+			BodyText:  "Hello",
+			Status:    core.StatusQueued,
+			Segments:  1,
+			Encoding:  "gsm7",
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		}
+		if err := store.CreateMessage(ctx, msg); err != nil {
+			t.Fatalf("CreateMessage: %v", err)
+		}
+
+		batch := &core.Batch{
+			ID:        core.NewBatchID(),
+			ProjectID: prj.ID,
+			Provider:  "native",
+			Channel:   core.ChannelSMS,
+			Total:     1,
+			Counts:    map[string]int{string(core.StatusQueued): 1},
+			CreatedAt: time.Now(),
+		}
+		if err := store.CreateBatch(ctx, batch); err != nil {
+			t.Fatalf("CreateBatch: %v", err)
+		}
+
+		vrf := &core.Verification{
+			ID:          core.NewVerificationID(),
+			ProjectID:   prj.ID,
+			Provider:    "native",
+			ProviderRef: "vrf_ref_" + prj.ID,
+			To:          "+15557654321",
+			Channel:     core.ChannelSMS,
+			Code:        "123456",
+			Status:      core.VerificationPending,
+			Attempts:    0,
+			MaxAttempts: 5,
+			ExpiresAt:   time.Now().Add(10 * time.Minute),
+			MessageID:   msg.ID,
+			CreatedAt:   time.Now(),
+		}
+		if err := store.CreateVerification(ctx, vrf); err != nil {
+			t.Fatalf("CreateVerification: %v", err)
+		}
+
+		unsub := &core.Unsubscribe{
+			ProjectID: prj.ID,
+			Number:    "+15557654321",
+			At:        time.Now(),
+		}
+		if err := store.CreateUnsubscribe(ctx, unsub); err != nil {
+			t.Fatalf("CreateUnsubscribe: %v", err)
+		}
+
+		reqLog := &core.RequestLog{
+			ID:             core.NewRequestLogID(),
+			ProjectID:      prj.ID,
+			Adapter:        "native",
+			Method:         "POST",
+			Path:           "/sms",
+			RequestHeaders: map[string]string{},
+			RequestBody:    []byte("{}"),
+			ResponseStatus: 200,
+			ResponseBody:   []byte("{}"),
+			DurationMS:     10,
+			CreatedAt:      time.Now(),
+		}
+		if err := store.CreateRequestLog(ctx, reqLog); err != nil {
+			t.Fatalf("CreateRequestLog: %v", err)
+		}
+
+		// Delete the project
+		if err := store.DeleteProject(ctx, prj.ID); err != nil {
+			t.Fatalf("DeleteProject: %v", err)
+		}
+
+		// Project itself should be gone
+		_, err := store.GetProject(ctx, prj.ID)
+		if err == nil {
+			t.Error("expected project to be deleted")
+		}
+
+		// Credentials should be gone
+		creds, err := store.ListCredentials(ctx, prj.ID)
+		if err != nil {
+			t.Fatalf("ListCredentials: %v", err)
+		}
+		if len(creds) != 0 {
+			t.Errorf("expected 0 credentials after project delete, got %d", len(creds))
+		}
+
+		// Messages should be gone
+		msgs, _, err := store.ListMessages(ctx, prj.ID, core.MessageFilter{Limit: 10})
+		if err != nil {
+			t.Fatalf("ListMessages: %v", err)
+		}
+		if len(msgs) != 0 {
+			t.Errorf("expected 0 messages after project delete, got %d", len(msgs))
+		}
+
+		// Batches should be gone
+		batches, _, err := store.ListBatches(ctx, prj.ID, 10, "")
+		if err != nil {
+			t.Fatalf("ListBatches: %v", err)
+		}
+		if len(batches) != 0 {
+			t.Errorf("expected 0 batches after project delete, got %d", len(batches))
+		}
+
+		// Verifications should be gone
+		vrfs, _, err := store.ListVerifications(ctx, prj.ID, 10, "")
+		if err != nil {
+			t.Fatalf("ListVerifications: %v", err)
+		}
+		if len(vrfs) != 0 {
+			t.Errorf("expected 0 verifications after project delete, got %d", len(vrfs))
+		}
+
+		// Unsubscribes should be gone
+		unsubbed, err := store.IsUnsubscribed(ctx, prj.ID, "+15557654321")
+		if err != nil {
+			t.Fatalf("IsUnsubscribed: %v", err)
+		}
+		if unsubbed {
+			t.Error("expected number to not be unsubscribed after project delete")
+		}
+
+		// Request logs should be gone
+		logs, _, err := store.ListRequestLogs(ctx, prj.ID, 10, "")
+		if err != nil {
+			t.Fatalf("ListRequestLogs: %v", err)
+		}
+		if len(logs) != 0 {
+			t.Errorf("expected 0 request logs after project delete, got %d", len(logs))
+		}
+	})
+
+	t.Run("StoreIsolation", func(t *testing.T) {
+		store1, cleanup1 := newStore()
+		defer cleanup1()
+		store2, cleanup2 := newStore()
+		defer cleanup2()
+
+		ctx := context.Background()
+
+		prj := &core.Project{
+			ID:        core.NewProjectID(),
+			Name:      "isolated-prj-1",
+			Settings:  map[string]interface{}{},
+			CreatedAt: time.Now(),
+		}
+		if err := store1.CreateProject(ctx, prj); err != nil {
+			t.Fatalf("store1.CreateProject: %v", err)
+		}
+
+		// store2 must NOT see store1's project
+		_, err := store2.GetProject(ctx, prj.ID)
+		if err == nil {
+			t.Error("store2 should not see store1's project")
 		}
 	})
 }
