@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"net/http"
@@ -53,9 +54,12 @@ func main() {
 }
 
 func run(cfg *config.Config) error {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
+	return runWithContext(ctx, cfg)
+}
 
+func runWithContext(ctx context.Context, cfg *config.Config) error {
 	var dataDir string
 	if cfg.Memory {
 		dataDir = ":memory:"
@@ -116,42 +120,34 @@ func run(cfg *config.Config) error {
 		IdleTimeout:  120 * time.Second,
 	}
 
-	go func() {
-		<-ctx.Done()
-		service.Shutdown()
-	}()
-
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		<-sigCh
-		fmt.Println("Shutting down...")
-		cancel()
-	}()
-
+	serverErrCh := make(chan error, 1)
 	go func() {
 		fmt.Printf("Starting HTTP server on %s:%d\n", cfg.HTTP.Host, cfg.HTTP.Port)
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			fmt.Fprintf(os.Stderr, "HTTP server error: %v\n", err)
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			serverErrCh <- err
 		}
 	}()
 
-	go func() {
-		fmt.Printf("Starting SMTP server on %s:%d\n", cfg.SMTP.Host, cfg.SMTP.Port)
-		// TODO: start SMTP server
-	}()
+	var runErr error
+	select {
+	case <-ctx.Done():
+		fmt.Println("Shutting down...")
+	case err := <-serverErrCh:
+		runErr = fmt.Errorf("HTTP server error: %w", err)
+	}
 
-	<-ctx.Done()
-
+	// 1. Drain HTTP server (architecture.md §7)
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer shutdownCancel()
 
-	if err := server.Shutdown(shutdownCtx); err != nil {
+	if err := server.Shutdown(shutdownCtx); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		fmt.Fprintf(os.Stderr, "Server shutdown error: %v\n", err)
 	}
 
+	// 2. Stop lifecycle runner
 	service.Shutdown()
-	store.Close()
 
-	return nil
+	// 3. store.Close() is called by defer
+
+	return runErr
 }

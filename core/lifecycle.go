@@ -13,6 +13,7 @@ type LifecycleRunner struct {
 	timers    map[string]*timerEntry
 	mu        sync.Mutex
 	stopCh    chan struct{}
+	stopOnce  sync.Once
 	wg        sync.WaitGroup
 }
 
@@ -49,11 +50,19 @@ func (lr *LifecycleRunner) Schedule(msg *Message, simResult *SimResult) {
 	lr.mu.Lock()
 	defer lr.mu.Unlock()
 
+	select {
+	case <-lr.stopCh:
+		return
+	default:
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 
 	t := &timer{cancel: cancel}
 
+	lr.wg.Add(1)
 	go func() {
+		defer lr.wg.Done()
 		select {
 		case <-lr.clock.After(delay):
 			lr.mu.Lock()
@@ -148,10 +157,19 @@ func (lr *LifecycleRunner) advance(msg *Message) {
 	if nextStatus == StatusSent {
 		delay := lr.stepDelay
 		lr.mu.Lock()
+		select {
+		case <-lr.stopCh:
+			lr.mu.Unlock()
+			return
+		default:
+		}
+
 		ctx, cancel := context.WithCancel(context.Background())
 		t := &timer{cancel: cancel}
 
+		lr.wg.Add(1)
 		go func() {
+			defer lr.wg.Done()
 			select {
 			case <-lr.clock.After(delay):
 				lr.mu.Lock()
@@ -215,12 +233,14 @@ func (lr *LifecycleRunner) Start() {
 }
 
 func (lr *LifecycleRunner) Stop() {
-	close(lr.stopCh)
-	lr.mu.Lock()
-	for _, entry := range lr.timers {
-		entry.timer.cancel()
-	}
-	lr.timers = make(map[string]*timerEntry)
-	lr.mu.Unlock()
+	lr.stopOnce.Do(func() {
+		close(lr.stopCh)
+		lr.mu.Lock()
+		for _, entry := range lr.timers {
+			entry.timer.cancel()
+		}
+		lr.timers = make(map[string]*timerEntry)
+		lr.mu.Unlock()
+	})
 	lr.wg.Wait()
 }

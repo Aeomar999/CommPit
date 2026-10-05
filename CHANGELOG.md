@@ -33,3 +33,4 @@ Provider-compatible adapters follow the real providers' behavior. Fixes that mak
 
 - CI configuration: migrated golangci-lint to v2 config (depguard disabled temporarily, re-enable in M1-F13), gated web jobs on web/ folder existence, aligned Go version to 1.26, ran `go mod tidy` and `gofmt -w`
 - Native API error responses: preserve canonical error codes (invalid_number, rate_limited, verification_not_found, not_found, unauthorized) and HTTP status codes instead of rewriting to 500 internal; ensure Content-Type: application/json is preserved on all success and error responses by calling render.Status before render.JSON (M1-F04)
+- Clean shutdown and startup: make LifecycleRunner.Stop idempotent with sync.Once and wait for timer goroutines with sync.WaitGroup; eliminate duplicate shutdown and store close calls in cmd/mocksms; fail fast with exit code 1 on HTTP server startup errors instead of hanging; remove premature SMTP server log line (M1-F05)
