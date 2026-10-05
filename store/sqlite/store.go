@@ -3,9 +3,9 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"embed"
 	"fmt"
 	"path/filepath"
-	"runtime"
 	"sync"
 	"time"
 
@@ -91,14 +91,15 @@ func openDB(dataDir string, write bool) (*sql.DB, error) {
 	return db, nil
 }
 
-func runMigrations(db *sql.DB) error {
-	_, filename, _, _ := runtime.Caller(0)
-	dir := filepath.Dir(filename)
-	migrationsDir := filepath.Join(dir, "migrations")
+//go:embed migrations/*.sql
+var migrations embed.FS
 
-	// Set dialect explicitly for SQLite
-	goose.SetDialect("sqlite3")
-	return goose.Up(db, migrationsDir)
+func runMigrations(db *sql.DB) error {
+	goose.SetBaseFS(migrations)
+	if err := goose.SetDialect("sqlite3"); err != nil {
+		return err
+	}
+	return goose.Up(db, "migrations")
 }
 
 func (s *Store) getReadDB() *sql.DB {

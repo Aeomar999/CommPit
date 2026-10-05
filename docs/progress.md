@@ -8,7 +8,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 |---|---|
 | **Phase** | M1 in progress |
 | **Current milestone** | M1 |
-| **Next action** | M1-F06: Embed database migrations in the binary |
+| **Next action** | M1-F09: SQLite store: foreign keys on, real read pool, isolated in-memory stores, transactional batch insert |
 | **Last updated** | 2026-10-05 |
 
 ## Milestones
@@ -34,8 +34,9 @@ Newest first. One entry per working session: what changed, decisions made, what'
 
 ### 2026-10-05
 
+- Completed M1-F06: Embed database migrations in binary - replaced runtime filesystem path lookups via runtime.Caller(0) with Go embed.FS (//go:embed migrations/*.sql) and goose.SetBaseFS(migrations). Verified binary compiles and executes outside repository with an empty data directory, creating the schema cleanly.
+- **Next:** M1-F09: SQLite store: foreign keys on, real read pool, isolated in-memory stores, transactional batch insert
 - Completed M1-F05: Clean shutdown and startup failures - made LifecycleRunner.Stop idempotent with sync.Once and tracked active timers with sync.WaitGroup. In cmd/mocksms, eliminated double shutdown and double store close, used signal.NotifyContext, routed ListenAndServe errors via error channel to exit with code 1 on port conflicts, and removed premature SMTP server log line. Added tests in cmd/mocksms/main_test.go and core/lifecycle_test.go.
-- **Next:** M1-F06: Embed database migrations in the binary
 - Completed M1-F04: API error responses now use `writeError` taking only the error, resolving canonical `*core.Error` via `errors.As` with proper HTTP status codes (`invalid_number` → 400, `rate_limited` → 429, `verification_not_found`/`not_found` → 404, `unauthorized` → 401). Unexpected errors are logged via `slog.Error` and masked as 500 `internal`. Fixed response header ordering by calling `render.Status` before `render.JSON` to ensure `Content-Type: application/json` is sent on all success and error responses. Added comprehensive unit tests in `api/handlers_test.go`.
 
 - Completed M1-F07: Fixed event bus data race and subscription leak - used atomic.Bool for subscription closed state, Unsubscribe now removes subscription from slice under bus lock, Publish copies subscriber slice under lock and calls handlers outside lock, uses ULID for IDs. TestEventBus_ConcurrentPublishSubscribe passes under -race 100x.
