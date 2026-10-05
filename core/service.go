@@ -2,7 +2,9 @@ package core
 
 import (
 	"context"
+	cryptoRand "crypto/rand"
 	"errors"
+	"math/big"
 	"strings"
 	"time"
 
@@ -41,6 +43,9 @@ func NewService(cfg ServiceConfig) *Service {
 	}
 	if cfg.PhoneMode == 0 {
 		cfg.PhoneMode = phone.ModeValid
+	}
+	if cfg.Simulator == nil {
+		cfg.Simulator = NoopSimulator{}
 	}
 	s := &Service{
 		store:        cfg.Store,
@@ -617,9 +622,14 @@ func NormalizePhone(number string) string {
 func generateCode(length int) string {
 	const digits = "0123456789"
 	code := make([]byte, length)
+	maxDigit := big.NewInt(10)
 	for i := range code {
-		code[i] = digits[time.Now().UnixNano()%10]
-		time.Sleep(1)
+		n, err := cryptoRand.Int(cryptoRand.Reader, maxDigit)
+		if err != nil {
+			code[i] = digits[0]
+			continue
+		}
+		code[i] = digits[n.Int64()]
 	}
 	return string(code)
 }

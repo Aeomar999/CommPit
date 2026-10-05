@@ -59,8 +59,8 @@ Same rules as every task: test first, `task test` and `task lint` green, one com
 | [x] | M1-F08 | Lifecycle runner: no shared mutable messages, single step-delay-0 path, apply sim results, batch counts, resume on startup | Critical | M1-F07, M1-F09 |
 | [x] | M1-F09 | SQLite store: foreign keys on, real read pool, isolated in-memory stores, transactional batch insert | High | M1-F06 |
 | [x] | M1-F10 | Recipients: store normalised E.164, START after STOP, no empty callbacks, no silent batch drops | High | M1-F09 |
-| [~] | M1-F11 | Simulator: move to `sim`, goroutine-safe randomness, correct rule precedence; secure OTP generation | High | M1-F08 |
-| [ ] | M1-F12 | Verification checks: atomic attempts, native API statuses per spec §7.2 | Medium | M1-F04 |
+| [x] | M1-F11 | Simulator: move to `sim`, goroutine-safe randomness, correct rule precedence; secure OTP generation | High | M1-F08 |
+| [~] | M1-F12 | Verification checks: atomic attempts, native API statuses per spec §7.2 | Medium | M1-F04 |
 | [ ] | M1-F13 | API scoping: `?project=` only where allowed, scoped reset, typed context key, `api` depends on `core.Bus` | High | M1-F04 |
 | [ ] | M1-F14 | Long-lived requests: SSE and `messages/wait` survive timeouts, SSE project filter, wait semantics | High | M1-F13 |
 | [ ] | M1-F15 | Spec-first API: generate the server from `openapi.yaml` and fail CI on drift | Medium | M1-F13, M1-F14 |

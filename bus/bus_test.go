@@ -203,8 +203,10 @@ func TestEventBus_ConcurrentPublishSubscribe(t *testing.T) {
 
 	var wg sync.WaitGroup
 	var mu sync.Mutex
+	var subscribed sync.WaitGroup
 	received := 0
 
+	subscribed.Add(10)
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
 		go func() {
@@ -214,10 +216,13 @@ func TestEventBus_ConcurrentPublishSubscribe(t *testing.T) {
 				received++
 				mu.Unlock()
 			})
-			time.Sleep(time.Millisecond)
+			subscribed.Done()
+			time.Sleep(5 * time.Millisecond)
 			sub.Unsubscribe()
 		}()
 	}
+
+	subscribed.Wait()
 
 	ctx := context.Background()
 	for i := 0; i < 100; i++ {

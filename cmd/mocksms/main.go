@@ -16,6 +16,7 @@ import (
 	"github.com/Aeomar999/CommPit/config"
 	"github.com/Aeomar999/CommPit/core"
 	"github.com/Aeomar999/CommPit/phone"
+	"github.com/Aeomar999/CommPit/sim"
 	"github.com/Aeomar999/CommPit/store/sqlite"
 )
 
@@ -77,7 +78,7 @@ func runWithContext(ctx context.Context, cfg *config.Config) error {
 
 	eventBus := bus.NewEventBus()
 
-	simulator := core.NewSimulator()
+	simulator := sim.NewSimulator()
 	simulator.SetLatency(cfg.Sim.Latency)
 	simulator.SetFailureRate(cfg.Sim.FailureRate)
 

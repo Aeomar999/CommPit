@@ -132,9 +132,27 @@ type SimRule struct {
 
 type Simulator interface {
 	Evaluate(ctx context.Context, projectID string, req SendRequest) (*Error, *SimResult)
+	SetRules(rules []SimRule)
 	SetLatency(latency time.Duration)
 	SetFailureRate(rate float64)
 }
+
+// NoopSimulator is a no-op implementation of Simulator.
+type NoopSimulator struct{}
+
+// Evaluate implements Simulator.
+func (NoopSimulator) Evaluate(ctx context.Context, projectID string, req SendRequest) (*Error, *SimResult) {
+	return nil, &SimResult{}
+}
+
+// SetRules implements Simulator.
+func (NoopSimulator) SetRules(_ []SimRule) {}
+
+// SetLatency implements Simulator.
+func (NoopSimulator) SetLatency(_ time.Duration) {}
+
+// SetFailureRate implements Simulator.
+func (NoopSimulator) SetFailureRate(_ float64) {}
 
 type Clock interface {
 	Now() time.Time

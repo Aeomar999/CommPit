@@ -7,6 +7,7 @@ import (
 
 	"github.com/Aeomar999/CommPit/bus"
 	"github.com/Aeomar999/CommPit/core"
+	"github.com/Aeomar999/CommPit/sim"
 )
 
 func TestSQLiteStore_VerificationFlow(t *testing.T) {
@@ -23,7 +24,7 @@ func TestSQLiteStore_VerificationFlow(t *testing.T) {
 	}
 
 	bus := bus.NewEventBus()
-	simulator := core.NewSimulator()
+	simulator := sim.NewSimulator()
 	fakeClock := core.NewFakeClock()
 
 	service := core.NewService(core.ServiceConfig{

@@ -12,6 +12,7 @@ import (
 
 	"github.com/Aeomar999/CommPit/bus"
 	"github.com/Aeomar999/CommPit/core"
+	"github.com/Aeomar999/CommPit/sim"
 	"github.com/Aeomar999/CommPit/store/sqlite"
 )
 
@@ -54,9 +55,9 @@ func setupTestRouter(t *testing.T, storeOverride core.Store, simOverride core.Si
 	}
 
 	clock := core.NewFakeClock()
-	sim := core.NewSimulator()
+	var simInstance core.Simulator = sim.NewSimulator()
 	if simOverride != nil {
-		sim = simOverride
+		simInstance = simOverride
 	}
 	eventBus := bus.NewEventBus()
 	resolver := core.NewProjectResolver(store)
@@ -65,13 +66,13 @@ func setupTestRouter(t *testing.T, storeOverride core.Store, simOverride core.Si
 		Store:     effectiveStore,
 		BlobStore: store,
 		Bus:       eventBus,
-		Simulator: sim,
+		Simulator: simInstance,
 		Clock:     clock,
 		Resolver:  resolver,
 	})
 
 	handlers := NewHandlers(svc, resolver, eventBus)
-	return handlers.Routes(), sim, effectiveStore
+	return handlers.Routes(), simInstance, effectiveStore
 }
 
 func TestHandlers_InvalidNumber(t *testing.T) {
@@ -116,7 +117,7 @@ func TestHandlers_InvalidNumber(t *testing.T) {
 
 func TestHandlers_RateLimitedRule(t *testing.T) {
 	customSim := &customSimulator{
-		Simulator: core.NewSimulator(),
+		Simulator: sim.NewSimulator(),
 		ruleFunc: func(_ context.Context, _ string, req core.SendRequest) (*core.Error, *core.SimResult) {
 			if len(req.To) > 0 && req.To[0] == "+14155552671" {
 				return core.NewRateLimited("rate limit exceeded", "to"), &core.SimResult{}

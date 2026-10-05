@@ -162,17 +162,32 @@ func (s *testServiceStore) ListInFlightMessages(ctx context.Context) ([]*Message
 	return result, nil
 }
 
+type mockSimulator struct{}
+
+func (m *mockSimulator) Evaluate(ctx context.Context, projectID string, req SendRequest) (*Error, *SimResult) {
+	for _, to := range req.To {
+		if to == "+15005550001" {
+			return NewInvalidNumber("invalid recipient phone number", "to"), &SimResult{}
+		}
+	}
+	return nil, &SimResult{}
+}
+
+func (m *mockSimulator) SetRules(_ []SimRule)             {}
+func (m *mockSimulator) SetLatency(_ time.Duration)     {}
+func (m *mockSimulator) SetFailureRate(_ float64)          {}
+
 func setupTestService() (*Service, *testServiceStore, *FakeClock) {
 	store := newTestServiceStore()
 	clock := NewFakeClock()
 	clock.Set(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))
-	sim := NewSimulator()
+	simulator := &mockSimulator{}
 	bus := &mockBus{}
 
 	svc := NewService(ServiceConfig{
 		Store:     store,
 		Bus:       bus,
-		Simulator: sim,
+		Simulator: simulator,
 		Clock:     clock,
 		StepDelay: 0,
 		PhoneMode: phone.ModeValid,
@@ -394,5 +409,38 @@ func TestRecipient_BatchRejectedRecipients(t *testing.T) {
 	has0007 := toRecipients[0] == "+15005550007" || toRecipients[1] == "+15005550007"
 	if !has0006 || !has0007 {
 		t.Errorf("expected normalized recipients +15005550006 and +15005550007, got %v", toRecipients)
+	}
+}
+
+func TestService_GenerateCode10000(t *testing.T) {
+	seen := make(map[string]int)
+	digitCounts := make(map[byte]int)
+
+	for i := 0; i < 10000; i++ {
+		code := generateCode(6)
+		if len(code) != 6 {
+			t.Fatalf("expected code length 6, got %d for code %q", len(code), code)
+		}
+		for j := 0; j < len(code); j++ {
+			b := code[j]
+			if b < '0' || b > '9' {
+				t.Fatalf("unexpected non-digit character %c in code %q", b, code)
+			}
+			digitCounts[b]++
+		}
+		seen[code]++
+	}
+
+	// 10,000 6-digit codes (out of 1,000,000 possible):
+	// A good crypto PRNG should have many distinct codes (at least 9,500 unique out of 10,000)
+	if len(seen) < 9500 {
+		t.Errorf("expected at least 9500 unique codes out of 10,000, got %d", len(seen))
+	}
+
+	// Every digit from '0' to '9' must appear across the 60,000 generated digits
+	for d := byte('0'); d <= '9'; d++ {
+		if digitCounts[d] == 0 {
+			t.Errorf("digit %c never appeared in 10,000 codes", d)
+		}
 	}
 }
