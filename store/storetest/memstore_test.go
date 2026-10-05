@@ -138,7 +138,7 @@ func (s *memStore) GetProject(ctx context.Context, id string) (*core.Project, er
 	defer s.mu.Unlock()
 	p, ok := s.projects[id]
 	if !ok {
-		return nil, core.NewInternal("not found")
+		return nil, core.NewNotFound("project not found", "id")
 	}
 	return p, nil
 }
@@ -176,7 +176,7 @@ func (s *memStore) GetCredential(ctx context.Context, provider, key string) (*co
 	defer s.mu.Unlock()
 	c, ok := s.credentials[provider+":"+key]
 	if !ok {
-		return nil, core.NewInternal("not found")
+		return nil, core.NewNotFound("credential not found", "id")
 	}
 	return c, nil
 }
@@ -217,7 +217,7 @@ func (s *memStore) GetMessage(ctx context.Context, projectID, messageID string) 
 	defer s.mu.Unlock()
 	m, ok := s.messages[messageID]
 	if !ok || m.ProjectID != projectID {
-		return nil, core.NewInternal("not found")
+		return nil, core.NewNotFound("message not found", "id")
 	}
 	return m, nil
 }
@@ -302,7 +302,7 @@ func (s *memStore) GetBatch(ctx context.Context, projectID, batchID string) (*co
 	defer s.mu.Unlock()
 	b, ok := s.batches[batchID]
 	if !ok || b.ProjectID != projectID {
-		return nil, core.NewInternal("not found")
+		return nil, core.NewNotFound("batch not found", "id")
 	}
 	return b, nil
 }
@@ -341,7 +341,7 @@ func (s *memStore) GetVerification(ctx context.Context, projectID, id string) (*
 	defer s.mu.Unlock()
 	v, ok := s.verifications[id]
 	if !ok || v.ProjectID != projectID {
-		return nil, core.NewInternal("not found")
+		return nil, core.NewVerificationNotFound("verification not found", "id")
 	}
 	return v, nil
 }
@@ -354,7 +354,7 @@ func (s *memStore) GetVerificationByProviderRef(ctx context.Context, projectID, 
 			return v, nil
 		}
 	}
-	return nil, core.NewInternal("not found")
+	return nil, core.NewVerificationNotFound("verification not found", "ref")
 }
 
 func (s *memStore) UpdateVerification(ctx context.Context, v *core.Verification) error {
@@ -420,7 +420,7 @@ func (s *memStore) GetAttachment(ctx context.Context, id string) (*core.Attachme
 	defer s.mu.Unlock()
 	a, ok := s.attachments[id]
 	if !ok {
-		return nil, core.NewInternal("not found")
+		return nil, core.NewNotFound("attachment not found", "id")
 	}
 	return a, nil
 }
@@ -449,7 +449,7 @@ func (s *memStore) GetWebhookDelivery(ctx context.Context, id string) (*core.Web
 	defer s.mu.Unlock()
 	w, ok := s.webhookDeliveries[id]
 	if !ok {
-		return nil, core.NewInternal("not found")
+		return nil, core.NewNotFound("webhook delivery not found", "id")
 	}
 	return w, nil
 }
@@ -488,7 +488,7 @@ func (s *memStore) GetRequestLog(ctx context.Context, id string) (*core.RequestL
 	defer s.mu.Unlock()
 	l, ok := s.requestLogs[id]
 	if !ok {
-		return nil, core.NewInternal("not found")
+		return nil, core.NewNotFound("request log not found", "id")
 	}
 	return l, nil
 }

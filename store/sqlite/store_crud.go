@@ -24,7 +24,7 @@ func (s *Store) GetProject(ctx context.Context, id string) (*core.Project, error
 	var settings string
 	if err := row.Scan(&p.ID, &p.Name, &settings, &p.CreatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, core.NewInternal("project not found")
+			return nil, core.NewNotFound("project not found", "id")
 		}
 		return nil, err
 	}
@@ -204,7 +204,7 @@ func (s *Store) GetMessage(ctx context.Context, projectID, messageID string) (*c
 	m, err := scanMessage(row)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, core.NewInternal("message not found")
+			return nil, core.NewNotFound("message not found", "id")
 		}
 		return nil, err
 	}
@@ -356,7 +356,7 @@ func (s *Store) GetBatch(ctx context.Context, projectID, batchID string) (*core.
 	var counts string
 	if err := row.Scan(&b.ID, &b.ProjectID, &b.Provider, &b.Channel, &b.Total, &counts, &b.CreatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, core.NewInternal("batch not found")
+			return nil, core.NewNotFound("batch not found", "id")
 		}
 		return nil, err
 	}

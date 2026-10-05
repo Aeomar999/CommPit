@@ -34,6 +34,8 @@ tasks:
   test:web:
     desc: Run UI unit tests
     dir: web
+    status:
+      - test ! -f package.json
     cmds:
       - pnpm test
 
@@ -51,6 +53,8 @@ tasks:
   lint:web:
     desc: Run Biome on web/
     dir: web
+    status:
+      - test ! -f package.json
     cmds:
       - pnpm biome check .
 

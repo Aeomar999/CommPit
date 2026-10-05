@@ -424,7 +424,11 @@ func (s *Service) validateSendRequest(req SendRequest) error {
 		for _, to := range req.To {
 			parsed, err := phone.Parse(to, s.phoneMode)
 			if err != nil {
-				return err
+				var pe *phone.Error
+				if errors.As(err, &pe) {
+					return NewError(ErrorCode(pe.Code), pe.Message, pe.Field)
+				}
+				return NewInvalidNumber("invalid phone number", "to")
 			}
 			_ = parsed
 		}

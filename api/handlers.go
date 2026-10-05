@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -31,7 +33,7 @@ func NewHandlers(service *core.Service, resolver core.ProjectResolver, eventBus 
 func (h *Handlers) Routes() http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
+	r.Use(middleware.RealIP) //nolint:staticcheck // RealIP is standard chi middleware, acceptable in local sandbox
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(60 * time.Second))
 
@@ -109,7 +111,7 @@ func (h *Handlers) authMiddleware(next http.Handler) http.Handler {
 
 		if auth != "" && len(auth) > 7 && auth[:7] == "Bearer " {
 			key := auth[7:]
-			projectID, err = h.projectResolver.Resolve(r.Context(), "native", key)
+			projectID, _ = h.projectResolver.Resolve(r.Context(), "native", key)
 		}
 
 		if projectID == "" {
@@ -119,7 +121,7 @@ func (h *Handlers) authMiddleware(next http.Handler) http.Handler {
 		if projectID == "" {
 			projectID, err = h.projectResolver.Resolve(r.Context(), "native", "default")
 			if err != nil {
-				h.error(w, r, core.NewValidationError("authentication required", ""), http.StatusUnauthorized)
+				h.writeError(w, r, core.NewUnauthorized("authentication required"))
 				return
 			}
 		}
@@ -133,28 +135,21 @@ func (h *Handlers) getProjectID(r *http.Request) string {
 	return r.Context().Value("projectID").(string)
 }
 
-func (h *Handlers) error(w http.ResponseWriter, r *http.Request, err error, status int) {
+func (h *Handlers) writeError(w http.ResponseWriter, r *http.Request, err error) {
 	var ce *core.Error
-	if core.IsError(err, "") {
-		ce = err.(*core.Error)
-	} else {
-		ce = core.NewInternal(err.Error())
+	if !errors.As(err, &ce) {
+		slog.Error("unexpected error", "path", r.URL.Path, "err", err)
+		ce = core.NewInternal("internal error")
 	}
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"error": map[string]interface{}{
-			"code":    ce.Code,
-			"message": ce.Message,
-			"field":   ce.Field,
-		},
-	})
+	w.WriteHeader(ce.HTTPStatus())
+	_ = json.NewEncoder(w).Encode(map[string]any{"error": ce})
 }
 
 func (h *Handlers) SendSMS(w http.ResponseWriter, r *http.Request) {
 	var req SendSMSRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.error(w, r, core.NewValidationError("invalid JSON", ""), http.StatusBadRequest)
+		h.writeError(w, r, core.NewValidationError("invalid JSON", ""))
 		return
 	}
 
@@ -172,7 +167,7 @@ func (h *Handlers) SendSMS(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(to) == 0 {
-		h.error(w, r, core.NewValidationError("recipient required", "to"), http.StatusBadRequest)
+		h.writeError(w, r, core.NewValidationError("recipient required", "to"))
 		return
 	}
 
@@ -193,15 +188,15 @@ func (h *Handlers) SendSMS(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.service.SendMessage(r.Context(), projectID, sendReq)
 	if err != nil {
-		h.error(w, r, err, http.StatusBadRequest)
+		h.writeError(w, r, err)
 		return
 	}
 
 	if resp.Message != nil {
-		w.WriteHeader(http.StatusCreated)
+		render.Status(r, http.StatusCreated)
 		render.JSON(w, r, resp.Message)
 	} else if resp.Batch != nil {
-		w.WriteHeader(http.StatusAccepted)
+		render.Status(r, http.StatusAccepted)
 		render.JSON(w, r, resp.Batch)
 	}
 }
@@ -209,7 +204,7 @@ func (h *Handlers) SendSMS(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) SendEmail(w http.ResponseWriter, r *http.Request) {
 	var req SendEmailRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.error(w, r, core.NewValidationError("invalid JSON", ""), http.StatusBadRequest)
+		h.writeError(w, r, core.NewValidationError("invalid JSON", ""))
 		return
 	}
 
@@ -277,15 +272,15 @@ func (h *Handlers) SendEmail(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.service.SendMessage(r.Context(), projectID, sendReq)
 	if err != nil {
-		h.error(w, r, err, http.StatusBadRequest)
+		h.writeError(w, r, err)
 		return
 	}
 
 	if resp.Message != nil {
-		w.WriteHeader(http.StatusCreated)
+		render.Status(r, http.StatusCreated)
 		render.JSON(w, r, resp.Message)
 	} else if resp.Batch != nil {
-		w.WriteHeader(http.StatusAccepted)
+		render.Status(r, http.StatusAccepted)
 		render.JSON(w, r, resp.Batch)
 	}
 }
@@ -293,7 +288,7 @@ func (h *Handlers) SendEmail(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) StartVerification(w http.ResponseWriter, r *http.Request) {
 	var req StartVerificationRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.error(w, r, core.NewValidationError("invalid JSON", ""), http.StatusBadRequest)
+		h.writeError(w, r, core.NewValidationError("invalid JSON", ""))
 		return
 	}
 
@@ -325,11 +320,11 @@ func (h *Handlers) StartVerification(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.service.StartVerification(r.Context(), projectID, verReq)
 	if err != nil {
-		h.error(w, r, err, http.StatusBadRequest)
+		h.writeError(w, r, err)
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
+	render.Status(r, http.StatusCreated)
 	render.JSON(w, r, VerificationResponse{
 		Verification: convertVerification(resp.Verification),
 		Message:      convertMessage(resp.Message),
@@ -339,13 +334,13 @@ func (h *Handlers) StartVerification(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) CheckVerification(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if id == "" {
-		h.error(w, r, core.NewValidationError("verification ID required", "id"), http.StatusBadRequest)
+		h.writeError(w, r, core.NewValidationError("verification ID required", "id"))
 		return
 	}
 
 	var req CheckVerificationRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.error(w, r, core.NewValidationError("invalid JSON", ""), http.StatusBadRequest)
+		h.writeError(w, r, core.NewValidationError("invalid JSON", ""))
 		return
 	}
 
@@ -355,7 +350,7 @@ func (h *Handlers) CheckVerification(w http.ResponseWriter, r *http.Request) {
 		Code: req.Code,
 	})
 	if err != nil {
-		h.error(w, r, err, http.StatusNotFound)
+		h.writeError(w, r, err)
 		return
 	}
 
@@ -368,7 +363,7 @@ func (h *Handlers) CheckVerification(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) ExpireVerification(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if id == "" {
-		h.error(w, r, core.NewValidationError("verification ID required", "id"), http.StatusBadRequest)
+		h.writeError(w, r, core.NewValidationError("verification ID required", "id"))
 		return
 	}
 
@@ -376,13 +371,13 @@ func (h *Handlers) ExpireVerification(w http.ResponseWriter, r *http.Request) {
 
 	v, err := h.Store().GetVerification(r.Context(), projectID, id)
 	if err != nil {
-		h.error(w, r, err, http.StatusNotFound)
+		h.writeError(w, r, err)
 		return
 	}
 
 	v.Status = core.VerificationExpired
 	if err := h.service.Store().UpdateVerification(r.Context(), v); err != nil {
-		h.error(w, r, err, http.StatusInternalServerError)
+		h.writeError(w, r, err)
 		return
 	}
 
@@ -399,7 +394,7 @@ func (h *Handlers) ExpireVerification(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) GetVerification(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if id == "" {
-		h.error(w, r, core.NewValidationError("verification ID required", "id"), http.StatusBadRequest)
+		h.writeError(w, r, core.NewValidationError("verification ID required", "id"))
 		return
 	}
 
@@ -407,7 +402,7 @@ func (h *Handlers) GetVerification(w http.ResponseWriter, r *http.Request) {
 
 	v, err := h.Store().GetVerification(r.Context(), projectID, id)
 	if err != nil {
-		h.error(w, r, err, http.StatusNotFound)
+		h.writeError(w, r, err)
 		return
 	}
 
@@ -424,7 +419,7 @@ func (h *Handlers) ListVerifications(w http.ResponseWriter, r *http.Request) {
 
 	verifications, nextCursor, err := h.Store().ListVerifications(r.Context(), projectID, limit, r.URL.Query().Get("cursor"))
 	if err != nil {
-		h.error(w, r, err, http.StatusInternalServerError)
+		h.writeError(w, r, err)
 		return
 	}
 
@@ -476,7 +471,7 @@ func (h *Handlers) ListMessages(w http.ResponseWriter, r *http.Request) {
 
 	messages, nextCursor, err := h.Store().ListMessages(r.Context(), projectID, filter)
 	if err != nil {
-		h.error(w, r, err, http.StatusInternalServerError)
+		h.writeError(w, r, err)
 		return
 	}
 
@@ -494,7 +489,7 @@ func (h *Handlers) ListMessages(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) GetMessage(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if id == "" {
-		h.error(w, r, core.NewValidationError("message ID required", "id"), http.StatusBadRequest)
+		h.writeError(w, r, core.NewValidationError("message ID required", "id"))
 		return
 	}
 
@@ -502,7 +497,7 @@ func (h *Handlers) GetMessage(w http.ResponseWriter, r *http.Request) {
 
 	msg, err := h.Store().GetMessage(r.Context(), projectID, id)
 	if err != nil {
-		h.error(w, r, err, http.StatusNotFound)
+		h.writeError(w, r, err)
 		return
 	}
 
@@ -528,7 +523,7 @@ func (h *Handlers) GetMessage(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) GetMessageRaw(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if id == "" {
-		h.error(w, r, core.NewValidationError("message ID required", "id"), http.StatusBadRequest)
+		h.writeError(w, r, core.NewValidationError("message ID required", "id"))
 		return
 	}
 
@@ -536,18 +531,18 @@ func (h *Handlers) GetMessageRaw(w http.ResponseWriter, r *http.Request) {
 
 	msg, err := h.service.Store().GetMessage(r.Context(), projectID, id)
 	if err != nil {
-		h.error(w, r, err, http.StatusNotFound)
+		h.writeError(w, r, err)
 		return
 	}
 
 	if msg.RawBlobID == nil {
-		h.error(w, r, core.NewValidationError("no raw content available", ""), http.StatusNotFound)
+		h.writeError(w, r, core.NewNotFound("no raw content available", ""))
 		return
 	}
 
 	reader, err := h.service.BlobStore().Get(r.Context(), *msg.RawBlobID)
 	if err != nil {
-		h.error(w, r, err, http.StatusInternalServerError)
+		h.writeError(w, r, err)
 		return
 	}
 	defer reader.Close()
@@ -574,7 +569,7 @@ func (h *Handlers) DeleteMessages(w http.ResponseWriter, r *http.Request) {
 
 	err := h.service.Store().DeleteMessages(r.Context(), projectID)
 	if err != nil {
-		h.error(w, r, err, http.StatusInternalServerError)
+		h.writeError(w, r, err)
 		return
 	}
 
@@ -618,7 +613,7 @@ func (h *Handlers) WaitForMessage(w http.ResponseWriter, r *http.Request) {
 	for {
 		select {
 		case <-ctx.Done():
-			h.error(w, r, core.NewInternal("wait timeout"), http.StatusRequestTimeout)
+			h.writeError(w, r, core.NewInternal("wait timeout"))
 			return
 		case <-ticker.C:
 			messages, _, _ := h.service.Store().ListMessages(ctx, projectID, core.MessageFilter{
@@ -638,27 +633,27 @@ func (h *Handlers) WaitForMessage(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) GetLatestOTP(w http.ResponseWriter, r *http.Request) {
 	to := r.URL.Query().Get("to")
 	if to == "" {
-		h.error(w, r, core.NewValidationError("to parameter required", "to"), http.StatusBadRequest)
+		h.writeError(w, r, core.NewValidationError("to parameter required", "to"))
 		return
 	}
 
-	h.error(w, r, core.NewValidationError("not implemented", ""), http.StatusNotImplemented)
+	h.writeError(w, r, core.NewValidationError("not implemented", ""))
 }
 
 func (h *Handlers) GetLatestEmail(w http.ResponseWriter, r *http.Request) {
 	to := r.URL.Query().Get("to")
 	if to == "" {
-		h.error(w, r, core.NewValidationError("to parameter required", "to"), http.StatusBadRequest)
+		h.writeError(w, r, core.NewValidationError("to parameter required", "to"))
 		return
 	}
 
-	h.error(w, r, core.NewValidationError("not implemented", ""), http.StatusNotImplemented)
+	h.writeError(w, r, core.NewValidationError("not implemented", ""))
 }
 
 func (h *Handlers) SimulateInbound(w http.ResponseWriter, r *http.Request) {
 	var req InboundRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.error(w, r, core.NewValidationError("invalid JSON", ""), http.StatusBadRequest)
+		h.writeError(w, r, core.NewValidationError("invalid JSON", ""))
 		return
 	}
 
@@ -670,30 +665,30 @@ func (h *Handlers) SimulateInbound(w http.ResponseWriter, r *http.Request) {
 		Body: req.Body,
 	})
 	if err != nil {
-		h.error(w, r, err, http.StatusBadRequest)
+		h.writeError(w, r, err)
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
+	render.Status(r, http.StatusCreated)
 	render.JSON(w, r, msg)
 }
 
 func (h *Handlers) GetAttachment(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if id == "" {
-		h.error(w, r, core.NewValidationError("attachment ID required", "id"), http.StatusBadRequest)
+		h.writeError(w, r, core.NewValidationError("attachment ID required", "id"))
 		return
 	}
 
 	att, err := h.Store().GetAttachment(r.Context(), id)
 	if err != nil {
-		h.error(w, r, err, http.StatusNotFound)
+		h.writeError(w, r, err)
 		return
 	}
 
 	reader, err := h.BlobStore().Get(r.Context(), att.BlobID)
 	if err != nil {
-		h.error(w, r, err, http.StatusInternalServerError)
+		h.writeError(w, r, err)
 		return
 	}
 	defer reader.Close()
@@ -718,7 +713,7 @@ func (h *Handlers) GetAttachment(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) GetBatch(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if id == "" {
-		h.error(w, r, core.NewValidationError("batch ID required", "id"), http.StatusBadRequest)
+		h.writeError(w, r, core.NewValidationError("batch ID required", "id"))
 		return
 	}
 
@@ -726,7 +721,7 @@ func (h *Handlers) GetBatch(w http.ResponseWriter, r *http.Request) {
 
 	batch, err := h.Store().GetBatch(r.Context(), projectID, id)
 	if err != nil {
-		h.error(w, r, err, http.StatusNotFound)
+		h.writeError(w, r, err)
 		return
 	}
 
@@ -746,7 +741,7 @@ func (h *Handlers) ListRequestLogs(w http.ResponseWriter, r *http.Request) {
 
 	logs, nextCursor, err := h.Store().ListRequestLogs(r.Context(), projectID, 50, r.URL.Query().Get("cursor"))
 	if err != nil {
-		h.error(w, r, err, http.StatusInternalServerError)
+		h.writeError(w, r, err)
 		return
 	}
 
@@ -776,13 +771,13 @@ func (h *Handlers) ListRequestLogs(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) GetRequestLog(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if id == "" {
-		h.error(w, r, core.NewValidationError("request log ID required", "id"), http.StatusBadRequest)
+		h.writeError(w, r, core.NewValidationError("request log ID required", "id"))
 		return
 	}
 
 	log, err := h.Store().GetRequestLog(r.Context(), id)
 	if err != nil {
-		h.error(w, r, err, http.StatusNotFound)
+		h.writeError(w, r, err)
 		return
 	}
 
@@ -806,7 +801,7 @@ func (h *Handlers) ListWebhooks(w http.ResponseWriter, r *http.Request) {
 
 	webhooks, err := h.Store().ListPendingWebhooks(r.Context(), 50)
 	if err != nil {
-		h.error(w, r, err, http.StatusInternalServerError)
+		h.writeError(w, r, err)
 		return
 	}
 
@@ -839,13 +834,13 @@ func (h *Handlers) ListWebhooks(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) ReplayWebhook(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if id == "" {
-		h.error(w, r, core.NewValidationError("webhook ID required", "id"), http.StatusBadRequest)
+		h.writeError(w, r, core.NewValidationError("webhook ID required", "id"))
 		return
 	}
 
 	webhook, err := h.Store().GetWebhookDelivery(r.Context(), id)
 	if err != nil {
-		h.error(w, r, err, http.StatusNotFound)
+		h.writeError(w, r, err)
 		return
 	}
 
@@ -864,7 +859,7 @@ func (h *Handlers) ReplayWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.Store().CreateWebhookDelivery(r.Context(), newDelivery); err != nil {
-		h.error(w, r, err, http.StatusInternalServerError)
+		h.writeError(w, r, err)
 		return
 	}
 
@@ -889,7 +884,7 @@ func (h *Handlers) ReplayWebhook(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) ListProjects(w http.ResponseWriter, r *http.Request) {
 	projects, nextCursor, err := h.Store().ListProjects(r.Context(), 50, r.URL.Query().Get("cursor"))
 	if err != nil {
-		h.error(w, r, err, http.StatusInternalServerError)
+		h.writeError(w, r, err)
 		return
 	}
 
@@ -912,13 +907,13 @@ func (h *Handlers) ListProjects(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) GetProject(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if id == "" {
-		h.error(w, r, core.NewValidationError("project ID required", "id"), http.StatusBadRequest)
+		h.writeError(w, r, core.NewValidationError("project ID required", "id"))
 		return
 	}
 
 	project, err := h.Store().GetProject(r.Context(), id)
 	if err != nil {
-		h.error(w, r, err, http.StatusNotFound)
+		h.writeError(w, r, err)
 		return
 	}
 
@@ -933,19 +928,19 @@ func (h *Handlers) GetProject(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) UpdateProject(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if id == "" {
-		h.error(w, r, core.NewValidationError("project ID required", "id"), http.StatusBadRequest)
+		h.writeError(w, r, core.NewValidationError("project ID required", "id"))
 		return
 	}
 
 	var req UpdateProjectRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.error(w, r, core.NewValidationError("invalid JSON", ""), http.StatusBadRequest)
+		h.writeError(w, r, core.NewValidationError("invalid JSON", ""))
 		return
 	}
 
 	project, err := h.Store().GetProject(r.Context(), id)
 	if err != nil {
-		h.error(w, r, err, http.StatusNotFound)
+		h.writeError(w, r, err)
 		return
 	}
 
@@ -957,7 +952,7 @@ func (h *Handlers) UpdateProject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.Store().UpdateProject(r.Context(), project); err != nil {
-		h.error(w, r, err, http.StatusInternalServerError)
+		h.writeError(w, r, err)
 		return
 	}
 
@@ -972,19 +967,19 @@ func (h *Handlers) UpdateProject(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) LinkCredential(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if id == "" {
-		h.error(w, r, core.NewValidationError("project ID required", "id"), http.StatusBadRequest)
+		h.writeError(w, r, core.NewValidationError("project ID required", "id"))
 		return
 	}
 
 	var req LinkCredentialRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.error(w, r, core.NewValidationError("invalid JSON", ""), http.StatusBadRequest)
+		h.writeError(w, r, core.NewValidationError("invalid JSON", ""))
 		return
 	}
 
 	_, err := h.projectResolver.Resolve(r.Context(), req.Provider, req.Key)
 	if err != nil {
-		h.error(w, r, err, http.StatusInternalServerError)
+		h.writeError(w, r, err)
 		return
 	}
 

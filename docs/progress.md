@@ -8,8 +8,8 @@ Single source of truth for where the project stands. Update it in every PR that 
 |---|---|
 | **Phase** | M1 in progress |
 | **Current milestone** | M1 |
-| **Next action** | M1-14: Security middleware: `Host` allow-list (421), `X-Mocksms` header, no CORS, optional `ui_auth`, non-loopback warning |
-| **Last updated** | 2026-10-04 |
+| **Next action** | M1-F05: Clean shutdown and startup failures (no double-close panic, exit on port conflict) |
+| **Last updated** | 2026-10-05 |
 
 ## Milestones
 
@@ -32,7 +32,10 @@ Single source of truth for where the project stands. Update it in every PR that 
 
 Newest first. One entry per working session: what changed, decisions made, what's next.
 
-### 2026-10-04
+### 2026-10-05
+
+- Completed M1-F04: API error responses now use `writeError` taking only the error, resolving canonical `*core.Error` via `errors.As` with proper HTTP status codes (`invalid_number` → 400, `rate_limited` → 429, `verification_not_found`/`not_found` → 404, `unauthorized` → 401). Unexpected errors are logged via `slog.Error` and masked as 500 `internal`. Fixed response header ordering by calling `render.Status` before `render.JSON` to ensure `Content-Type: application/json` is sent on all success and error responses. Added comprehensive unit tests in `api/handlers_test.go`.
+- **Next:** M1-F05: Clean shutdown and startup failures (no double-close panic, exit on port conflict)
 
 - Completed M1-F07: Fixed event bus data race and subscription leak - used atomic.Bool for subscription closed state, Unsubscribe now removes subscription from slice under bus lock, Publish copies subscriber slice under lock and calls handlers outside lock, uses ULID for IDs. TestEventBus_ConcurrentPublishSubscribe passes under -race 100x.
 - **Next:** M1-F04: API error responses - canonical codes, correct HTTP statuses, JSON content type

@@ -1,6 +1,7 @@
 package core
 
 import (
+	"errors"
 	"fmt"
 )
 
@@ -18,13 +19,15 @@ const (
 	ErrCodeProviderUnavailable  ErrorCode = "provider_unavailable"
 	ErrCodeVerificationNotFound ErrorCode = "verification_not_found"
 	ErrCodeMaxAttempts          ErrorCode = "max_attempts"
+	ErrCodeUnauthorized         ErrorCode = "unauthorized"
+	ErrCodeNotFound             ErrorCode = "not_found"
 	ErrCodeInternal             ErrorCode = "internal"
 )
 
 type Error struct {
-	Code    ErrorCode
-	Message string
-	Field   string
+	Code    ErrorCode `json:"code"`
+	Message string    `json:"message"`
+	Field   string    `json:"field,omitempty"`
 }
 
 func (e *Error) Error() string {
@@ -38,9 +41,11 @@ func (e *Error) HTTPStatus() int {
 	switch e.Code {
 	case ErrCodeValidationError, ErrCodeInvalidNumber, ErrCodeInvalidSender, ErrCodeUnroutable, ErrCodeNotSMSCapable, ErrCodeInvalidAddress, ErrCodeUnsubscribed:
 		return 400
+	case ErrCodeUnauthorized:
+		return 401
 	case ErrCodeRateLimited, ErrCodeMaxAttempts:
 		return 429
-	case ErrCodeVerificationNotFound:
+	case ErrCodeNotFound, ErrCodeVerificationNotFound:
 		return 404
 	case ErrCodeProviderUnavailable:
 		return 503
@@ -99,13 +104,25 @@ func NewMaxAttempts(message, field string) *Error {
 	return &Error{Code: ErrCodeMaxAttempts, Message: message, Field: field}
 }
 
+func NewUnauthorized(message string) *Error {
+	return &Error{Code: ErrCodeUnauthorized, Message: message, Field: ""}
+}
+
+func NewNotFound(message, field string) *Error {
+	return &Error{Code: ErrCodeNotFound, Message: message, Field: field}
+}
+
 func NewInternal(message string) *Error {
 	return &Error{Code: ErrCodeInternal, Message: message, Field: ""}
 }
 
 func IsError(err error, code ErrorCode) bool {
-	if e, ok := err.(*Error); ok {
-		return e.Code == code
+	var ce *Error
+	if errors.As(err, &ce) {
+		if code == "" {
+			return true
+		}
+		return ce.Code == code
 	}
 	return false
 }

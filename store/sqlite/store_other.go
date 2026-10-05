@@ -29,7 +29,7 @@ func (s *Store) GetVerification(ctx context.Context, projectID, id string) (*cor
 	v, err := scanVerification(row)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, core.NewInternal("verification not found")
+			return nil, core.NewVerificationNotFound("verification not found", "id")
 		}
 		return nil, err
 	}
@@ -43,7 +43,7 @@ func (s *Store) GetVerificationByProviderRef(ctx context.Context, projectID, ref
 	v, err := scanVerification(row)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, core.NewInternal("verification not found")
+			return nil, core.NewVerificationNotFound("verification not found", "ref")
 		}
 		return nil, err
 	}
@@ -147,7 +147,7 @@ func (s *Store) GetAttachment(ctx context.Context, id string) (*core.Attachment,
 	var inlineCID sql.NullString
 	if err := row.Scan(&a.ID, &a.MessageID, &a.Filename, &a.ContentType, &a.Size, &a.BlobID, &inlineCID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, core.NewInternal("attachment not found")
+			return nil, core.NewNotFound("attachment not found", "id")
 		}
 		return nil, err
 	}
@@ -211,7 +211,7 @@ func (s *Store) GetWebhookDelivery(ctx context.Context, id string) (*core.Webhoo
 	w, err := scanWebhookDelivery(row)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, core.NewInternal("webhook delivery not found")
+			return nil, core.NewNotFound("webhook delivery not found", "id")
 		}
 		return nil, err
 	}
@@ -313,7 +313,7 @@ func (s *Store) GetRequestLog(ctx context.Context, id string) (*core.RequestLog,
 	var headers string
 	if err := row.Scan(&l.ID, &l.ProjectID, &l.Adapter, &l.Method, &l.Path, &headers, &l.RequestBody, &l.ResponseStatus, &l.ResponseBody, &l.DurationMS, &l.CreatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, core.NewInternal("request log not found")
+			return nil, core.NewNotFound("request log not found", "id")
 		}
 		return nil, err
 	}
