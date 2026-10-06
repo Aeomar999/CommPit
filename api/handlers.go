@@ -7,6 +7,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/Aeomar999/CommPit/core"
@@ -43,8 +44,35 @@ func (h *Handlers) Routes() http.Handler {
 	r.Get("/healthz", h.Healthz)
 
 	// Long-lived endpoints: mount outside the global timeout middleware
-	r.Get("/events", h.SSEEvents)
-	r.Get("/messages/wait", h.WaitForMessage)
+	// Use adapter functions to extract params from request
+	r.Get("/events", func(w http.ResponseWriter, r *http.Request) {
+		h.SSEEvents(w, r, SseEventsParams{Project: strPtr(r.URL.Query().Get("project"))})
+	})
+	r.Get("/messages/wait", func(w http.ResponseWriter, r *http.Request) {
+		var since *time.Time
+		if sinceStr := r.URL.Query().Get("since"); sinceStr != "" {
+			if t, err := time.Parse(time.RFC3339, sinceStr); err == nil {
+				since = &t
+			}
+		}
+		var timeout *int
+		if timeoutStr := r.URL.Query().Get("timeout"); timeoutStr != "" {
+			if d, err := time.ParseDuration(timeoutStr + "s"); err == nil {
+				sec := int(d.Seconds())
+				timeout = &sec
+			} else if d, err := time.ParseDuration(timeoutStr); err == nil {
+				sec := int(d.Seconds())
+				timeout = &sec
+			}
+		}
+		h.WaitForMessage(w, r, WaitForMessageParams{
+			To:      strPtr(r.URL.Query().Get("to")),
+			Channel: (*WaitForMessageParamsChannel)(strPtr(r.URL.Query().Get("channel"))),
+			Since:   since,
+			Timeout: timeout,
+			Project: strPtr(r.URL.Query().Get("project")),
+		})
+	})
 
 	// Remaining endpoints with 60s timeout
 	r.Group(func(r chi.Router) {
@@ -76,40 +104,177 @@ func (h *Handlers) Routes() http.Handler {
 			r.Use(h.authMiddlewareRead)
 
 			// Verifications read
-			r.Get("/verifications", h.ListVerifications)
-			r.Get("/verifications/{id}", h.GetVerification)
+			r.Get("/verifications", func(w http.ResponseWriter, r *http.Request) {
+				var limit *int
+				if l := r.URL.Query().Get("limit"); l != "" {
+					if v, err := strconv.Atoi(l); err == nil {
+						limit = &v
+					}
+				}
+				h.ListVerifications(w, r, ListVerificationsParams{
+					Limit:   limit,
+					Cursor:  strPtr(r.URL.Query().Get("cursor")),
+					Project: strPtr(r.URL.Query().Get("project")),
+				})
+			})
+			r.Get("/verifications/{id}", func(w http.ResponseWriter, r *http.Request) {
+				h.GetVerification(w, r, chi.URLParam(r, "id"), GetVerificationParams{
+					Project: strPtr(r.URL.Query().Get("project")),
+				})
+			})
 
 			// Messages
-			r.Get("/messages", h.ListMessages)
-			r.Delete("/messages", h.DeleteMessages)
-			r.Get("/messages/{id}", h.GetMessage)
-			r.Get("/messages/{id}/raw", h.GetMessageRaw)
+			r.Get("/messages", func(w http.ResponseWriter, r *http.Request) {
+				var limit *int
+				if l := r.URL.Query().Get("limit"); l != "" {
+					if v, err := strconv.Atoi(l); err == nil {
+						limit = &v
+					}
+				}
+				var since *time.Time
+				if sinceStr := r.URL.Query().Get("since"); sinceStr != "" {
+					if t, err := time.Parse(time.RFC3339, sinceStr); err == nil {
+						since = &t
+					}
+				}
+				h.ListMessages(w, r, ListMessagesParams{
+					Channel:   (*ListMessagesParamsChannel)(strPtr(r.URL.Query().Get("channel"))),
+					To:        strPtr(r.URL.Query().Get("to")),
+					From:      strPtr(r.URL.Query().Get("from")),
+					Status:    (*ListMessagesParamsStatus)(strPtr(r.URL.Query().Get("status"))),
+					BatchId:   strPtr(r.URL.Query().Get("batch_id")),
+					Direction: (*ListMessagesParamsDirection)(strPtr(r.URL.Query().Get("direction"))),
+					Since:     since,
+					Limit:     limit,
+					Cursor:    strPtr(r.URL.Query().Get("cursor")),
+					Project:   strPtr(r.URL.Query().Get("project")),
+				})
+			})
+			r.Delete("/messages", func(w http.ResponseWriter, r *http.Request) {
+				h.DeleteMessages(w, r, DeleteMessagesParams{
+					Project: r.URL.Query().Get("project"),
+				})
+			})
+			r.Get("/messages/{id}", func(w http.ResponseWriter, r *http.Request) {
+				h.GetMessage(w, r, chi.URLParam(r, "id"), GetMessageParams{
+					Project: strPtr(r.URL.Query().Get("project")),
+				})
+			})
+			r.Get("/messages/{id}/raw", func(w http.ResponseWriter, r *http.Request) {
+				h.GetMessageRaw(w, r, chi.URLParam(r, "id"), GetMessageRawParams{
+					Project: strPtr(r.URL.Query().Get("project")),
+				})
+			})
 
 			// Test helpers
-			r.Get("/otp/latest", h.GetLatestOTP)
-			r.Get("/emails/latest", h.GetLatestEmail)
+			r.Get("/otp/latest", func(w http.ResponseWriter, r *http.Request) {
+				var since *time.Time
+				if sinceStr := r.URL.Query().Get("since"); sinceStr != "" {
+					if t, err := time.Parse(time.RFC3339, sinceStr); err == nil {
+						since = &t
+					}
+				}
+				h.GetLatestOTP(w, r, GetLatestOTPParams{
+					To:      r.URL.Query().Get("to"),
+					Since:   since,
+					Project: strPtr(r.URL.Query().Get("project")),
+				})
+			})
+			r.Get("/emails/latest", func(w http.ResponseWriter, r *http.Request) {
+				var since *time.Time
+				if sinceStr := r.URL.Query().Get("since"); sinceStr != "" {
+					if t, err := time.Parse(time.RFC3339, sinceStr); err == nil {
+						since = &t
+					}
+				}
+				h.GetLatestEmail(w, r, GetLatestEmailParams{
+					To:      r.URL.Query().Get("to"),
+					Since:   since,
+					Project: strPtr(r.URL.Query().Get("project")),
+				})
+			})
 
 			// Attachments
-			r.Get("/attachments/{id}", h.GetAttachment)
+			r.Get("/attachments/{id}", func(w http.ResponseWriter, r *http.Request) {
+				h.GetAttachment(w, r, chi.URLParam(r, "id"), GetAttachmentParams{
+					Project: strPtr(r.URL.Query().Get("project")),
+				})
+			})
 
 			// Batches
-			r.Get("/batches/{id}", h.GetBatch)
+			r.Get("/batches/{id}", func(w http.ResponseWriter, r *http.Request) {
+				h.GetBatch(w, r, chi.URLParam(r, "id"), GetBatchParams{
+					Project: strPtr(r.URL.Query().Get("project")),
+				})
+			})
 
 			// Request logs
-			r.Get("/requests", h.ListRequestLogs)
-			r.Get("/requests/{id}", h.GetRequestLog)
+			r.Get("/requests", func(w http.ResponseWriter, r *http.Request) {
+				var limit *int
+				if l := r.URL.Query().Get("limit"); l != "" {
+					if v, err := strconv.Atoi(l); err == nil {
+						limit = &v
+					}
+				}
+				h.ListRequestLogs(w, r, ListRequestLogsParams{
+					Limit:   limit,
+					Cursor:  strPtr(r.URL.Query().Get("cursor")),
+					Project: strPtr(r.URL.Query().Get("project")),
+				})
+			})
+			r.Get("/requests/{id}", func(w http.ResponseWriter, r *http.Request) {
+				h.GetRequestLog(w, r, chi.URLParam(r, "id"), GetRequestLogParams{
+					Project: strPtr(r.URL.Query().Get("project")),
+				})
+			})
 
 			// Webhooks
-			r.Get("/webhooks", h.ListWebhooks)
-			r.Post("/webhooks/{id}/replay", h.ReplayWebhook)
+			r.Get("/webhooks", func(w http.ResponseWriter, r *http.Request) {
+				var limit *int
+				if l := r.URL.Query().Get("limit"); l != "" {
+					if v, err := strconv.Atoi(l); err == nil {
+						limit = &v
+					}
+				}
+				h.ListWebhooks(w, r, ListWebhooksParams{
+					Limit:   limit,
+					Cursor:  strPtr(r.URL.Query().Get("cursor")),
+					Project: strPtr(r.URL.Query().Get("project")),
+				})
+			})
+			r.Post("/webhooks/{id}/replay", func(w http.ResponseWriter, r *http.Request) {
+				h.ReplayWebhook(w, r, chi.URLParam(r, "id"), ReplayWebhookParams{
+					Project: strPtr(r.URL.Query().Get("project")),
+				})
+			})
 
 			// Projects read
-			r.Get("/projects", h.ListProjects)
-			r.Get("/projects/{id}", h.GetProject)
+			r.Get("/projects", func(w http.ResponseWriter, r *http.Request) {
+				var limit *int
+				if l := r.URL.Query().Get("limit"); l != "" {
+					if v, err := strconv.Atoi(l); err == nil {
+						limit = &v
+					}
+				}
+				h.ListProjects(w, r, ListProjectsParams{
+					Limit:  limit,
+					Cursor: strPtr(r.URL.Query().Get("cursor")),
+				})
+			})
+			r.Get("/projects/{id}", func(w http.ResponseWriter, r *http.Request) {
+				h.GetProject(w, r, chi.URLParam(r, "id"))
+			})
 		})
 	})
 
 	return r
+}
+
+func strPtr(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }
 
 func (h *Handlers) Healthz(w http.ResponseWriter, r *http.Request) {
@@ -468,8 +633,7 @@ func (h *Handlers) ExpireVerification(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, v)
 }
 
-func (h *Handlers) GetVerification(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
+func (h *Handlers) GetVerification(w http.ResponseWriter, r *http.Request, id string, params GetVerificationParams) {
 	if id == "" {
 		h.writeError(w, r, core.NewValidationError("verification ID required", "id"))
 		return
@@ -490,7 +654,7 @@ func (h *Handlers) GetVerification(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, convertVerification(v))
 }
 
-func (h *Handlers) ListVerifications(w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) ListVerifications(w http.ResponseWriter, r *http.Request, params ListVerificationsParams) {
 	projectID, err := h.getProjectID(r)
 	if err != nil {
 		h.writeError(w, r, core.NewUnauthorized("authentication required"))
@@ -519,7 +683,7 @@ func (h *Handlers) ListVerifications(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (h *Handlers) ListMessages(w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) ListMessages(w http.ResponseWriter, r *http.Request, params ListMessagesParams) {
 	projectID, err := h.getProjectID(r)
 	if err != nil {
 		h.writeError(w, r, core.NewUnauthorized("authentication required"))
@@ -576,8 +740,7 @@ func (h *Handlers) ListMessages(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (h *Handlers) GetMessage(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
+func (h *Handlers) GetMessage(w http.ResponseWriter, r *http.Request, id string, params GetMessageParams) {
 	if id == "" {
 		h.writeError(w, r, core.NewValidationError("message ID required", "id"))
 		return
@@ -614,8 +777,7 @@ func (h *Handlers) GetMessage(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (h *Handlers) GetMessageRaw(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
+func (h *Handlers) GetMessageRaw(w http.ResponseWriter, r *http.Request, id string, params GetMessageRawParams) {
 	if id == "" {
 		h.writeError(w, r, core.NewValidationError("message ID required", "id"))
 		return
@@ -662,7 +824,7 @@ func (h *Handlers) GetMessageRaw(w http.ResponseWriter, r *http.Request) {
 	w.Write(data)
 }
 
-func (h *Handlers) DeleteMessages(w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) DeleteMessages(w http.ResponseWriter, r *http.Request, params DeleteMessagesParams) {
 	// DELETE /messages requires explicit project via Bearer token or ?project= query
 	// The authMiddlewareRead already handles this - it will return 400 if no project is available
 	projectID, err := h.getProjectID(r)
@@ -689,7 +851,7 @@ func (h *Handlers) DeleteMessages(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (h *Handlers) WaitForMessage(w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) WaitForMessage(w http.ResponseWriter, r *http.Request, params WaitForMessageParams) {
 	projectID, err := h.getProjectID(r)
 	if err != nil {
 		h.writeError(w, r, core.NewUnauthorized("authentication required"))
@@ -788,7 +950,7 @@ func (h *Handlers) WaitForMessage(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *Handlers) GetLatestOTP(w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) GetLatestOTP(w http.ResponseWriter, r *http.Request, params GetLatestOTPParams) {
 	_, err := h.getProjectID(r)
 	if err != nil {
 		h.writeError(w, r, core.NewUnauthorized("authentication required"))
@@ -804,7 +966,7 @@ func (h *Handlers) GetLatestOTP(w http.ResponseWriter, r *http.Request) {
 	h.writeError(w, r, core.NewValidationError("not implemented", ""))
 }
 
-func (h *Handlers) GetLatestEmail(w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) GetLatestEmail(w http.ResponseWriter, r *http.Request, params GetLatestEmailParams) {
 	_, err := h.getProjectID(r)
 	if err != nil {
 		h.writeError(w, r, core.NewUnauthorized("authentication required"))
@@ -847,8 +1009,7 @@ func (h *Handlers) SimulateInbound(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, msg)
 }
 
-func (h *Handlers) GetAttachment(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
+func (h *Handlers) GetAttachment(w http.ResponseWriter, r *http.Request, id string, params GetAttachmentParams) {
 	if id == "" {
 		h.writeError(w, r, core.NewValidationError("attachment ID required", "id"))
 		return
@@ -884,8 +1045,7 @@ func (h *Handlers) GetAttachment(w http.ResponseWriter, r *http.Request) {
 	w.Write(data)
 }
 
-func (h *Handlers) GetBatch(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
+func (h *Handlers) GetBatch(w http.ResponseWriter, r *http.Request, id string, params GetBatchParams) {
 	if id == "" {
 		h.writeError(w, r, core.NewValidationError("batch ID required", "id"))
 		return
@@ -914,7 +1074,7 @@ func (h *Handlers) GetBatch(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (h *Handlers) ListRequestLogs(w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) ListRequestLogs(w http.ResponseWriter, r *http.Request, params ListRequestLogsParams) {
 	projectID, err := h.getProjectID(r)
 	if err != nil {
 		h.writeError(w, r, core.NewUnauthorized("authentication required"))
@@ -950,8 +1110,7 @@ func (h *Handlers) ListRequestLogs(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (h *Handlers) GetRequestLog(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
+func (h *Handlers) GetRequestLog(w http.ResponseWriter, r *http.Request, id string, params GetRequestLogParams) {
 	if id == "" {
 		h.writeError(w, r, core.NewValidationError("request log ID required", "id"))
 		return
@@ -978,7 +1137,7 @@ func (h *Handlers) GetRequestLog(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (h *Handlers) ListWebhooks(w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) ListWebhooks(w http.ResponseWriter, r *http.Request, params ListWebhooksParams) {
 	_, err := h.getProjectID(r)
 	if err != nil {
 		h.writeError(w, r, core.NewUnauthorized("authentication required"))
@@ -1017,8 +1176,7 @@ func (h *Handlers) ListWebhooks(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (h *Handlers) ReplayWebhook(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
+func (h *Handlers) ReplayWebhook(w http.ResponseWriter, r *http.Request, id string, params ReplayWebhookParams) {
 	if id == "" {
 		h.writeError(w, r, core.NewValidationError("webhook ID required", "id"))
 		return
@@ -1079,7 +1237,7 @@ func (h *Handlers) ReplayWebhook(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (h *Handlers) ListProjects(w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) ListProjects(w http.ResponseWriter, r *http.Request, params ListProjectsParams) {
 	_, err := h.getProjectID(r)
 	if err != nil {
 		h.writeError(w, r, core.NewUnauthorized("authentication required"))
@@ -1108,8 +1266,7 @@ func (h *Handlers) ListProjects(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (h *Handlers) GetProject(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
+func (h *Handlers) GetProject(w http.ResponseWriter, r *http.Request, id string) {
 	if id == "" {
 		h.writeError(w, r, core.NewValidationError("project ID required", "id"))
 		return
@@ -1217,7 +1374,7 @@ func (h *Handlers) LinkCredential(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, map[string]string{"message": "credential linked"})
 }
 
-func (h *Handlers) SSEEvents(w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) SSEEvents(w http.ResponseWriter, r *http.Request, params SseEventsParams) {
 	h.sseHub.SSEHandler(w, r)
 }
 

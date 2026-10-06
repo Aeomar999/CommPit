@@ -8,7 +8,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 |---|---|
 | **Phase** | M1 in progress |
 | **Current milestone** | M1 |
-| **Next action** | M1-F15: Spec-first API: generate the server from `openapi.yaml` and fail CI on drift |
+| **Next action** | M1-F16: SMS segments: UTF-16 counting for UCS-2, reject messages over the segment limit |
 | **Last updated** | 2026-10-05 |
 
 ## Milestones
@@ -34,8 +34,9 @@ Newest first. One entry per working session: what changed, decisions made, what'
 
 ### 2026-10-05
 
+- Completed M1-F15: Spec-first API - added oapi-codegen as Go tool, created api/generate.go with //go:generate directive, generated openapi.gen.go with ServerInterface, types, and chi server. Updated handler method signatures to match generated interface (GetProject, GetVerification, GetMessage, GetMessageRaw, GetAttachment, GetBatch, GetRequestLog, ReplayWebhook, GetLatestOTP, GetLatestEmail, ListProjects, ListMessages, ListVerifications, ListRequestLogs, ListWebhooks, DeleteMessages, WaitForMessage, SSEEvents). All routes now use adapter functions to extract params from request. All tests pass.
+- **Next:** M1-F16: SMS segments: UTF-16 counting for UCS-2, reject messages over the segment limit
 - Completed M1-F14: Long-lived requests - mounted `/events` and `/messages/wait` outside the global 60s timeout middleware. SSE handler now clears write deadline with `http.NewResponseController`, uses 15s heartbeat, registers clients by project filter, and emits `event: <type>` lines for EventSource filtering. `messages/wait` defaults `since` to request arrival time, accepts timeout as seconds or Go duration capped at 60s, returns 408 with canonical `wait_timeout` code, returns oldest match after `since`, and wakes on `message.created` bus events instead of polling. Added `ErrCodeWaitTimeout` to core errors with HTTP 408. All tests pass.
-- **Next:** M1-F15: Spec-first API: generate the server from `openapi.yaml` and fail CI on drift
 - Completed M1-F13: API scoping - split auth middleware into write (Bearer only, default project) and read/test (Bearer or ?project= with project existence validation). Added typed context key `projectKey{}` with error-returning accessor. DELETE /messages now requires explicit project via Bearer or ?project=, returns 400 `validation_error` otherwise. Replaced `bus` import with `core.Bus` in api package (handlers and SSE hub). Passed build version to `NewHandlers` and used in `/healthz`. All handler tests pass.
 - Completed M1-F11: Simulator and OTP generation - moved simulator to new `sim` package implementing `core.Simulator`, wired in `cmd/mocksms`, and removed legacy simulator from `core`. Implemented thread-safe randomness with `math/rand/v2` and mutex-guarded test override. Combined latency and random failure rate effects so both apply to a send. Treated only `...999901` through `...999905` as magic pattern numbers, allowing other numbers to use standard latency/failure rates. Generated OTP verification codes using `crypto/rand` (`big.NewInt(10)` per digit), removing sleep and timestamp dependencies. Added `core.NoopSimulator` as default in `core.NewService`. Verified 10,000 generated codes have uniform digit distribution with exact length, table tests cover all magic numbers, and concurrent simulation passes under race detector.
 - **Next:** M1-F12: Verification checks: atomic attempts, native API statuses per spec §7.2

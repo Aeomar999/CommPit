@@ -487,17 +487,25 @@ type AttachmentInput struct {
 
 // Batch defines model for Batch.
 type Batch struct {
-	Channel   *BatchChannel   `json:"channel,omitempty"`
-	Counts    *map[string]int `json:"counts,omitempty"`
-	CreatedAt *time.Time      `json:"created_at,omitempty"`
-	Id        *string         `json:"id,omitempty"`
-	ProjectId *string         `json:"project_id,omitempty"`
-	Provider  *string         `json:"provider,omitempty"`
-	Total     *int            `json:"total,omitempty"`
+	Channel   *BatchChannel             `json:"channel,omitempty"`
+	Counts    *map[string]int           `json:"counts,omitempty"`
+	CreatedAt *time.Time                `json:"created_at,omitempty"`
+	Id        *string                   `json:"id,omitempty"`
+	ProjectId *string                   `json:"project_id,omitempty"`
+	Provider  *string                   `json:"provider,omitempty"`
+	Rejected  *[]BatchRejectedRecipient `json:"rejected,omitempty"`
+	Total     *int                      `json:"total,omitempty"`
 }
 
 // BatchChannel defines model for Batch.Channel.
 type BatchChannel string
+
+// BatchRejectedRecipient defines model for BatchRejectedRecipient.
+type BatchRejectedRecipient struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+	To      string `json:"to"`
+}
 
 // CheckVerificationRequest defines model for CheckVerificationRequest.
 type CheckVerificationRequest struct {

@@ -1,0 +1,17 @@
+generate:
+  - models
+  - chi-server
+  - strict-server
+
+model:
+  package: "api"
+  tag: "yaml"
+  include-validation-tags: false
+  generate-alias-as-map: true
+
+server:
+  package: "api"
+  strict: true
+  embed-global-params: true
+
+output: "openapi.gen.go"
