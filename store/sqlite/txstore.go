@@ -273,11 +273,31 @@ func (t *txStore) CreateVerification(ctx context.Context, v *core.Verification) 
 }
 
 func (t *txStore) GetVerification(ctx context.Context, projectID, id string) (*core.Verification, error) {
-	return t.base.GetVerification(ctx, projectID, id)
+	row := t.tx.QueryRowContext(ctx,
+		`SELECT id, project_id, provider, provider_ref, service_ref, to_addr, channel, code, status, attempts, max_attempts, expires_at, message_id, created_at
+		 FROM verifications WHERE id = ? AND project_id = ?`, id, projectID)
+	v, err := scanVerification(row)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, core.NewVerificationNotFound("verification not found", "id")
+		}
+		return nil, err
+	}
+	return v, nil
 }
 
 func (t *txStore) GetVerificationByProviderRef(ctx context.Context, projectID, ref string) (*core.Verification, error) {
-	return t.base.GetVerificationByProviderRef(ctx, projectID, ref)
+	row := t.tx.QueryRowContext(ctx,
+		`SELECT id, project_id, provider, provider_ref, service_ref, to_addr, channel, code, status, attempts, max_attempts, expires_at, message_id, created_at
+		 FROM verifications WHERE project_id = ? AND provider_ref = ?`, projectID, ref)
+	v, err := scanVerification(row)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, core.NewVerificationNotFound("verification not found", "ref")
+		}
+		return nil, err
+	}
+	return v, nil
 }
 
 func (t *txStore) UpdateVerification(ctx context.Context, v *core.Verification) error {

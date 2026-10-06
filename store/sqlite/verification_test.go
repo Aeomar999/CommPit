@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -210,23 +211,48 @@ func TestSQLiteStore_VerificationFlow(t *testing.T) {
 			t.Fatalf("StartVerification: %v", err)
 		}
 
-		// First wrong attempt
+		// First wrong attempt (pending)
+		resp1, err := service2.CheckVerification(ctx, prjID, startResp.Verification.ID, core.CheckVerificationRequest{
+			Code: "000000",
+		})
+		if err != nil {
+			t.Fatalf("CheckVerification: %v", err)
+		}
+		if resp1.Valid || resp1.Status != core.VerificationPending {
+			t.Errorf("expected pending on first wrong attempt, got valid=%v status=%s", resp1.Valid, resp1.Status)
+		}
+
+		// Second wrong attempt - hits max attempts (maxAttempts=2)
 		_, err = service2.CheckVerification(ctx, prjID, startResp.Verification.ID, core.CheckVerificationRequest{
 			Code: "000000",
 		})
-		if err != nil {
-			t.Fatalf("CheckVerification: %v", err)
+		if err == nil {
+			t.Fatalf("expected error on hitting max attempts, got nil")
+		}
+		if !core.IsError(err, core.ErrCodeMaxAttempts) {
+			t.Errorf("expected max_attempts error, got %v", err)
 		}
 
-		// Second wrong attempt - should hit max attempts
-		checkResp, err := service2.CheckVerification(ctx, prjID, startResp.Verification.ID, core.CheckVerificationRequest{
+		// Subsequent attempt still returns max_attempts
+		_, err = service2.CheckVerification(ctx, prjID, startResp.Verification.ID, core.CheckVerificationRequest{
 			Code: "000000",
 		})
-		if err != nil {
-			t.Fatalf("CheckVerification: %v", err)
+		if err == nil {
+			t.Fatalf("expected error on subsequent attempt, got nil")
 		}
-		if checkResp.Status != core.VerificationMaxAttempts {
-			t.Errorf("expected max_attempts after 2 wrong attempts, got %s", checkResp.Status)
+		if !core.IsError(err, core.ErrCodeMaxAttempts) {
+			t.Errorf("expected max_attempts error on subsequent attempt, got %v", err)
+		}
+
+		v, err := store.GetVerification(ctx, prjID, startResp.Verification.ID)
+		if err != nil {
+			t.Fatalf("GetVerification: %v", err)
+		}
+		if v.Attempts != 2 {
+			t.Errorf("expected attempts=2 in store, got %d", v.Attempts)
+		}
+		if v.Status != core.VerificationMaxAttempts {
+			t.Errorf("expected max_attempts status in store, got %s", v.Status)
 		}
 	})
 
@@ -243,18 +269,22 @@ func TestSQLiteStore_VerificationFlow(t *testing.T) {
 
 		fakeClock.Advance(61 * time.Second)
 
-		checkResp, err := service.CheckVerification(ctx, prjID, resp.Verification.ID, core.CheckVerificationRequest{
+		_, err = service.CheckVerification(ctx, prjID, resp.Verification.ID, core.CheckVerificationRequest{
 			Code: "123456",
 		})
-		if err != nil {
-			t.Fatalf("CheckVerification: %v", err)
+		if err == nil {
+			t.Fatalf("expected error for expired verification, got nil")
+		}
+		if !core.IsError(err, core.ErrCodeVerificationNotFound) {
+			t.Errorf("expected verification_not_found error, got %v", err)
 		}
 
-		if checkResp.Valid {
-			t.Error("expected valid=false for expired")
+		v, err := store.GetVerification(ctx, prjID, resp.Verification.ID)
+		if err != nil {
+			t.Fatalf("GetVerification: %v", err)
 		}
-		if checkResp.Status != core.VerificationExpired {
-			t.Errorf("expected expired, got %s", checkResp.Status)
+		if v.Status != core.VerificationExpired {
+			t.Errorf("expected expired status in store, got %s", v.Status)
 		}
 	})
 
@@ -275,14 +305,15 @@ func TestSQLiteStore_VerificationFlow(t *testing.T) {
 			t.Fatalf("CheckVerification: %v", err)
 		}
 
-		checkResp, err := service.CheckVerification(ctx, prjID, startResp.Verification.ID, core.CheckVerificationRequest{
+		// Checking again on already approved returns verification_not_found (404) per spec §7.2
+		_, err = service.CheckVerification(ctx, prjID, startResp.Verification.ID, core.CheckVerificationRequest{
 			Code: "123456",
 		})
-		if err != nil {
-			t.Fatalf("CheckVerification: %v", err)
+		if err == nil {
+			t.Fatalf("expected error for already approved verification, got nil")
 		}
-		if checkResp.Status != core.VerificationApproved {
-			t.Errorf("expected still approved, got %s", checkResp.Status)
+		if !core.IsError(err, core.ErrCodeVerificationNotFound) {
+			t.Errorf("expected verification_not_found error, got %v", err)
 		}
 	})
 
@@ -295,6 +326,43 @@ func TestSQLiteStore_VerificationFlow(t *testing.T) {
 		}
 		if !core.IsError(err, core.ErrCodeVerificationNotFound) {
 			t.Errorf("expected verification_not_found error, got %v", err)
+		}
+	})
+
+	t.Run("CheckVerification_ConcurrentAttemptsNeverExceedMax", func(t *testing.T) {
+		startResp, err := service.StartVerification(ctx, prjID, core.VerificationRequest{
+			To:          "+14155552671",
+			Channel:     core.ChannelSMS,
+			MaxAttempts: 5,
+			Provider:    "native",
+		})
+		if err != nil {
+			t.Fatalf("StartVerification: %v", err)
+		}
+
+		var wg sync.WaitGroup
+		concurrency := 20
+		wg.Add(concurrency)
+
+		for i := 0; i < concurrency; i++ {
+			go func() {
+				defer wg.Done()
+				_, _ = service.CheckVerification(ctx, prjID, startResp.Verification.ID, core.CheckVerificationRequest{
+					Code: "wrong-code",
+				})
+			}()
+		}
+		wg.Wait()
+
+		v, err := store.GetVerification(ctx, prjID, startResp.Verification.ID)
+		if err != nil {
+			t.Fatalf("GetVerification: %v", err)
+		}
+		if v.Attempts != 5 {
+			t.Errorf("expected exactly 5 attempts in database, got %d", v.Attempts)
+		}
+		if v.Status != core.VerificationMaxAttempts {
+			t.Errorf("expected max_attempts status in database, got %s", v.Status)
 		}
 	})
 }

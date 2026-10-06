@@ -4,6 +4,7 @@ import (
 	"context"
 	cryptoRand "crypto/rand"
 	"errors"
+	"fmt"
 	"math/big"
 	"strings"
 	"time"
@@ -419,48 +420,102 @@ func (s *Service) StartVerification(ctx context.Context, projectID string, req V
 }
 
 func (s *Service) CheckVerification(ctx context.Context, projectID, verificationID string, req CheckVerificationRequest) (*CheckVerificationResponse, error) {
-	v, err := s.store.GetVerification(ctx, projectID, verificationID)
-	if err != nil {
-		return nil, NewVerificationNotFound("verification not found", "id")
-	}
+	var (
+		res         *CheckVerificationResponse
+		errToReturn error
+		eventToSend *Verification
+	)
 
-	if v.Status != VerificationPending {
-		return &CheckVerificationResponse{Valid: false, Status: v.Status}, nil
-	}
-
-	if s.clock.Now().After(v.ExpiresAt) {
-		v.Status = VerificationExpired
-		if err := s.store.UpdateVerification(ctx, v); err != nil {
-			return nil, NewInternal("failed to update verification: " + err.Error())
+	err := s.store.Transaction(ctx, func(txStore Store) error {
+		v, err := txStore.GetVerification(ctx, projectID, verificationID)
+		if err != nil {
+			if IsError(err, ErrCodeVerificationNotFound) {
+				errToReturn = err
+				return nil
+			}
+			return err
 		}
+
+		// Spec §7.2: Unknown, expired, approved or canceled verification -> 404 verification_not_found
+		if v.Status == VerificationApproved || v.Status == VerificationCanceled || v.Status == VerificationExpired {
+			errToReturn = NewVerificationNotFound(fmt.Sprintf("verification is %s", v.Status), "id")
+			return nil
+		}
+
+		// Spec §7.2: attempts exhausted -> 429 max_attempts
+		if v.Status == VerificationMaxAttempts || v.Attempts >= v.MaxAttempts {
+			errToReturn = NewMaxAttempts("maximum attempts reached", "code")
+			return nil
+		}
+
+		// Expired verification -> 404 verification_not_found
+		if s.clock.Now().After(v.ExpiresAt) {
+			v.Status = VerificationExpired
+			if err := txStore.UpdateVerification(ctx, v); err != nil {
+				return err
+			}
+			eventToSend = v
+			errToReturn = NewVerificationNotFound("verification expired", "id")
+			return nil
+		}
+
+		// Atomically increment attempts
+		v.Attempts++
+
+		if req.Code == v.Code {
+			v.Status = VerificationApproved
+			if err := txStore.UpdateVerification(ctx, v); err != nil {
+				return err
+			}
+			eventToSend = v
+			res = &CheckVerificationResponse{
+				Valid:  true,
+				Status: VerificationApproved,
+			}
+			return nil
+		}
+
+		// Wrong code:
+		if v.Attempts >= v.MaxAttempts {
+			v.Status = VerificationMaxAttempts
+			if err := txStore.UpdateVerification(ctx, v); err != nil {
+				return err
+			}
+			eventToSend = v
+			errToReturn = NewMaxAttempts("maximum attempts reached", "code")
+			return nil
+		}
+
+		v.Status = VerificationPending
+		if err := txStore.UpdateVerification(ctx, v); err != nil {
+			return err
+		}
+		eventToSend = v
+		res = &CheckVerificationResponse{
+			Valid:  false,
+			Status: VerificationPending,
+		}
+		return nil
+	})
+
+	if err != nil {
+		return nil, NewInternal("failed to check verification: " + err.Error())
+	}
+
+	if eventToSend != nil {
 		s.bus.Publish(ctx, Event{
 			Type:      EventVerificationUpdated,
-			Payload:   v,
+			Payload:   eventToSend,
 			ProjectID: projectID,
 			Timestamp: s.clock.Now(),
 		})
-		return &CheckVerificationResponse{Valid: false, Status: VerificationExpired}, nil
 	}
 
-	v.Attempts++
-	if req.Code == v.Code {
-		v.Status = VerificationApproved
-	} else if v.Attempts >= v.MaxAttempts {
-		v.Status = VerificationMaxAttempts
+	if errToReturn != nil {
+		return nil, errToReturn
 	}
 
-	if err := s.store.UpdateVerification(ctx, v); err != nil {
-		return nil, NewInternal("failed to update verification: " + err.Error())
-	}
-
-	s.bus.Publish(ctx, Event{
-		Type:      EventVerificationUpdated,
-		Payload:   v,
-		ProjectID: projectID,
-		Timestamp: s.clock.Now(),
-	})
-
-	return &CheckVerificationResponse{Valid: req.Code == v.Code, Status: v.Status}, nil
+	return res, nil
 }
 
 func (s *Service) ReceiveInbound(ctx context.Context, projectID string, req InboundRequest) (*Message, error) {

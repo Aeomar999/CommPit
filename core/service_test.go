@@ -173,9 +173,9 @@ func (m *mockSimulator) Evaluate(ctx context.Context, projectID string, req Send
 	return nil, &SimResult{}
 }
 
-func (m *mockSimulator) SetRules(_ []SimRule)             {}
-func (m *mockSimulator) SetLatency(_ time.Duration)     {}
-func (m *mockSimulator) SetFailureRate(_ float64)          {}
+func (m *mockSimulator) SetRules(_ []SimRule)       {}
+func (m *mockSimulator) SetLatency(_ time.Duration) {}
+func (m *mockSimulator) SetFailureRate(_ float64)   {}
 
 func setupTestService() (*Service, *testServiceStore, *FakeClock) {
 	store := newTestServiceStore()

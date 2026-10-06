@@ -71,7 +71,7 @@ func setupTestRouter(t *testing.T, storeOverride core.Store, simOverride core.Si
 		Resolver:  resolver,
 	})
 
-	handlers := NewHandlers(svc, resolver, eventBus)
+	handlers := NewHandlers(svc, resolver, eventBus, "test")
 	return handlers.Routes(), simInstance, effectiveStore
 }
 
@@ -325,6 +325,234 @@ func TestHandlers_CheckVerificationNotFoundReturns404(t *testing.T) {
 		t.Fatalf("expected 'error' object in response, got %v", resp)
 	}
 
+	if errObj["code"] != "verification_not_found" {
+		t.Errorf("expected code verification_not_found, got %v", errObj["code"])
+	}
+}
+
+func TestHandlers_CheckVerification_WrongCodePending(t *testing.T) {
+	router, _, _ := setupTestRouter(t, nil, nil)
+
+	startBody := map[string]any{
+		"channel":      "sms",
+		"to":           "+15005550006",
+		"max_attempts": 3,
+	}
+	payload, _ := json.Marshal(startBody)
+	req := httptest.NewRequest(http.MethodPost, "/verifications", bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected status 201, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var startResp map[string]any
+	_ = json.Unmarshal(rec.Body.Bytes(), &startResp)
+	verObj := startResp["verification"].(map[string]any)
+	verID := verObj["id"].(string)
+
+	checkPayload, _ := json.Marshal(map[string]string{"code": "000000"})
+	checkReq := httptest.NewRequest(http.MethodPost, "/verifications/"+verID+"/check", bytes.NewReader(checkPayload))
+	checkReq.Header.Set("Content-Type", "application/json")
+	checkRec := httptest.NewRecorder()
+	router.ServeHTTP(checkRec, checkReq)
+
+	if checkRec.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", checkRec.Code, checkRec.Body.String())
+	}
+	var checkResp map[string]any
+	_ = json.Unmarshal(checkRec.Body.Bytes(), &checkResp)
+	if checkResp["valid"] != false {
+		t.Errorf("expected valid=false, got %v", checkResp["valid"])
+	}
+	if checkResp["status"] != "pending" {
+		t.Errorf("expected status=pending, got %v", checkResp["status"])
+	}
+}
+
+func TestHandlers_CheckVerification_SuccessApproved(t *testing.T) {
+	router, _, _ := setupTestRouter(t, nil, nil)
+
+	startBody := map[string]any{
+		"channel": "sms",
+		"to":      "+15005550006",
+	}
+	payload, _ := json.Marshal(startBody)
+	req := httptest.NewRequest(http.MethodPost, "/verifications", bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected status 201, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var startResp map[string]any
+	_ = json.Unmarshal(rec.Body.Bytes(), &startResp)
+	verObj := startResp["verification"].(map[string]any)
+	verID := verObj["id"].(string)
+	verCode := verObj["code"].(string)
+
+	checkPayload, _ := json.Marshal(map[string]string{"code": verCode})
+	checkReq := httptest.NewRequest(http.MethodPost, "/verifications/"+verID+"/check", bytes.NewReader(checkPayload))
+	checkReq.Header.Set("Content-Type", "application/json")
+	checkRec := httptest.NewRecorder()
+	router.ServeHTTP(checkRec, checkReq)
+
+	if checkRec.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", checkRec.Code, checkRec.Body.String())
+	}
+	var checkResp map[string]any
+	_ = json.Unmarshal(checkRec.Body.Bytes(), &checkResp)
+	if checkResp["valid"] != true {
+		t.Errorf("expected valid=true, got %v", checkResp["valid"])
+	}
+	if checkResp["status"] != "approved" {
+		t.Errorf("expected status=approved, got %v", checkResp["status"])
+	}
+}
+
+func TestHandlers_CheckVerification_MaxAttemptsReturns429(t *testing.T) {
+	router, _, _ := setupTestRouter(t, nil, nil)
+
+	startBody := map[string]any{
+		"channel":      "sms",
+		"to":           "+15005550006",
+		"max_attempts": 2,
+	}
+	payload, _ := json.Marshal(startBody)
+	req := httptest.NewRequest(http.MethodPost, "/verifications", bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected status 201, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var startResp map[string]any
+	_ = json.Unmarshal(rec.Body.Bytes(), &startResp)
+	verObj := startResp["verification"].(map[string]any)
+	verID := verObj["id"].(string)
+
+	// Attempt 1: wrong code -> 200 pending
+	checkPayload, _ := json.Marshal(map[string]string{"code": "000000"})
+	checkReq1 := httptest.NewRequest(http.MethodPost, "/verifications/"+verID+"/check", bytes.NewReader(checkPayload))
+	checkReq1.Header.Set("Content-Type", "application/json")
+	checkRec1 := httptest.NewRecorder()
+	router.ServeHTTP(checkRec1, checkReq1)
+	if checkRec1.Code != http.StatusOK {
+		t.Fatalf("expected attempt 1 to return 200, got %d", checkRec1.Code)
+	}
+
+	// Attempt 2: hits max attempts -> 429 max_attempts
+	checkReq2 := httptest.NewRequest(http.MethodPost, "/verifications/"+verID+"/check", bytes.NewReader(checkPayload))
+	checkReq2.Header.Set("Content-Type", "application/json")
+	checkRec2 := httptest.NewRecorder()
+	router.ServeHTTP(checkRec2, checkReq2)
+	if checkRec2.Code != http.StatusTooManyRequests {
+		t.Fatalf("expected attempt 2 to return 429, got %d: %s", checkRec2.Code, checkRec2.Body.String())
+	}
+	var errResp map[string]any
+	_ = json.Unmarshal(checkRec2.Body.Bytes(), &errResp)
+	errObj := errResp["error"].(map[string]any)
+	if errObj["code"] != "max_attempts" {
+		t.Errorf("expected code max_attempts, got %v", errObj["code"])
+	}
+
+	// Attempt 3: exhausted -> 429 max_attempts
+	checkReq3 := httptest.NewRequest(http.MethodPost, "/verifications/"+verID+"/check", bytes.NewReader(checkPayload))
+	checkReq3.Header.Set("Content-Type", "application/json")
+	checkRec3 := httptest.NewRecorder()
+	router.ServeHTTP(checkRec3, checkReq3)
+	if checkRec3.Code != http.StatusTooManyRequests {
+		t.Fatalf("expected attempt 3 to return 429, got %d: %s", checkRec3.Code, checkRec3.Body.String())
+	}
+}
+
+func TestHandlers_CheckVerification_AlreadyApprovedReturns404(t *testing.T) {
+	router, _, _ := setupTestRouter(t, nil, nil)
+
+	startBody := map[string]any{
+		"channel": "sms",
+		"to":      "+15005550006",
+	}
+	payload, _ := json.Marshal(startBody)
+	req := httptest.NewRequest(http.MethodPost, "/verifications", bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	var startResp map[string]any
+	_ = json.Unmarshal(rec.Body.Bytes(), &startResp)
+	verObj := startResp["verification"].(map[string]any)
+	verID := verObj["id"].(string)
+	verCode := verObj["code"].(string)
+
+	// First check: valid code -> 200 approved
+	checkPayload, _ := json.Marshal(map[string]string{"code": verCode})
+	checkReq1 := httptest.NewRequest(http.MethodPost, "/verifications/"+verID+"/check", bytes.NewReader(checkPayload))
+	checkReq1.Header.Set("Content-Type", "application/json")
+	checkRec1 := httptest.NewRecorder()
+	router.ServeHTTP(checkRec1, checkReq1)
+	if checkRec1.Code != http.StatusOK {
+		t.Fatalf("expected 200 approved, got %d", checkRec1.Code)
+	}
+
+	// Second check: checking already approved verification -> 404 verification_not_found per spec §7.2
+	checkReq2 := httptest.NewRequest(http.MethodPost, "/verifications/"+verID+"/check", bytes.NewReader(checkPayload))
+	checkReq2.Header.Set("Content-Type", "application/json")
+	checkRec2 := httptest.NewRecorder()
+	router.ServeHTTP(checkRec2, checkReq2)
+	if checkRec2.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 for already approved, got %d: %s", checkRec2.Code, checkRec2.Body.String())
+	}
+	var errResp map[string]any
+	_ = json.Unmarshal(checkRec2.Body.Bytes(), &errResp)
+	errObj := errResp["error"].(map[string]any)
+	if errObj["code"] != "verification_not_found" {
+		t.Errorf("expected code verification_not_found, got %v", errObj["code"])
+	}
+}
+
+func TestHandlers_CheckVerification_ExpiredReturns404(t *testing.T) {
+	router, _, _ := setupTestRouter(t, nil, nil)
+
+	startBody := map[string]any{
+		"channel": "sms",
+		"to":      "+15005550006",
+	}
+	payload, _ := json.Marshal(startBody)
+	req := httptest.NewRequest(http.MethodPost, "/verifications", bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	var startResp map[string]any
+	_ = json.Unmarshal(rec.Body.Bytes(), &startResp)
+	verObj := startResp["verification"].(map[string]any)
+	verID := verObj["id"].(string)
+
+	// Expire it via endpoint
+	expireReq := httptest.NewRequest(http.MethodPost, "/verifications/"+verID+"/expire", nil)
+	expireRec := httptest.NewRecorder()
+	router.ServeHTTP(expireRec, expireReq)
+	if expireRec.Code != http.StatusOK {
+		t.Fatalf("failed to expire verification: %d", expireRec.Code)
+	}
+
+	// Check expired verification -> 404 verification_not_found per spec §7.2
+	checkPayload, _ := json.Marshal(map[string]string{"code": "123456"})
+	checkReq := httptest.NewRequest(http.MethodPost, "/verifications/"+verID+"/check", bytes.NewReader(checkPayload))
+	checkReq.Header.Set("Content-Type", "application/json")
+	checkRec := httptest.NewRecorder()
+	router.ServeHTTP(checkRec, checkReq)
+
+	if checkRec.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 for expired verification, got %d: %s", checkRec.Code, checkRec.Body.String())
+	}
+	var errResp map[string]any
+	_ = json.Unmarshal(checkRec.Body.Bytes(), &errResp)
+	errObj := errResp["error"].(map[string]any)
 	if errObj["code"] != "verification_not_found" {
 		t.Errorf("expected code verification_not_found, got %v", errObj["code"])
 	}

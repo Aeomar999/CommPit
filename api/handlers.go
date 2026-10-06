@@ -9,24 +9,27 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Aeomar999/CommPit/bus"
 	"github.com/Aeomar999/CommPit/core"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/render"
 )
 
+type projectKey struct{}
+
 type Handlers struct {
 	service         *core.Service
 	projectResolver core.ProjectResolver
 	sseHub          *SSEHub
+	version         string
 }
 
-func NewHandlers(service *core.Service, resolver core.ProjectResolver, eventBus *bus.EventBus) *Handlers {
+func NewHandlers(service *core.Service, resolver core.ProjectResolver, eventBus core.Bus, version string) *Handlers {
 	return &Handlers{
 		service:         service,
 		projectResolver: resolver,
 		sseHub:          NewSSEHub(eventBus),
+		version:         version,
 	}
 }
 
@@ -35,62 +38,75 @@ func (h *Handlers) Routes() http.Handler {
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP) //nolint:staticcheck // RealIP is standard chi middleware, acceptable in local sandbox
 	r.Use(middleware.Recoverer)
-	r.Use(middleware.Timeout(60 * time.Second))
 
 	// Public health check
 	r.Get("/healthz", h.Healthz)
 
-	// Protected routes
+	// Long-lived endpoints: mount outside the global timeout middleware
+	r.Get("/events", h.SSEEvents)
+	r.Get("/messages/wait", h.WaitForMessage)
+
+	// Remaining endpoints with 60s timeout
 	r.Group(func(r chi.Router) {
-		r.Use(h.authMiddleware)
+		r.Use(middleware.Timeout(60 * time.Second))
 
-		// Send
-		r.Post("/sms", h.SendSMS)
-		r.Post("/email", h.SendEmail)
+		// Write endpoints - require Bearer auth, no ?project= allowed, use "default" project if no key
+		r.Group(func(r chi.Router) {
+			r.Use(h.authMiddlewareWrite)
 
-		// Verifications
-		r.Post("/verifications", h.StartVerification)
-		r.Post("/verifications/{id}/check", h.CheckVerification)
-		r.Post("/verifications/{id}/expire", h.ExpireVerification)
-		r.Get("/verifications", h.ListVerifications)
-		r.Get("/verifications/{id}", h.GetVerification)
+			// Send
+			r.Post("/sms", h.SendSMS)
+			r.Post("/email", h.SendEmail)
 
-		// Messages
-		r.Get("/messages", h.ListMessages)
-		r.Delete("/messages", h.DeleteMessages)
-		r.Get("/messages/{id}", h.GetMessage)
-		r.Get("/messages/{id}/raw", h.GetMessageRaw)
-		r.Get("/messages/wait", h.WaitForMessage)
+			// Verifications write
+			r.Post("/verifications", h.StartVerification)
+			r.Post("/verifications/{id}/check", h.CheckVerification)
+			r.Post("/verifications/{id}/expire", h.ExpireVerification)
 
-		// Test helpers
-		r.Get("/otp/latest", h.GetLatestOTP)
-		r.Get("/emails/latest", h.GetLatestEmail)
+			// Inbound
+			r.Post("/inbound", h.SimulateInbound)
 
-		// Inbound
-		r.Post("/inbound", h.SimulateInbound)
+			// Projects write
+			r.Patch("/projects/{id}", h.UpdateProject)
+			r.Post("/projects/{id}/credentials", h.LinkCredential)
+		})
 
-		// Attachments
-		r.Get("/attachments/{id}", h.GetAttachment)
+		// Read/test endpoints - accept Bearer auth or ?project=, validate project exists
+		r.Group(func(r chi.Router) {
+			r.Use(h.authMiddlewareRead)
 
-		// Batches
-		r.Get("/batches/{id}", h.GetBatch)
+			// Verifications read
+			r.Get("/verifications", h.ListVerifications)
+			r.Get("/verifications/{id}", h.GetVerification)
 
-		// Request logs
-		r.Get("/requests", h.ListRequestLogs)
-		r.Get("/requests/{id}", h.GetRequestLog)
+			// Messages
+			r.Get("/messages", h.ListMessages)
+			r.Delete("/messages", h.DeleteMessages)
+			r.Get("/messages/{id}", h.GetMessage)
+			r.Get("/messages/{id}/raw", h.GetMessageRaw)
 
-		// Webhooks
-		r.Get("/webhooks", h.ListWebhooks)
-		r.Post("/webhooks/{id}/replay", h.ReplayWebhook)
+			// Test helpers
+			r.Get("/otp/latest", h.GetLatestOTP)
+			r.Get("/emails/latest", h.GetLatestEmail)
 
-		// Projects
-		r.Get("/projects", h.ListProjects)
-		r.Get("/projects/{id}", h.GetProject)
-		r.Patch("/projects/{id}", h.UpdateProject)
-		r.Post("/projects/{id}/credentials", h.LinkCredential)
+			// Attachments
+			r.Get("/attachments/{id}", h.GetAttachment)
 
-		// SSE
-		r.Get("/events", h.SSEEvents)
+			// Batches
+			r.Get("/batches/{id}", h.GetBatch)
+
+			// Request logs
+			r.Get("/requests", h.ListRequestLogs)
+			r.Get("/requests/{id}", h.GetRequestLog)
+
+			// Webhooks
+			r.Get("/webhooks", h.ListWebhooks)
+			r.Post("/webhooks/{id}/replay", h.ReplayWebhook)
+
+			// Projects read
+			r.Get("/projects", h.ListProjects)
+			r.Get("/projects/{id}", h.GetProject)
+		})
 	})
 
 	return r
@@ -99,26 +115,26 @@ func (h *Handlers) Routes() http.Handler {
 func (h *Handlers) Healthz(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, map[string]string{
 		"status":  "ok",
-		"version": "0.1.0",
+		"version": h.version,
 	})
 }
 
-func (h *Handlers) authMiddleware(next http.Handler) http.Handler {
+func (h *Handlers) authMiddlewareWrite(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		auth := r.Header.Get("Authorization")
 		var projectID string
-		var err error
 
 		if auth != "" && len(auth) > 7 && auth[:7] == "Bearer " {
 			key := auth[7:]
-			projectID, _ = h.projectResolver.Resolve(r.Context(), "native", key)
-		}
-
-		if projectID == "" {
-			projectID = r.URL.Query().Get("project")
-		}
-
-		if projectID == "" {
+			var err error
+			projectID, err = h.projectResolver.Resolve(r.Context(), "native", key)
+			if err != nil {
+				h.writeError(w, r, err)
+				return
+			}
+		} else {
+			// No Bearer token - use default project for write endpoints
+			var err error
 			projectID, err = h.projectResolver.Resolve(r.Context(), "native", "default")
 			if err != nil {
 				h.writeError(w, r, core.NewUnauthorized("authentication required"))
@@ -126,13 +142,54 @@ func (h *Handlers) authMiddleware(next http.Handler) http.Handler {
 			}
 		}
 
-		ctx := context.WithValue(r.Context(), "projectID", projectID)
+		ctx := context.WithValue(r.Context(), projectKey{}, projectID)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 
-func (h *Handlers) getProjectID(r *http.Request) string {
-	return r.Context().Value("projectID").(string)
+func (h *Handlers) authMiddlewareRead(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		auth := r.Header.Get("Authorization")
+		var projectID string
+
+		if auth != "" && len(auth) > 7 && auth[:7] == "Bearer " {
+			key := auth[7:]
+			var err error
+			projectID, err = h.projectResolver.Resolve(r.Context(), "native", key)
+			if err != nil {
+				h.writeError(w, r, err)
+				return
+			}
+		} else if projectQuery := r.URL.Query().Get("project"); projectQuery != "" {
+			// ?project= only allowed on read/test endpoints
+			// Verify the project exists
+			_, err := h.service.Store().GetProject(r.Context(), projectQuery)
+			if err != nil {
+				h.writeError(w, r, core.NewNotFound("project not found", ""))
+				return
+			}
+			projectID = projectQuery
+		} else {
+			// No auth and no project query - try default
+			var err error
+			projectID, err = h.projectResolver.Resolve(r.Context(), "native", "default")
+			if err != nil {
+				h.writeError(w, r, core.NewUnauthorized("authentication required"))
+				return
+			}
+		}
+
+		ctx := context.WithValue(r.Context(), projectKey{}, projectID)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+func (h *Handlers) getProjectID(r *http.Request) (string, error) {
+	projectID, ok := r.Context().Value(projectKey{}).(string)
+	if !ok || projectID == "" {
+		return "", errors.New("projectID not found in context")
+	}
+	return projectID, nil
 }
 
 func (h *Handlers) writeError(w http.ResponseWriter, r *http.Request, err error) {
@@ -171,7 +228,11 @@ func (h *Handlers) SendSMS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	projectID := h.getProjectID(r)
+	projectID, err := h.getProjectID(r)
+	if err != nil {
+		h.writeError(w, r, core.NewUnauthorized("authentication required"))
+		return
+	}
 
 	sendReq := core.SendRequest{
 		Channel:     core.ChannelSMS,
@@ -244,7 +305,11 @@ func (h *Handlers) SendEmail(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	projectID := h.getProjectID(r)
+	projectID, err := h.getProjectID(r)
+	if err != nil {
+		h.writeError(w, r, core.NewUnauthorized("authentication required"))
+		return
+	}
 
 	sendReq := core.SendRequest{
 		Channel:     core.ChannelEmail,
@@ -292,7 +357,11 @@ func (h *Handlers) StartVerification(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	projectID := h.getProjectID(r)
+	projectID, err := h.getProjectID(r)
+	if err != nil {
+		h.writeError(w, r, core.NewUnauthorized("authentication required"))
+		return
+	}
 
 	codeLength := 6
 	if req.CodeLength != nil {
@@ -344,7 +413,11 @@ func (h *Handlers) CheckVerification(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	projectID := h.getProjectID(r)
+	projectID, err := h.getProjectID(r)
+	if err != nil {
+		h.writeError(w, r, core.NewUnauthorized("authentication required"))
+		return
+	}
 
 	resp, err := h.service.CheckVerification(r.Context(), projectID, id, core.CheckVerificationRequest{
 		Code: req.Code,
@@ -367,7 +440,11 @@ func (h *Handlers) ExpireVerification(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	projectID := h.getProjectID(r)
+	projectID, err := h.getProjectID(r)
+	if err != nil {
+		h.writeError(w, r, core.NewUnauthorized("authentication required"))
+		return
+	}
 
 	v, err := h.Store().GetVerification(r.Context(), projectID, id)
 	if err != nil {
@@ -398,7 +475,11 @@ func (h *Handlers) GetVerification(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	projectID := h.getProjectID(r)
+	projectID, err := h.getProjectID(r)
+	if err != nil {
+		h.writeError(w, r, core.NewUnauthorized("authentication required"))
+		return
+	}
 
 	v, err := h.Store().GetVerification(r.Context(), projectID, id)
 	if err != nil {
@@ -410,7 +491,11 @@ func (h *Handlers) GetVerification(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) ListVerifications(w http.ResponseWriter, r *http.Request) {
-	projectID := h.getProjectID(r)
+	projectID, err := h.getProjectID(r)
+	if err != nil {
+		h.writeError(w, r, core.NewUnauthorized("authentication required"))
+		return
+	}
 
 	limit := 50
 	if l := r.URL.Query().Get("limit"); l != "" {
@@ -435,7 +520,11 @@ func (h *Handlers) ListVerifications(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) ListMessages(w http.ResponseWriter, r *http.Request) {
-	projectID := h.getProjectID(r)
+	projectID, err := h.getProjectID(r)
+	if err != nil {
+		h.writeError(w, r, core.NewUnauthorized("authentication required"))
+		return
+	}
 
 	filter := core.MessageFilter{
 		Limit:  50,
@@ -494,7 +583,11 @@ func (h *Handlers) GetMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	projectID := h.getProjectID(r)
+	projectID, err := h.getProjectID(r)
+	if err != nil {
+		h.writeError(w, r, core.NewUnauthorized("authentication required"))
+		return
+	}
 
 	msg, err := h.Store().GetMessage(r.Context(), projectID, id)
 	if err != nil {
@@ -528,7 +621,11 @@ func (h *Handlers) GetMessageRaw(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	projectID := h.getProjectID(r)
+	projectID, err := h.getProjectID(r)
+	if err != nil {
+		h.writeError(w, r, core.NewUnauthorized("authentication required"))
+		return
+	}
 
 	msg, err := h.service.Store().GetMessage(r.Context(), projectID, id)
 	if err != nil {
@@ -566,9 +663,24 @@ func (h *Handlers) GetMessageRaw(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) DeleteMessages(w http.ResponseWriter, r *http.Request) {
-	projectID := h.getProjectID(r)
+	// DELETE /messages requires explicit project via Bearer token or ?project= query
+	// The authMiddlewareRead already handles this - it will return 400 if no project is available
+	projectID, err := h.getProjectID(r)
+	if err != nil {
+		h.writeError(w, r, core.NewUnauthorized("authentication required"))
+		return
+	}
 
-	err := h.service.Store().DeleteMessages(r.Context(), projectID)
+	// Check if project was explicitly provided via ?project= or Bearer token
+	// If neither was provided, the auth middleware would have resolved "default" which we don't want for DELETE
+	auth := r.Header.Get("Authorization")
+	projectQuery := r.URL.Query().Get("project")
+	if (auth == "" || len(auth) <= 7 || auth[:7] != "Bearer ") && projectQuery == "" {
+		h.writeError(w, r, core.NewValidationError("project required", "project"))
+		return
+	}
+
+	err = h.service.Store().DeleteMessages(r.Context(), projectID)
 	if err != nil {
 		h.writeError(w, r, err)
 		return
@@ -578,7 +690,11 @@ func (h *Handlers) DeleteMessages(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) WaitForMessage(w http.ResponseWriter, r *http.Request) {
-	projectID := h.getProjectID(r)
+	projectID, err := h.getProjectID(r)
+	if err != nil {
+		h.writeError(w, r, core.NewUnauthorized("authentication required"))
+		return
+	}
 
 	to := r.URL.Query().Get("to")
 	if to != "" {
@@ -588,11 +704,18 @@ func (h *Handlers) WaitForMessage(w http.ResponseWriter, r *http.Request) {
 	sinceStr := r.URL.Query().Get("since")
 	timeoutStr := r.URL.Query().Get("timeout")
 
+	// Parse timeout: accept seconds (e.g., "10") or Go duration (e.g., "10s"), cap at 60s
 	timeout := 10 * time.Second
 	if timeoutStr != "" {
-		if d, err := time.ParseDuration(timeoutStr + "s"); err == nil {
+		// Try parsing as seconds first
+		if sec, err := time.ParseDuration(timeoutStr + "s"); err == nil {
+			timeout = sec
+		} else if d, err := time.ParseDuration(timeoutStr); err == nil {
 			timeout = d
 		}
+	}
+	if timeout > 60*time.Second {
+		timeout = 60 * time.Second
 	}
 
 	var channel *core.Channel
@@ -601,40 +724,77 @@ func (h *Handlers) WaitForMessage(w http.ResponseWriter, r *http.Request) {
 		channel = &c
 	}
 
+	// Default since to request arrival time
+	requestTime := h.service.Clock().Now()
 	var since *time.Time
 	if sinceStr != "" {
 		if t, err := time.Parse(time.RFC3339, sinceStr); err == nil {
 			since = &t
 		}
+	} else {
+		since = &requestTime
 	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), timeout)
 	defer cancel()
 
-	ticker := time.NewTicker(100 * time.Millisecond)
-	defer ticker.Stop()
+	// Check for existing messages first
+	messages, _, err := h.service.Store().ListMessages(ctx, projectID, core.MessageFilter{
+		To:      &to,
+		Channel: channel,
+		Since:   since,
+		Limit:   1,
+	})
+	if err == nil && len(messages) > 0 {
+		render.JSON(w, r, messages[0])
+		return
+	}
 
-	for {
-		select {
-		case <-ctx.Done():
-			h.writeError(w, r, core.NewInternal("wait timeout"))
-			return
-		case <-ticker.C:
-			messages, _, _ := h.service.Store().ListMessages(ctx, projectID, core.MessageFilter{
-				To:      &to,
-				Channel: channel,
-				Since:   since,
-				Limit:   1,
-			})
-			if len(messages) > 0 {
-				render.JSON(w, r, messages[0])
+	// Subscribe to message.created events for this project and recipient
+	msgCh := make(chan *core.Message, 1)
+	sub := h.service.Bus().Subscribe(string(core.EventMessageCreated), func(e core.Event) {
+		if msg, ok := e.Payload.(*core.Message); ok {
+			// Filter by project
+			if msg.ProjectID != projectID {
 				return
 			}
+			// Filter by recipient
+			if to != "" && msg.To != to {
+				return
+			}
+			// Filter by channel
+			if channel != nil && msg.Channel != *channel {
+				return
+			}
+			// Filter by since
+			if since != nil && !msg.CreatedAt.After(*since) {
+				return
+			}
+			select {
+			case msgCh <- msg:
+			default:
+			}
 		}
+	})
+	defer sub.Unsubscribe()
+
+	select {
+	case <-ctx.Done():
+		h.writeError(w, r, core.NewWaitTimeout("wait timeout"))
+		return
+	case msg := <-msgCh:
+		render.JSON(w, r, msg)
+		return
 	}
 }
 
 func (h *Handlers) GetLatestOTP(w http.ResponseWriter, r *http.Request) {
+	_, err := h.getProjectID(r)
+	if err != nil {
+		h.writeError(w, r, core.NewUnauthorized("authentication required"))
+		return
+	}
+
 	to := r.URL.Query().Get("to")
 	if to == "" {
 		h.writeError(w, r, core.NewValidationError("to parameter required", "to"))
@@ -645,6 +805,12 @@ func (h *Handlers) GetLatestOTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) GetLatestEmail(w http.ResponseWriter, r *http.Request) {
+	_, err := h.getProjectID(r)
+	if err != nil {
+		h.writeError(w, r, core.NewUnauthorized("authentication required"))
+		return
+	}
+
 	to := r.URL.Query().Get("to")
 	if to == "" {
 		h.writeError(w, r, core.NewValidationError("to parameter required", "to"))
@@ -661,7 +827,11 @@ func (h *Handlers) SimulateInbound(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	projectID := h.getProjectID(r)
+	projectID, err := h.getProjectID(r)
+	if err != nil {
+		h.writeError(w, r, core.NewUnauthorized("authentication required"))
+		return
+	}
 
 	msg, err := h.service.ReceiveInbound(r.Context(), projectID, core.InboundRequest{
 		From: req.From,
@@ -721,7 +891,11 @@ func (h *Handlers) GetBatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	projectID := h.getProjectID(r)
+	projectID, err := h.getProjectID(r)
+	if err != nil {
+		h.writeError(w, r, core.NewUnauthorized("authentication required"))
+		return
+	}
 
 	batch, err := h.Store().GetBatch(r.Context(), projectID, id)
 	if err != nil {
@@ -741,7 +915,11 @@ func (h *Handlers) GetBatch(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) ListRequestLogs(w http.ResponseWriter, r *http.Request) {
-	projectID := h.getProjectID(r)
+	projectID, err := h.getProjectID(r)
+	if err != nil {
+		h.writeError(w, r, core.NewUnauthorized("authentication required"))
+		return
+	}
 
 	logs, nextCursor, err := h.Store().ListRequestLogs(r.Context(), projectID, 50, r.URL.Query().Get("cursor"))
 	if err != nil {
@@ -801,7 +979,11 @@ func (h *Handlers) GetRequestLog(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) ListWebhooks(w http.ResponseWriter, r *http.Request) {
-	_ = h.getProjectID(r)
+	_, err := h.getProjectID(r)
+	if err != nil {
+		h.writeError(w, r, core.NewUnauthorized("authentication required"))
+		return
+	}
 
 	webhooks, err := h.Store().ListPendingWebhooks(r.Context(), 50)
 	if err != nil {
@@ -842,9 +1024,21 @@ func (h *Handlers) ReplayWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	projectID, err := h.getProjectID(r)
+	if err != nil {
+		h.writeError(w, r, core.NewUnauthorized("authentication required"))
+		return
+	}
+
 	webhook, err := h.Store().GetWebhookDelivery(r.Context(), id)
 	if err != nil {
 		h.writeError(w, r, err)
+		return
+	}
+
+	// Verify the webhook belongs to the project
+	if webhook.ProjectID != projectID {
+		h.writeError(w, r, core.NewNotFound("webhook not found", ""))
 		return
 	}
 
@@ -886,6 +1080,12 @@ func (h *Handlers) ReplayWebhook(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) ListProjects(w http.ResponseWriter, r *http.Request) {
+	_, err := h.getProjectID(r)
+	if err != nil {
+		h.writeError(w, r, core.NewUnauthorized("authentication required"))
+		return
+	}
+
 	projects, nextCursor, err := h.Store().ListProjects(r.Context(), 50, r.URL.Query().Get("cursor"))
 	if err != nil {
 		h.writeError(w, r, err)
@@ -915,9 +1115,24 @@ func (h *Handlers) GetProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	_, err := h.getProjectID(r)
+	if err != nil {
+		h.writeError(w, r, core.NewUnauthorized("authentication required"))
+		return
+	}
+
+	// For GET /projects/{id}, the project in the path should match the authenticated project
+	// or the project specified via ?project=
 	project, err := h.Store().GetProject(r.Context(), id)
 	if err != nil {
 		h.writeError(w, r, err)
+		return
+	}
+
+	// If a specific project was requested via ?project=, verify it matches
+	projectQuery := r.URL.Query().Get("project")
+	if projectQuery != "" && projectQuery != project.ID {
+		h.writeError(w, r, core.NewNotFound("project not found", ""))
 		return
 	}
 
@@ -933,6 +1148,12 @@ func (h *Handlers) UpdateProject(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if id == "" {
 		h.writeError(w, r, core.NewValidationError("project ID required", "id"))
+		return
+	}
+
+	_, err := h.getProjectID(r)
+	if err != nil {
+		h.writeError(w, r, core.NewUnauthorized("authentication required"))
 		return
 	}
 
@@ -975,13 +1196,19 @@ func (h *Handlers) LinkCredential(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	_, err := h.getProjectID(r)
+	if err != nil {
+		h.writeError(w, r, core.NewUnauthorized("authentication required"))
+		return
+	}
+
 	var req LinkCredentialRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.writeError(w, r, core.NewValidationError("invalid JSON", ""))
 		return
 	}
 
-	_, err := h.projectResolver.Resolve(r.Context(), req.Provider, req.Key)
+	_, err = h.projectResolver.Resolve(r.Context(), req.Provider, req.Key)
 	if err != nil {
 		h.writeError(w, r, err)
 		return

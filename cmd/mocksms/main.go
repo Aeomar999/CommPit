@@ -111,7 +111,7 @@ func runWithContext(ctx context.Context, cfg *config.Config) error {
 		PhoneMode:    phoneMode,
 	})
 
-	handlers := api.NewHandlers(service, projectResolver, eventBus)
+	handlers := api.NewHandlers(service, projectResolver, eventBus, version)
 
 	service.LifecycleRunner().ResumeQueuedAndSent(ctx)
 

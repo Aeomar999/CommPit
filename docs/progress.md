@@ -8,14 +8,14 @@ Single source of truth for where the project stands. Update it in every PR that 
 |---|---|
 | **Phase** | M1 in progress |
 | **Current milestone** | M1 |
-| **Next action** | M1-F12: Verification checks: atomic attempts, native API statuses per spec §7.2 |
+| **Next action** | M1-F15: Spec-first API: generate the server from `openapi.yaml` and fail CI on drift |
 | **Last updated** | 2026-10-05 |
 
 ## Milestones
 
 | Milestone | Release | Status | Tasks done |
 |---|---|---|---|
-| M1: Core, native API, SMTP, inbox | v0.1.0 | In progress | 17 / 21 |
+| M1: Core, native API, SMTP, inbox | v0.1.0 | In progress | 18 / 21 |
 | M2: Twilio, Termii, test API, inspector | v0.2.0 | Not started | 0 / 14 |
 | M3: Webhooks, failure simulation, inbound, batches | v0.3.0 | Not started | 0 / 12 |
 | M4: Estimate, MCP, CI kit | v0.4.0 | Not started | 0 / 8 |
@@ -34,6 +34,9 @@ Newest first. One entry per working session: what changed, decisions made, what'
 
 ### 2026-10-05
 
+- Completed M1-F14: Long-lived requests - mounted `/events` and `/messages/wait` outside the global 60s timeout middleware. SSE handler now clears write deadline with `http.NewResponseController`, uses 15s heartbeat, registers clients by project filter, and emits `event: <type>` lines for EventSource filtering. `messages/wait` defaults `since` to request arrival time, accepts timeout as seconds or Go duration capped at 60s, returns 408 with canonical `wait_timeout` code, returns oldest match after `since`, and wakes on `message.created` bus events instead of polling. Added `ErrCodeWaitTimeout` to core errors with HTTP 408. All tests pass.
+- **Next:** M1-F15: Spec-first API: generate the server from `openapi.yaml` and fail CI on drift
+- Completed M1-F13: API scoping - split auth middleware into write (Bearer only, default project) and read/test (Bearer or ?project= with project existence validation). Added typed context key `projectKey{}` with error-returning accessor. DELETE /messages now requires explicit project via Bearer or ?project=, returns 400 `validation_error` otherwise. Replaced `bus` import with `core.Bus` in api package (handlers and SSE hub). Passed build version to `NewHandlers` and used in `/healthz`. All handler tests pass.
 - Completed M1-F11: Simulator and OTP generation - moved simulator to new `sim` package implementing `core.Simulator`, wired in `cmd/mocksms`, and removed legacy simulator from `core`. Implemented thread-safe randomness with `math/rand/v2` and mutex-guarded test override. Combined latency and random failure rate effects so both apply to a send. Treated only `...999901` through `...999905` as magic pattern numbers, allowing other numbers to use standard latency/failure rates. Generated OTP verification codes using `crypto/rand` (`big.NewInt(10)` per digit), removing sleep and timestamp dependencies. Added `core.NoopSimulator` as default in `core.NewService`. Verified 10,000 generated codes have uniform digit distribution with exact length, table tests cover all magic numbers, and concurrent simulation passes under race detector.
 - **Next:** M1-F12: Verification checks: atomic attempts, native API statuses per spec §7.2
 - Completed M1-F10: Recipient handling - stored and matched recipients in normalized E.164 via phone.Parse/phone.Normalize, applying normalization to ListMessages/WaitForMessage filters, unsubscribe suppression records, and simulator matching. In ReceiveInbound, evaluated STOP and START keywords first using strings.ToLower and strings.TrimSpace, allowed START to remove unsubscribe suppression, and always accepted inbound messages without rejecting on unsubscribe status. Set CallbackURL to nil unless non-empty. In batches, validated and simulated each recipient individually, returning rejected recipients in batch response (openapi schema and core types updated with BatchRejectedRecipient) while delivering all valid recipients. Added tests in core/service_test.go and api/handlers_test.go.

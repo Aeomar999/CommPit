@@ -198,7 +198,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/CheckVerificationResponse'
         '404':
-          description: Verification not found
+          description: Verification not found, expired, or approved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Maximum attempts exceeded
           content:
             application/json:
               schema:
