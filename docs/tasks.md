@@ -39,7 +39,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked
 | [x] | M1-18 | Inbox UI per [design.md](design.md) §10–§11: sidebar, top bar with Sandbox pill, project switcher, message list, code tiles, delivery track, SMS threads, email plate (sandboxed iframe, remote-image toggle), filters, get-started checklist, settings page, live updates; finish with `impeccable detect`, the impeccable finish review, and the impeccable documenter writing root `DESIGN.md` + `.impeccable/design.json` | M1-13, M1-17 | REQ-002–REQ-007 |
 | [x] | M1-19 | `cmd/mocksms serve`: wiring, startup/shutdown order (architecture §7), banner | M1-09–M1-16 | — |
 | [x] | M1-20 | Release pipeline: goreleaser (binaries, Docker, Homebrew, Scoop), cosign, release workflow | M1-19 | — |
-| [ ] | M1-21 | Docs: README quick start; SMTP setup for Laravel, Django, Rails, Nodemailer, Spring | M1-19 | — |
+| [x] | M1-21 | Docs: README quick start; SMTP setup for Laravel, Django, Rails, Nodemailer, Spring | M1-19 | — |
 
 ### M1 review fixes (from the 2026-10-04 review)
 
