@@ -133,6 +133,9 @@ func (s *Service) SendMessage(ctx context.Context, projectID string, req SendReq
 
 	if req.Channel == ChannelSMS {
 		enc, segs := phone.Analyze(req.BodyText)
+		if segs > phone.MaxSegments(enc) {
+			return nil, NewValidationError("message too long", "body")
+		}
 		msg.Encoding = enc.String()
 		msg.Segments = segs
 	}
@@ -270,6 +273,14 @@ func (s *Service) sendBatch(ctx context.Context, projectID string, req SendReque
 
 		if req.Channel == ChannelSMS {
 			enc, segs := phone.Analyze(req.BodyText)
+			if segs > phone.MaxSegments(enc) {
+				rejected = append(rejected, BatchRejectedRecipient{
+					To:      to,
+					Code:    "validation_error",
+					Message: "message too long",
+				})
+				continue
+			}
 			msg.Encoding = enc.String()
 			msg.Segments = segs
 		}

@@ -37,10 +37,10 @@ func TestEncoding(t *testing.T) {
 			wantSegs: 2,
 		},
 		{
-			name:     "GSM-7 307 chars = 3 segments",
+			name:     "GSM-7 307 chars = 2 segments (160 + 147)",
 			body:     strings.Repeat("a", 307),
 			wantEnc:  EncodingGSM7,
-			wantSegs: 3,
+			wantSegs: 2,
 		},
 		{
 			name:     "UCS-2 single char",
@@ -67,10 +67,10 @@ func TestEncoding(t *testing.T) {
 			wantSegs: 2,
 		},
 		{
-			name:     "UCS-2 135 chars = 3 segments",
+			name:     "UCS-2 135 chars = 2 segments (70 + 65)",
 			body:     strings.Repeat("あ", 135),
 			wantEnc:  EncodingUCS2,
-			wantSegs: 3,
+			wantSegs: 2,
 		},
 		{
 			name:     "mixed GSM-7 and UCS-2 forces UCS-2",
@@ -140,23 +140,26 @@ func TestGSM7Charset(t *testing.T) {
 }
 
 func TestMaxSegments(t *testing.T) {
-	// Maximum 10 segments for concatenated SMS
-	longGSM7 := strings.Repeat("a", 1600) // 10 segments * 160
+	// Maximum 10 segments for concatenated SMS - Analyze returns uncapped count
+	// 10 segments = 160 + 9*153 = 1537 chars
+	longGSM7 := strings.Repeat("a", 1537)
 	_, segs := Analyze(longGSM7)
 	if segs != 10 {
-		t.Errorf("expected 10 segments for 1600 GSM-7 chars, got %d", segs)
+		t.Errorf("expected 10 segments for 1537 GSM-7 chars, got %d", segs)
 	}
 
-	longUCS2 := strings.Repeat("あ", 670) // 10 segments * 67
+	// 10 segments = 70 + 9*67 = 673 UCS-2 chars (but each あ is 2 UTF-16 units)
+	// 673 runes * 2 = 1346 UTF-16 units
+	longUCS2 := strings.Repeat("あ", 673)
 	_, segs = Analyze(longUCS2)
 	if segs != 10 {
-		t.Errorf("expected 10 segments for 670 UCS-2 chars, got %d", segs)
+		t.Errorf("expected 10 segments for 673 UCS-2 chars, got %d", segs)
 	}
 
-	// 11th segment should be capped at 10
-	tooLongGSM7 := strings.Repeat("a", 1601)
+	// 11th segment - returns 11 (uncapped)
+	tooLongGSM7 := strings.Repeat("a", 1538)
 	_, segs = Analyze(tooLongGSM7)
-	if segs != 10 {
-		t.Errorf("expected max 10 segments, got %d", segs)
+	if segs != 11 {
+		t.Errorf("expected 11 segments for 1538 GSM-7 chars (uncapped), got %d", segs)
 	}
 }

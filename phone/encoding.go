@@ -1,5 +1,7 @@
 package phone
 
+import "unicode/utf16"
+
 type Encoding int
 
 const (
@@ -43,7 +45,7 @@ var gsm7Basic = map[rune]bool{
 }
 
 var gsm7Extended = map[rune]bool{
-	'^': true, '{': true, '}': true, '\\': true, '[': true, ']': true, '~': true, '|': true, '€': true,
+	'^': true, '{': true, '}': true, '\\': true, '[': true, ']': true, '~': true, '|': true, '€': true, '\f': true,
 }
 
 func Analyze(body string) (Encoding, int) {
@@ -75,25 +77,26 @@ func countSegmentsGSM7(length int) int {
 	if length <= gsm7SingleMax {
 		return 1
 	}
-	segs := (length + gsm7MultiMax - 1) / gsm7MultiMax
-	if segs > maxSegments {
-		return maxSegments
-	}
+	// First segment: 160 chars, subsequent: 153 chars each
+	remaining := length - gsm7SingleMax
+	segs := 1 + (remaining+gsm7MultiMax-1)/gsm7MultiMax
 	return segs
 }
 
 func countSegmentsUCS2(body string) int {
-	length := len([]rune(body))
+	length := 0
+	for _, r := range body {
+		length += utf16.RuneLen(r)
+	}
 	if length == 0 {
 		return 0
 	}
 	if length <= ucs2SingleMax {
 		return 1
 	}
-	segs := (length + ucs2MultiMax - 1) / ucs2MultiMax
-	if segs > maxSegments {
-		return maxSegments
-	}
+	// First segment: 70 chars, subsequent: 67 chars each
+	remaining := length - ucs2SingleMax
+	segs := 1 + (remaining+ucs2MultiMax-1)/ucs2MultiMax
 	return segs
 }
 
