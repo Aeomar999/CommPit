@@ -46,11 +46,14 @@ func TestRun_PortConflict(t *testing.T) {
 }
 
 func TestRun_CleanShutdown(t *testing.T) {
-	port := getFreePort(t)
+	httpPort := getFreePort(t)
+	smtpPort := getFreePort(t)
 
 	cfg := config.Load()
 	cfg.HTTP.Host = "127.0.0.1"
-	cfg.HTTP.Port = port
+	cfg.HTTP.Port = httpPort
+	cfg.SMTP.Host = "127.0.0.1"
+	cfg.SMTP.Port = smtpPort
 	cfg.Memory = true
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -61,7 +64,7 @@ func TestRun_CleanShutdown(t *testing.T) {
 	}()
 
 	// Wait for server to become responsive
-	url := fmt.Sprintf("http://127.0.0.1:%d/healthz", port)
+	url := fmt.Sprintf("http://127.0.0.1:%d/healthz", httpPort)
 	ready := false
 	for i := 0; i < 50; i++ {
 		time.Sleep(20 * time.Millisecond)

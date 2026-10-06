@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"time"
 
 	"github.com/Aeomar999/CommPit/core"
 )
@@ -167,6 +168,51 @@ func (t *txStore) DeleteMessages(ctx context.Context, projectID string) error {
 func (t *txStore) DeleteMessage(ctx context.Context, projectID, messageID string) error {
 	_, err := t.tx.ExecContext(ctx, `DELETE FROM messages WHERE project_id = ? AND id = ?`, projectID, messageID)
 	return err
+}
+
+func (t *txStore) DeleteMessagesOlderThan(ctx context.Context, ttl time.Duration) (int64, error) {
+	cutoff := time.Now().Add(-ttl)
+	result, err := t.tx.ExecContext(ctx, `DELETE FROM messages WHERE created_at < ?`, cutoff)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+func (t *txStore) DeleteVerificationsOlderThan(ctx context.Context, ttl time.Duration) (int64, error) {
+	cutoff := time.Now().Add(-ttl)
+	result, err := t.tx.ExecContext(ctx, `DELETE FROM verifications WHERE created_at < ?`, cutoff)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+func (t *txStore) DeleteBatchesOlderThan(ctx context.Context, ttl time.Duration) (int64, error) {
+	cutoff := time.Now().Add(-ttl)
+	result, err := t.tx.ExecContext(ctx, `DELETE FROM batches WHERE created_at < ?`, cutoff)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+func (t *txStore) DeleteRequestLogsOlderThan(ctx context.Context, ttl time.Duration) (int64, error) {
+	cutoff := time.Now().Add(-ttl)
+	result, err := t.tx.ExecContext(ctx, `DELETE FROM request_logs WHERE created_at < ?`, cutoff)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+func (t *txStore) DeleteWebhookDeliveriesOlderThan(ctx context.Context, ttl time.Duration) (int64, error) {
+	cutoff := time.Now().Add(-ttl)
+	result, err := t.tx.ExecContext(ctx, `DELETE FROM webhook_deliveries WHERE created_at < ?`, cutoff)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 func (t *txStore) ListInFlightMessages(ctx context.Context) ([]*core.Message, error) {

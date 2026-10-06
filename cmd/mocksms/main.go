@@ -16,7 +16,9 @@ import (
 	"github.com/Aeomar999/CommPit/config"
 	"github.com/Aeomar999/CommPit/core"
 	"github.com/Aeomar999/CommPit/phone"
+	"github.com/Aeomar999/CommPit/retention"
 	"github.com/Aeomar999/CommPit/sim"
+	"github.com/Aeomar999/CommPit/smtpd"
 	"github.com/Aeomar999/CommPit/store/sqlite"
 )
 
@@ -111,9 +113,29 @@ func runWithContext(ctx context.Context, cfg *config.Config) error {
 		PhoneMode:    phoneMode,
 	})
 
-	handlers := api.NewHandlers(service, projectResolver, eventBus, version)
+	handlers := api.NewHandlers(service, projectResolver, eventBus, version, &cfg.Security)
 
 	service.LifecycleRunner().ResumeQueuedAndSent(ctx)
+
+	// Start SMTP server
+	smtpServer := smtpd.NewServer(&smtpd.Config{
+		Host:           cfg.SMTP.Host,
+		Port:           cfg.SMTP.Port,
+		MaxMessageSize: 25 * 1024 * 1024, // 25 MB
+		EnableSTARTTLS: false,
+	}, service, projectResolver)
+
+	smtpErrCh := make(chan error, 1)
+	go func() {
+		fmt.Printf("Starting SMTP server on %s:%d\n", cfg.SMTP.Host, cfg.SMTP.Port)
+		if err := smtpServer.Start(); err != nil {
+			smtpErrCh <- err
+		}
+	}()
+
+	// Start retention pruner
+	pruner := retention.NewPruner(&cfg.Retention, store, service)
+	pruner.Start(ctx)
 
 	server := &http.Server{
 		Addr:         fmt.Sprintf("%s:%d", cfg.HTTP.Host, cfg.HTTP.Port),
@@ -137,6 +159,8 @@ func runWithContext(ctx context.Context, cfg *config.Config) error {
 		fmt.Println("Shutting down...")
 	case err := <-serverErrCh:
 		runErr = fmt.Errorf("HTTP server error: %w", err)
+	case err := <-smtpErrCh:
+		runErr = fmt.Errorf("SMTP server error: %w", err)
 	}
 
 	// 1. Drain HTTP server (architecture.md §7)
@@ -147,10 +171,18 @@ func runWithContext(ctx context.Context, cfg *config.Config) error {
 		fmt.Fprintf(os.Stderr, "Server shutdown error: %v\n", err)
 	}
 
-	// 2. Stop lifecycle runner
+	// 2. Stop SMTP server
+	if err := smtpServer.Shutdown(shutdownCtx); err != nil {
+		fmt.Fprintf(os.Stderr, "SMTP shutdown error: %v\n", err)
+	}
+
+	// 3. Stop retention pruner
+	pruner.Stop()
+
+	// 4. Stop lifecycle runner
 	service.Shutdown()
 
-	// 3. store.Close() is called by defer
+	// 5. store.Close() is called by defer
 
 	return runErr
 }

@@ -132,6 +132,10 @@ func (s *Store) execContext(ctx context.Context, query string, args ...interface
 	return err
 }
 
+func (s *Store) execContextWithResult(ctx context.Context, query string, args ...interface{}) (sql.Result, error) {
+	return s.getWriteDB().ExecContext(ctx, query, args...)
+}
+
 func (s *Store) queryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error) {
 	return s.getReadDB().QueryContext(ctx, query, args...)
 }

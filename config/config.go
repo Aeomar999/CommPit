@@ -13,7 +13,7 @@ import (
 )
 
 type Config struct {
-	HTTP struct {
+	HTTP      struct {
 		Host string
 		Port int
 	}
@@ -28,9 +28,17 @@ type Config struct {
 	OTP                 OTPConfig
 	Validation          ValidationConfig
 	Sim                 SimConfig
+	Retention           RetentionConfig
 	UIAuth              string
 	NoDockerHostRewrite bool
 	Version             bool
+	Security            SecurityConfig
+}
+
+type SecurityConfig struct {
+	AllowedHosts    []string
+	RequireXMocksms bool
+	UIAuth          string
 }
 
 type StoreConfig struct {
@@ -52,6 +60,16 @@ type ValidationConfig struct {
 type SimConfig struct {
 	Latency     time.Duration
 	FailureRate float64
+}
+
+type RetentionConfig struct {
+	Enabled         bool
+	Interval        time.Duration
+	MessageTTL      time.Duration
+	VerificationTTL time.Duration
+	BatchTTL        time.Duration
+	RequestLogTTL   time.Duration
+	WebhookTTL      time.Duration
 }
 
 func Load() *Config {
@@ -87,6 +105,15 @@ func Load() *Config {
 	cfg.Sim.FailureRate = getFloat64(k, "sim.failure_rate", 0)
 	cfg.UIAuth = getString(k, "ui_auth", "")
 	cfg.NoDockerHostRewrite = getBool(k, "no_docker_host_rewrite", false)
+	cfg.Security.AllowedHosts = getStringSlice(k, "security.allowed_hosts", []string{"127.0.0.1", "localhost"})
+	cfg.Security.RequireXMocksms = getBool(k, "security.require_x_mocksms", true)
+	cfg.Retention.Enabled = getBool(k, "retention.enabled", false)
+	cfg.Retention.Interval = getDuration(k, "retention.interval", 1*time.Hour)
+	cfg.Retention.MessageTTL = getDuration(k, "retention.message_ttl", 30*24*time.Hour)
+	cfg.Retention.VerificationTTL = getDuration(k, "retention.verification_ttl", 7*24*time.Hour)
+	cfg.Retention.BatchTTL = getDuration(k, "retention.batch_ttl", 30*24*time.Hour)
+	cfg.Retention.RequestLogTTL = getDuration(k, "retention.request_log_ttl", 30*24*time.Hour)
+	cfg.Retention.WebhookTTL = getDuration(k, "retention.webhook_ttl", 30*24*time.Hour)
 
 	return cfg
 }
@@ -122,6 +149,15 @@ func getDuration(k *koanf.Koanf, key string, def time.Duration) time.Duration {
 func getFloat64(k *koanf.Koanf, key string, def float64) float64 {
 	if k.Exists(key) {
 		return k.Float64(key)
+	}
+	return def
+}
+
+func getStringSlice(k *koanf.Koanf, key string, def []string) []string {
+	if k.Exists(key) {
+		var result []string
+		k.Unmarshal(key, &result)
+		return result
 	}
 	return def
 }

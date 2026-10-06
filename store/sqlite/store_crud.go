@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"time"
 
 	"github.com/Aeomar999/CommPit/core"
 )
@@ -316,6 +317,51 @@ func (s *Store) DeleteMessages(ctx context.Context, projectID string) error {
 
 func (s *Store) DeleteMessage(ctx context.Context, projectID, messageID string) error {
 	return s.execContext(ctx, `DELETE FROM messages WHERE project_id = ? AND id = ?`, projectID, messageID)
+}
+
+func (s *Store) DeleteMessagesOlderThan(ctx context.Context, ttl time.Duration) (int64, error) {
+	cutoff := time.Now().Add(-ttl)
+	result, err := s.execContextWithResult(ctx, `DELETE FROM messages WHERE created_at < ?`, cutoff)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+func (s *Store) DeleteVerificationsOlderThan(ctx context.Context, ttl time.Duration) (int64, error) {
+	cutoff := time.Now().Add(-ttl)
+	result, err := s.execContextWithResult(ctx, `DELETE FROM verifications WHERE created_at < ?`, cutoff)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+func (s *Store) DeleteBatchesOlderThan(ctx context.Context, ttl time.Duration) (int64, error) {
+	cutoff := time.Now().Add(-ttl)
+	result, err := s.execContextWithResult(ctx, `DELETE FROM batches WHERE created_at < ?`, cutoff)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+func (s *Store) DeleteRequestLogsOlderThan(ctx context.Context, ttl time.Duration) (int64, error) {
+	cutoff := time.Now().Add(-ttl)
+	result, err := s.execContextWithResult(ctx, `DELETE FROM request_logs WHERE created_at < ?`, cutoff)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+func (s *Store) DeleteWebhookDeliveriesOlderThan(ctx context.Context, ttl time.Duration) (int64, error) {
+	cutoff := time.Now().Add(-ttl)
+	result, err := s.execContextWithResult(ctx, `DELETE FROM webhook_deliveries WHERE created_at < ?`, cutoff)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 func (s *Store) CreateStatusEvent(ctx context.Context, e *core.StatusEvent) error {

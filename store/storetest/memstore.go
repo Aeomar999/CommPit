@@ -3,6 +3,7 @@ package storetest
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/Aeomar999/CommPit/core"
 )
@@ -349,6 +350,82 @@ func (s *memStore) DeleteMessage(ctx context.Context, projectID, messageID strin
 		}
 	}
 	return nil
+}
+
+func (s *memStore) DeleteMessagesOlderThan(ctx context.Context, ttl time.Duration) (int64, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	cutoff := time.Now().Add(-ttl)
+	var deleted int64
+	for id, m := range s.messages {
+		if m.CreatedAt.Before(cutoff) {
+			delete(s.messages, id)
+			delete(s.statusEvents, id)
+			for attID, a := range s.attachments {
+				if a.MessageID == id {
+					delete(s.attachments, attID)
+				}
+			}
+			deleted++
+		}
+	}
+	return deleted, nil
+}
+
+func (s *memStore) DeleteVerificationsOlderThan(ctx context.Context, ttl time.Duration) (int64, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	cutoff := time.Now().Add(-ttl)
+	var deleted int64
+	for id, v := range s.verifications {
+		if v.CreatedAt.Before(cutoff) {
+			delete(s.verifications, id)
+			deleted++
+		}
+	}
+	return deleted, nil
+}
+
+func (s *memStore) DeleteBatchesOlderThan(ctx context.Context, ttl time.Duration) (int64, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	cutoff := time.Now().Add(-ttl)
+	var deleted int64
+	for id, b := range s.batches {
+		if b.CreatedAt.Before(cutoff) {
+			delete(s.batches, id)
+			deleted++
+		}
+	}
+	return deleted, nil
+}
+
+func (s *memStore) DeleteRequestLogsOlderThan(ctx context.Context, ttl time.Duration) (int64, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	cutoff := time.Now().Add(-ttl)
+	var deleted int64
+	for id, l := range s.requestLogs {
+		if l.CreatedAt.Before(cutoff) {
+			delete(s.requestLogs, id)
+			deleted++
+		}
+	}
+	return deleted, nil
+}
+
+func (s *memStore) DeleteWebhookDeliveriesOlderThan(ctx context.Context, ttl time.Duration) (int64, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	cutoff := time.Now().Add(-ttl)
+	var deleted int64
+	for id, w := range s.webhookDeliveries {
+		if w.CreatedAt.Before(cutoff) {
+			delete(s.webhookDeliveries, id)
+			deleted++
+		}
+	}
+	return deleted, nil
 }
 
 func (s *memStore) ListInFlightMessages(ctx context.Context) ([]*core.Message, error) {

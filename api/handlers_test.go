@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/Aeomar999/CommPit/bus"
+	"github.com/Aeomar999/CommPit/config"
 	"github.com/Aeomar999/CommPit/core"
 	"github.com/Aeomar999/CommPit/sim"
 	"github.com/Aeomar999/CommPit/store/sqlite"
@@ -71,7 +72,11 @@ func setupTestRouter(t *testing.T, storeOverride core.Store, simOverride core.Si
 		Resolver:  resolver,
 	})
 
-	handlers := NewHandlers(svc, resolver, eventBus, "test")
+	handlers := NewHandlers(svc, resolver, eventBus, "test", &config.SecurityConfig{
+		AllowedHosts:    []string{}, // Empty = allow all for tests
+		RequireXMocksms: false,      // Disable for tests
+		UIAuth:          "",
+	})
 	return handlers.Routes(), simInstance, effectiveStore
 }
 

@@ -32,12 +32,12 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked
 | [x] | M1-11 | `config`: koanf with flags > env > YAML > defaults; all settings from spec §9 | M1-01 | REQ-092 |
 | [x] | M1-12 | `openapi/openapi.yaml` for M1 endpoints; oapi-codegen setup; `api` handlers for send, read, verifications, projects, `/healthz` | M1-08, M1-10 | REQ-010–REQ-014 |
 | [x] | M1-13 | SSE hub and `GET /api/v1/events` | M1-07, M1-12 | REQ-002 |
-| [ ] | M1-14 | Security middleware: `Host` allow-list (421), `X-Mocksms` header, no CORS, optional `ui_auth`, non-loopback warning | M1-12 | — |
-| [ ] | M1-15 | `smtpd`: listener, AUTH username → project, enmime parsing, 25 MB limit, optional STARTTLS | M1-08 | REQ-035 |
-| [ ] | M1-16 | Retention prune job with cascading deletes | M1-06 | REQ-093 |
-| [ ] | M1-17 | Web app scaffold: Vite, Tailwind, shadcn/ui, TanStack Router + Query, openapi-typescript/openapi-fetch, `web/embed.go`, Vite proxy for development; design tokens, fonts, Phosphor icons and themed browser surfaces from [design.md](design.md) §5–§9 and §15; record the direction contract (design.md §17) with `impeccable surface-brief write` | M1-12 | — |
-| [ ] | M1-18 | Inbox UI per [design.md](design.md) §10–§11: sidebar, top bar with Sandbox pill, project switcher, message list, code tiles, delivery track, SMS threads, email plate (sandboxed iframe, remote-image toggle), filters, get-started checklist, settings page, live updates; finish with `impeccable detect`, the impeccable finish review, and the impeccable documenter writing root `DESIGN.md` + `.impeccable/design.json` | M1-13, M1-17 | REQ-002–REQ-007 |
-| [ ] | M1-19 | `cmd/mocksms serve`: wiring, startup/shutdown order (architecture §7), banner | M1-09–M1-16 | — |
+| [x] | M1-14 | Security middleware: `Host` allow-list (421), `X-Mocksms` header, no CORS, optional `ui_auth`, non-loopback warning | M1-12 | — |
+| [x] | M1-15 | `smtpd`: listener, AUTH username → project, enmime parsing, 25 MB limit, optional STARTTLS | M1-08 | REQ-035 |
+| [x] | M1-16 | Retention prune job with cascading deletes | M1-06 | REQ-093 |
+| [x] | M1-17 | Web app scaffold: Vite, Tailwind, shadcn/ui, TanStack Router + Query, openapi-typescript/openapi-fetch, `web/embed.go`, Vite proxy for development; design tokens, fonts, Phosphor icons and themed browser surfaces from [design.md](design.md) §5–§9 and §15; record the direction contract (design.md §17) with `impeccable surface-brief write` | M1-12 | — |
+| [x] | M1-18 | Inbox UI per [design.md](design.md) §10–§11: sidebar, top bar with Sandbox pill, project switcher, message list, code tiles, delivery track, SMS threads, email plate (sandboxed iframe, remote-image toggle), filters, get-started checklist, settings page, live updates; finish with `impeccable detect`, the impeccable finish review, and the impeccable documenter writing root `DESIGN.md` + `.impeccable/design.json` | M1-13, M1-17 | REQ-002–REQ-007 |
+| [x] | M1-19 | `cmd/mocksms serve`: wiring, startup/shutdown order (architecture §7), banner | M1-09–M1-16 | — |
 | [ ] | M1-20 | Release pipeline: goreleaser (binaries, Docker, Homebrew, Scoop), cosign, release workflow | M1-19 | — |
 | [ ] | M1-21 | Docs: README quick start; SMTP setup for Laravel, Django, Rails, Nodemailer, Spring | M1-19 | — |
 

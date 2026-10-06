@@ -59,6 +59,13 @@ type Store interface {
 	GetRequestLog(ctx context.Context, id string) (*RequestLog, error)
 	ListRequestLogs(ctx context.Context, projectID string, limit int, cursor string) ([]*RequestLog, string, error)
 
+	// Retention pruning methods
+	DeleteMessagesOlderThan(ctx context.Context, ttl time.Duration) (int64, error)
+	DeleteVerificationsOlderThan(ctx context.Context, ttl time.Duration) (int64, error)
+	DeleteBatchesOlderThan(ctx context.Context, ttl time.Duration) (int64, error)
+	DeleteRequestLogsOlderThan(ctx context.Context, ttl time.Duration) (int64, error)
+	DeleteWebhookDeliveriesOlderThan(ctx context.Context, ttl time.Duration) (int64, error)
+
 	Transaction(ctx context.Context, fn func(Store) error) error
 }
 

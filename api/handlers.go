@@ -10,9 +10,11 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/Aeomar999/CommPit/config"
 	"github.com/Aeomar999/CommPit/core"
+	"github.com/Aeomar999/CommPit/middleware"
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
+	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/render"
 )
 
@@ -23,22 +25,29 @@ type Handlers struct {
 	projectResolver core.ProjectResolver
 	sseHub          *SSEHub
 	version         string
+	securityCfg     *config.SecurityConfig
 }
 
-func NewHandlers(service *core.Service, resolver core.ProjectResolver, eventBus core.Bus, version string) *Handlers {
+func NewHandlers(service *core.Service, resolver core.ProjectResolver, eventBus core.Bus, version string, securityCfg *config.SecurityConfig) *Handlers {
 	return &Handlers{
 		service:         service,
 		projectResolver: resolver,
 		sseHub:          NewSSEHub(eventBus),
 		version:         version,
+		securityCfg:     securityCfg,
 	}
 }
 
 func (h *Handlers) Routes() http.Handler {
 	r := chi.NewRouter()
-	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP) //nolint:staticcheck // RealIP is standard chi middleware, acceptable in local sandbox
-	r.Use(middleware.Recoverer)
+	r.Use(chimiddleware.RequestID)
+	r.Use(chimiddleware.RealIP) //nolint:staticcheck // RealIP is standard chi middleware, acceptable in local sandbox
+	r.Use(chimiddleware.Recoverer)
+
+	// Security middleware (Host allow-list, X-Mocksms header, UI auth)
+	if h.securityCfg != nil {
+		r.Use(middleware.SecurityMiddleware(h.securityCfg))
+	}
 
 	// Public health check
 	r.Get("/healthz", h.Healthz)
@@ -76,7 +85,7 @@ func (h *Handlers) Routes() http.Handler {
 
 	// Remaining endpoints with 60s timeout
 	r.Group(func(r chi.Router) {
-		r.Use(middleware.Timeout(60 * time.Second))
+		r.Use(chimiddleware.Timeout(60 * time.Second))
 
 		// Write endpoints - require Bearer auth, no ?project= allowed, use "default" project if no key
 		r.Group(func(r chi.Router) {
