@@ -4,6 +4,8 @@ Every technology in the project, what it does here, and why it was chosen. Entri
 
 **Version policy:** use the latest stable release of each dependency at project start, pinned in `go.mod` / `pnpm-lock.yaml`. Dependabot (or Renovate) opens update PRs weekly; CI must pass before merging.
 
+**Confirmed choices (M1-F01, M1-F03):** Go 1.26 (per `go.mod`), pnpm as JavaScript package manager (used in Taskfile, CI, and `web/`).
+
 ## Backend (Go)
 
 | Technology | Purpose | Why | Alternatives considered |

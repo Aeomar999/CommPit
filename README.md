@@ -1,6 +1,6 @@
-# CommPit
+# mocksms
 
-A local-first sandbox messaging provider for development. Send SMS, OTP and email to it instead of a real provider; nothing is delivered. Messages appear in a live web inbox, are readable via a test API, and run through a realistic lifecycle with provider-format webhooks.
+A local-first sandbox messaging provider for development. Apps send SMS, OTP and email to it instead of a real provider; nothing is delivered. Messages appear in a live web inbox, are readable via a test API, and run through a realistic lifecycle with provider-format webhooks.
 
 **Current status:** v0.1.0 (M1) — in development
 
@@ -8,8 +8,8 @@ A local-first sandbox messaging provider for development. Send SMS, OTP and emai
 
 ```bash
 # Install (once binaries are published)
-# brew install aeomar999/tap/commpit
-# scoop install commpit
+# brew install aeomar999/tap/mocksms
+# scoop install mocksms
 
 # Or run from source
 go run ./cmd/mocksms serve
@@ -36,3 +36,5 @@ The server starts on `http://127.0.0.1:4010` with the web inbox at `/` and SMTP 
 ## License
 
 Apache-2.0 © 2026 Aeomar999
+
+> **Note:** The Go module and GitHub repository are named `CommPit`. The product and binary are named `mocksms`. This is intentional — `CommPit` is the repository/organization name only.

@@ -8,7 +8,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 |---|---|
 | **Phase** | M1 in progress |
 | **Current milestone** | M1 |
-| **Next action** | M1-F18: Correct the docs: CHANGELOG, progress, product name, package manager |
+| **Next action** | All M1 fix tasks complete — ready for milestone gate |
 | **Last updated** | 2026-10-05 |
 
 ## Milestones
@@ -24,9 +24,10 @@ Single source of truth for where the project stands. Update it in every PR that 
 
 | Item | Blocks | Owner |
 |---|---|---|
-| Final name and GitHub organization (Go module path) | M1-01 | Project owner |
 | Access to a real Termii account | X-01; Termii marked stable | Project owner |
 | Legal check on provider names | Public announcement at M2 | Project owner |
+
+**Note:** M1-06, M1-09, M1-12 and M1-13 have open fixes tracked in the M1-Fxx review tasks above.
 
 ## Session log
 
@@ -34,8 +35,8 @@ Newest first. One entry per working session: what changed, decisions made, what'
 
 ### 2026-10-05
 
+- Completed M1-F18: Correct the docs - updated README.md to clarify product name is `mocksms` (module/repo is `CommPit`); corrected CHANGELOG.md entries (test helpers `otp/latest` and `emails/latest` are stubs, SMTP server deferred to M2, simulator async rules effective from M1-F08, migrations embedded); removed resolved "module path" blocker from progress.md; added note about M1-06/09/12/13 open fixes; updated techstack.md with confirmed Go 1.26 and pnpm choices. All docs now accurately reflect implemented behavior.
 - Completed M1-F17: Backfill tests - moved in-memory store to `store/storetest/memstore.go` (non-test) for reuse by core and api tests. Added core service tests (StartVerification, CheckVerification with wrong code/success/max attempts/expired/already approved, ReceiveInbound) with FakeClock. Added config tests for defaults and phone validation modes. All tests pass.
-- **Next:** M1-F18: Correct the docs: CHANGELOG, progress, product name, package manager
 - Completed M1-F16: SMS segment counting - fixed UCS-2 length counting to use UTF-16 code units via `utf16.RuneLen(r)`, added form feed (`\f`) to GSM-7 extended table, removed segment count capping (returns uncapped count), added validation in core/service.go to reject messages over 10 segments with `validation_error` on field `body` ("message too long"). Updated tests to reflect correct segment calculations (307 GSM-7 = 2 segments, 135 UCS-2 = 2 segments). All tests pass.
 - Completed M1-F15: Spec-first API - added oapi-codegen as Go tool, created api/generate.go with //go:generate directive, generated openapi.gen.go with ServerInterface, types, and chi server. Updated handler method signatures to match generated interface (GetProject, GetVerification, GetMessage, GetMessageRaw, GetAttachment, GetBatch, GetRequestLog, ReplayWebhook, GetLatestOTP, GetLatestEmail, ListProjects, ListMessages, ListVerifications, ListRequestLogs, ListWebhooks, DeleteMessages, WaitForMessage, SSEEvents). All routes now use adapter functions to extract params from request. All tests pass.
 - Completed M1-F14: Long-lived requests - mounted `/events` and `/messages/wait` outside the global 60s timeout middleware. SSE handler now clears write deadline with `http.NewResponseController`, uses 15s heartbeat, registers clients by project filter, and emits `event: <type>` lines for EventSource filtering. `messages/wait` defaults `since` to request arrival time, accepts timeout as seconds or Go duration capped at 60s, returns 408 with canonical `wait_timeout` code, returns oldest match after `since`, and wakes on `message.created` bus events instead of polling. Added `ErrCodeWaitTimeout` to core errors with HTTP 408. All tests pass.

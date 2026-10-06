@@ -66,7 +66,7 @@ Same rules as every task: test first, `task test` and `task lint` green, one com
 | [x] | M1-F15 | Spec-first API: generate the server from `openapi.yaml` and fail CI on drift | Medium | M1-F13, M1-F14 |
 | [x] | M1-F16 | SMS segments: UTF-16 counting for UCS-2, reject messages over the segment limit | Medium | M1-F01 |
 | [x] | M1-F17 | Backfill tests for `core`, `api`, `config`; reusable in-memory store | High | M1-F07 |
-| [ ] | M1-F18 | Correct the docs: CHANGELOG, progress, product name, package manager | Medium | — |
+| [x] | M1-F18 | Correct the docs: CHANGELOG, progress, product name, package manager | Medium | — |
 
 #### M1-F01 — Make CI run
 
