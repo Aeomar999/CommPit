@@ -22,6 +22,7 @@ const (
 	ErrCodeUnauthorized         ErrorCode = "unauthorized"
 	ErrCodeNotFound             ErrorCode = "not_found"
 	ErrCodeInternal             ErrorCode = "internal"
+	ErrCodeWaitTimeout          ErrorCode = "wait_timeout"
 )
 
 type Error struct {
@@ -49,6 +50,8 @@ func (e *Error) HTTPStatus() int {
 		return 404
 	case ErrCodeProviderUnavailable:
 		return 503
+	case ErrCodeWaitTimeout:
+		return 408
 	case ErrCodeInternal:
 		return 500
 	default:
@@ -114,6 +117,10 @@ func NewNotFound(message, field string) *Error {
 
 func NewInternal(message string) *Error {
 	return &Error{Code: ErrCodeInternal, Message: message, Field: ""}
+}
+
+func NewWaitTimeout(message string) *Error {
+	return &Error{Code: ErrCodeWaitTimeout, Message: message, Field: ""}
 }
 
 func IsError(err error, code ErrorCode) bool {
