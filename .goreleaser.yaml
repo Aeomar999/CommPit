@@ -1,0 +1,159 @@
+# .goreleaser.yaml
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+    - go generate ./...
+    - cd web && npm ci && npm run build
+
+builds:
+  - id: mocksms
+    main: ./cmd/mocksms
+    binary: mocksms
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: darwin
+        goarch: arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+    flags:
+      - -trimpath
+
+archives:
+  - formats:
+      - binary
+      - tar.gz
+      - zip
+    format_overrides:
+      - goos: windows
+        formats:
+          - binary
+          - zip
+    files:
+      - LICENSE
+      - README.md
+      - CHANGELOG.md
+
+checksum:
+  name_template: 'checksums.txt'
+  algorithm: sha256
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+  name_template: "{{ .Tag }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+      - Merge pull request
+      - Merge branch
+
+dockers:
+  - image_templates:
+      - "ghcr.io/aeomar999/commpit/mocksms:{{ .Version }}"
+      - "ghcr.io/aeomar999/commpit/mocksms:latest"
+    dockerfile: Dockerfile
+    build_flag_templates:
+      - "--platform=linux/amd64,linux/arm64"
+    goos: linux
+    goarch:
+      - amd64
+      - arm64
+    extra_files:
+      - LICENSE
+      - README.md
+
+release:
+  github:
+    owner: aeomar999
+    name: CommPit
+  draft: false
+  prerelease: auto
+  name_template: "mocksms {{ .Version }}"
+  header: |
+    # mocksms {{ .Version }}
+    
+    Local-first sandbox messaging provider for development.
+  footer: |
+    ---
+    **Full Changelog**: https://github.com/Aeomar999/CommPit/compare/{{ .PreviousTag }}...{{ .Tag }}
+
+nfpms:
+  - package_name: mocksms
+    license: Apache-2.0
+    maintainer: Jerry Amoah <jerry@example.com>
+    description: Local-first sandbox messaging provider for development
+    homepage: https://github.com/Aeomar999/CommPit
+    formats:
+      - deb
+      - rpm
+      - apk
+    bindir: /usr/bin
+    formats:
+      - deb
+      - rpm
+    formats:
+      - apk
+    epoch: "0"
+    section: utils
+    priority: optional
+    depends:
+      - libc6
+    recommends:
+      - ca-certificates
+    scripts:
+      postinstall: |
+        #!/bin/sh
+        systemctl daemon-reload || true
+      postremove: |
+        #!/bin/sh
+        systemctl daemon-reload || true
+
+sboms:
+  - artifacts: archive
+  - artifacts: docker
+
+signs:
+  - artifacts: all
+    cmd: cosign
+    args:
+      - sign-blob
+      - --output-signature=${signature}
+      - --output-certificate=${certificate}
+      - ${artifact}
+
+brew:
+  tap:
+    owner: aeomar999
+    name: homebrew-tap
+  repository:
+    owner: aeomar999
+    name: homebrew-tap
+  commit_author:
+    name: goreleaserbot
+    email: goreleaser@goreleaser.com
+  description: "Local-first sandbox messaging provider for development"
+  homepage: "https://github.com/Aeomar999/CommPit"
+  license: "Apache-2.0"
+  test: |
+    system "#{bin}/mocksms version"
+  install: |
+    bin.install "mocksms"
+  conflicts_with:
+    - "mocksms-bin"

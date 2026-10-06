@@ -51,3 +51,6 @@ Provider-compatible adapters follow the real providers' behavior. Fixes that mak
 - Web app scaffold: Vite, React 18, React Router v6, TanStack Query, Tailwind CSS v4, shadcn/ui, lucide-react, embedded via go:embed (M1-17)
 - Inbox UI: sidebar navigation, message list with status badges, email viewer with sandboxed iframe, settings page, live SSE updates (M1-18)
 - Server wiring: HTTP + SMTP servers, retention pruner, graceful shutdown sequence per architecture §7 (M1-19)
+- Release pipeline: goreleaser multi-platform builds (Linux/macOS/Windows, amd64/arm64), Docker images to GHCR, Homebrew tap, Scoop bucket, checksums, cosign signing; GitHub Actions release workflow with test, goreleaser, docker, homebrew, scoop jobs; distroless static Docker image (M1-20)
+
+### Fixed

@@ -8,7 +8,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 |---|---|
 | **Phase** | M1 in progress |
 | **Current milestone** | M1 |
-| **Next action** | M1-20: Release pipeline: goreleaser (binaries, Docker, Homebrew, Scoop), cosign, release workflow |
+| **Next action** | M1-21: Docs: README quick start; SMTP setup for Laravel, Django, Rails, Nodemailer, Spring |
 | **Last updated** | 2026-10-05 |
 
 ## Milestones
@@ -35,8 +35,9 @@ Newest first. One entry per working session: what changed, decisions made, what'
 
 ### 2026-10-06
 
+- Completed M1-20: Release pipeline - created .goreleaser.yaml with multi-platform builds (Linux/macOS/Windows, amd64/arm64), Docker images to GHCR, Homebrew tap, Scoop bucket, checksums, cosign signing; created .github/workflows/release.yml with test, goreleaser, docker, homebrew, scoop jobs; added Dockerfile for distroless static image. All tests pass, builds succeed.
+- **Next:** M1-21: Docs: README quick start; SMTP setup for Laravel, Django, Rails, Nodemailer, Spring
 - Completed M1-14 through M1-19: Security middleware (Host allow-list, X-Mocksms header, no CORS, optional ui_auth), SMTP listener (AUTH, enmime, 25MB limit, STARTTLS), Retention prune job (cascading deletes), Web app scaffold (Vite, React, React Router, TanStack Query, Tailwind, shadcn/ui, lucide-react), Inbox UI (sidebar, message list, email plate, settings), cmd/mocksms serve wiring (HTTP + SMTP servers, retention pruner, graceful shutdown). All tests pass, web build succeeds.
-- **Next:** M1-20: Release pipeline: goreleaser (binaries, Docker, Homebrew, Scoop), cosign, release workflow
 - Completed M1-F18: Correct the docs - updated README.md to clarify product name is `mocksms` (module/repo is `CommPit`); corrected CHANGELOG.md entries (test helpers `otp/latest` and `emails/latest` are stubs, SMTP server deferred to M2, simulator async rules effective from M1-F08, migrations embedded); removed resolved "module path" blocker from progress.md; added note about M1-06/09/12/13 open fixes; updated techstack.md with confirmed Go 1.26 and pnpm choices. All docs now accurately reflect implemented behavior.
 - Completed M1-F16: SMS segment counting - fixed UCS-2 length counting to use UTF-16 code units via `utf16.RuneLen(r)`, added form feed (`\f`) to GSM-7 extended table, removed segment count capping (returns uncapped count), added validation in core/service.go to reject messages over 10 segments with `validation_error` on field `body` ("message too long"). Updated tests to reflect correct segment calculations (307 GSM-7 = 2 segments, 135 UCS-2 = 2 segments). All tests pass.
 - Completed M1-F15: Spec-first API - added oapi-codegen as Go tool, created api/generate.go with //go:generate directive, generated openapi.gen.go with ServerInterface, types, and chi server. Updated handler method signatures to match generated interface (GetProject, GetVerification, GetMessage, GetMessageRaw, GetAttachment, GetBatch, GetRequestLog, ReplayWebhook, GetLatestOTP, GetLatestEmail, ListProjects, ListMessages, ListVerifications, ListRequestLogs, ListWebhooks, DeleteMessages, WaitForMessage, SSEEvents). All routes now use adapter functions to extract params from request. All tests pass.
