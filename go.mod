@@ -14,6 +14,7 @@ require (
 	github.com/oapi-codegen/runtime v1.7.0
 	github.com/oklog/ulid/v2 v2.1.2
 	github.com/pressly/goose/v3 v3.28.0
+	github.com/stretchr/testify v1.12.1
 	golang.org/x/net v0.59.0
 	modernc.org/sqlite v1.60.1
 )
