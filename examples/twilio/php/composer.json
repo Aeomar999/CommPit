@@ -1,0 +1,9 @@
+{
+    "name": "mocksms/twilio-php-example",
+    "description": "Twilio redirect snippet for mocksms (M2-06)",
+    "license": "Apache-2.0",
+    "require": {
+        "php": ">=8.1",
+        "twilio/sdk": "^8.0"
+    }
+}
