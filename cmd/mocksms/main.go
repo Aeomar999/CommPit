@@ -27,6 +27,7 @@ import (
 	"github.com/Aeomar999/CommPit/sim"
 	"github.com/Aeomar999/CommPit/smtpd"
 	"github.com/Aeomar999/CommPit/store/sqlite"
+	"github.com/Aeomar999/CommPit/web"
 )
 
 var (
@@ -172,12 +173,12 @@ func runWithContext(ctx context.Context, cfg *config.Config) error {
 	rootRouter := chi.NewRouter()
 	rootRouter.Mount("/twilio", middleware.SecurityMiddleware(&cfg.Security)(twilioHandler))
 	rootRouter.Mount("/termii", middleware.SecurityMiddleware(&cfg.Security)(termiiHandler))
-	// The native API is served at both /api/v1 (the spec-canonical prefix in
-	// openapi.yaml and the one the web UI uses) and / (historical).
-	// See ADR-010. The specific prefix must mount first: Mount("/") is a
-	// catch-all that would otherwise shadow it.
+	// The native API is served under the spec-canonical /api/v1 prefix.
+	// / serves the embedded web UI with an SPA fallback; see ADR-010.
 	rootRouter.Mount("/api/v1", handlers.Routes())
-	rootRouter.Mount("/", handlers.Routes())
+	uiSecurity := cfg.Security
+	uiSecurity.RequireXMocksms = false
+	rootRouter.Mount("/", middleware.SecurityMiddleware(&uiSecurity)(uiHandler(web.Dist)))
 
 	newHTTPServer := func(addr string, handler http.Handler) *http.Server {
 		return &http.Server{

@@ -69,7 +69,7 @@ func TestRun_CleanShutdown(t *testing.T) {
 	}()
 
 	// Wait for server to become responsive
-	url := fmt.Sprintf("http://127.0.0.1:%d/healthz", httpPort)
+	url := fmt.Sprintf("http://127.0.0.1:%d/api/v1/healthz", httpPort)
 	ready := false
 	for i := 0; i < 50; i++ {
 		time.Sleep(20 * time.Millisecond)
@@ -211,7 +211,7 @@ func TestRun_YAMLProjectLinking(t *testing.T) {
 	}()
 
 	// Wait for server to become responsive
-	url := fmt.Sprintf("http://127.0.0.1:%d/healthz", httpPort)
+	url := fmt.Sprintf("http://127.0.0.1:%d/api/v1/healthz", httpPort)
 	ready := false
 	for i := 0; i < 50; i++ {
 		time.Sleep(20 * time.Millisecond)
@@ -230,7 +230,7 @@ func TestRun_YAMLProjectLinking(t *testing.T) {
 
 	// Sending with the YAML-linked credential must land in the YAML project.
 	payload, _ := json.Marshal(map[string]any{"from": "+15555550100", "to": "+15005550006", "body": "Hi"})
-	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("http://127.0.0.1:%d/sms", httpPort), bytes.NewReader(payload))
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("http://127.0.0.1:%d/api/v1/sms", httpPort), bytes.NewReader(payload))
 	if err != nil {
 		t.Fatalf("build request: %v", err)
 	}
@@ -250,7 +250,7 @@ func TestRun_YAMLProjectLinking(t *testing.T) {
 
 	// The YAML project exists (?project= validates existence without side
 	// effects) and the Bearer send landed in it.
-	checkReq, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://127.0.0.1:%d/projects?project=%s", httpPort, projectID), nil)
+	checkReq, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://127.0.0.1:%d/api/v1/projects?project=%s", httpPort, projectID), nil)
 	if err != nil {
 		t.Fatalf("build check request: %v", err)
 	}
@@ -264,7 +264,7 @@ func TestRun_YAMLProjectLinking(t *testing.T) {
 		t.Fatalf("expected status 200 for linked project, got %d", checkResp.StatusCode)
 	}
 
-	msgsReq, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://127.0.0.1:%d/messages?project=%s", httpPort, projectID), nil)
+	msgsReq, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://127.0.0.1:%d/api/v1/messages?project=%s", httpPort, projectID), nil)
 	if err != nil {
 		t.Fatalf("build messages request: %v", err)
 	}

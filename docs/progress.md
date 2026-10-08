@@ -8,7 +8,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 |---|---|
 | **Phase** | Milestone 2 in progress |
 | **Current milestone** | M2 |
-| **Next action** | M2 milestone gate: full suite, final commit, PR to `main`, tag `v0.2.0` |
+| **Next action** | M2 gate: final commit → PR → merge → tag `v0.2.0` → branch `milestone/m3` |
 | **Last updated** | 2026-10-08 |
 
 ## Milestones
@@ -32,6 +32,11 @@ Single source of truth for where the project stands. Update it in every PR that 
 ## Session log
 
 Newest first. One entry per working session: what changed, decisions made, what's next.
+
+### 2026-10-08 (Session 21): M2 Milestone Gate
+
+- All 14 M2 tasks `[x]`. Full gate green on `milestone/m2`: fresh `go test ./...`, `golangci-lint` (0 issues), `gofmt`, Biome (38 files), `tsc`, Vite production build, embed binary build, e2e snippet harness (Node/Python/Go pass; PHP/.NET skip without runtimes), Playwright smoke (2 passed against the embedded UI). `-race` and `pnpm` script execution remain unavailable in this sandbox (no C toolchain; pnpm runner hangs) — both are covered by CI (`-race` matrix, `bun` web jobs).
+- Gate findings fixed in this session: the embedded web UI was never wired (`task build` produced a UI-less binary, so no Playwright run could pass) — `web/embed.go` (tag-gated) + SPA-fallback handler in `cmd` now serve the bundle at `/`; the M2-13 root-path alias was removed in favor of the UI (ADR-010 updated, CHANGELOG migration note). Added a minimal Playwright smoke (`web/e2e/smoke.spec.ts`) since M3-11 owns the full suite; `test-results/` + `playwright-report/` ignored. Also fixed `ci.yml` e2e to start the server with `--otp-code 123456` (snippets would otherwise fail on random codes).
 
 ### 2026-10-08 (Session 20): Provider + Test-API Guides (M2-14)
 
