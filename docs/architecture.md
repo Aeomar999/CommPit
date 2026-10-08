@@ -230,3 +230,4 @@ The hosted product is a separate private Go module with its own `cmd/`. It reuse
 | ADR-006 | 2026-10-03 | Public top-level packages, no `internal/` for extension points | Open-core: the private hosted module must import them |
 | ADR-007 | 2026-10-03 | Ports (`Store`, `Bus`, `Simulator`, …) defined in `core`; `store/storetest` holds the conformance suite | Avoids an import cycle between `core` and `store`; idiomatic consumer-defined interfaces. Refines spec §5.1 |
 | ADR-008 | 2026-10-03 | Native webhooks are JSON signed with HMAC-SHA256 using the project's API key | The spec left the native webhook format undefined |
+| ADR-009 | 2026-10-08 | Adapterkit middleware layer with streaming body duplication and ingress credential redaction | Protects inspector memory with strict 64 KB caps while preserving complete downstream request bodies, redacting secrets before storage/bus publication |

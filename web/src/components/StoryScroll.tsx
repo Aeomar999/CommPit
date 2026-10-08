@@ -326,7 +326,9 @@ function Act1Screen({ scrollYProgress }: { scrollYProgress: MotionValue<number> 
             <span className="text-purple-400">from</span>{" "}
             <span className="text-emerald-400">"twilio"</span>
             {"\n\n"}
-            <span className="text-slate-500">{"// Point your existing client to local MockSMS"}</span>
+            <span className="text-slate-500">
+              {"// Point your existing client to local MockSMS"}
+            </span>
             {"\n"}
             <span className="text-blue-400">const</span> client ={" "}
             <span className="text-yellow-400">twilio</span>(

@@ -1092,27 +1092,27 @@ func (h *Handlers) ListRequestLogs(w http.ResponseWriter, r *http.Request, param
 		return
 	}
 
-	logs, nextCursor, err := h.Store().ListRequestLogs(r.Context(), projectID, 50, r.URL.Query().Get("cursor"))
+	limit := 50
+	if params.Limit != nil && *params.Limit > 0 {
+		limit = *params.Limit
+	}
+	if limit > 200 {
+		limit = 200
+	}
+	cursor := ""
+	if params.Cursor != nil {
+		cursor = *params.Cursor
+	}
+
+	logs, nextCursor, err := h.Store().ListRequestLogs(r.Context(), projectID, limit, cursor)
 	if err != nil {
 		h.writeError(w, r, err)
 		return
 	}
 
-	converted := make([]map[string]interface{}, len(logs))
+	converted := make([]*RequestLog, len(logs))
 	for i, l := range logs {
-		converted[i] = map[string]interface{}{
-			"id":              l.ID,
-			"project_id":      l.ProjectID,
-			"adapter":         l.Adapter,
-			"method":          l.Method,
-			"path":            l.Path,
-			"request_headers": l.RequestHeaders,
-			"request_body":    string(l.RequestBody),
-			"response_status": l.ResponseStatus,
-			"response_body":   string(l.ResponseBody),
-			"duration_ms":     l.DurationMS,
-			"created_at":      l.CreatedAt,
-		}
+		converted[i] = convertRequestLog(l)
 	}
 
 	render.JSON(w, r, map[string]interface{}{
@@ -1127,25 +1127,24 @@ func (h *Handlers) GetRequestLog(w http.ResponseWriter, r *http.Request, id stri
 		return
 	}
 
+	projectID, err := h.getProjectID(r)
+	if err != nil {
+		h.writeError(w, r, core.NewUnauthorized("authentication required"))
+		return
+	}
+
 	log, err := h.Store().GetRequestLog(r.Context(), id)
 	if err != nil {
 		h.writeError(w, r, err)
 		return
 	}
 
-	render.JSON(w, r, map[string]interface{}{
-		"id":              log.ID,
-		"project_id":      log.ProjectID,
-		"adapter":         log.Adapter,
-		"method":          log.Method,
-		"path":            log.Path,
-		"request_headers": log.RequestHeaders,
-		"request_body":    string(log.RequestBody),
-		"response_status": log.ResponseStatus,
-		"response_body":   string(log.ResponseBody),
-		"duration_ms":     log.DurationMS,
-		"created_at":      log.CreatedAt,
-	})
+	if log.ProjectID != projectID {
+		h.writeError(w, r, core.NewNotFound("request log not found", "id"))
+		return
+	}
+
+	render.JSON(w, r, convertRequestLog(log))
 }
 
 func (h *Handlers) ListWebhooks(w http.ResponseWriter, r *http.Request, params ListWebhooksParams) {
@@ -1425,6 +1424,28 @@ func convertVerification(v *core.Verification) *Verification {
 		ExpiresAt:   &v.ExpiresAt,
 		MessageId:   &v.MessageID,
 		CreatedAt:   &v.CreatedAt,
+	}
+}
+
+func convertRequestLog(l *core.RequestLog) *RequestLog {
+	if l == nil {
+		return nil
+	}
+	reqBody := string(l.RequestBody)
+	respBody := string(l.ResponseBody)
+	duration := int(l.DurationMS)
+	return &RequestLog{
+		Id:             &l.ID,
+		ProjectId:      &l.ProjectID,
+		Adapter:        &l.Adapter,
+		Method:         &l.Method,
+		Path:           &l.Path,
+		RequestHeaders: &l.RequestHeaders,
+		RequestBody:    &reqBody,
+		ResponseStatus: &l.ResponseStatus,
+		ResponseBody:   &respBody,
+		DurationMs:     &duration,
+		CreatedAt:      &l.CreatedAt,
 	}
 }
 

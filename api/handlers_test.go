@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Aeomar999/CommPit/bus"
 	"github.com/Aeomar999/CommPit/config"
@@ -762,4 +763,164 @@ func TestHandlers_CallbackURLOmittedWhenEmpty(t *testing.T) {
 	if cb, ok := msgResp["callback_url"]; ok && cb != nil && cb != "" {
 		t.Errorf("expected callback_url to be omitted or nil, got %v", cb)
 	}
+}
+
+func seedRequestLogs(t *testing.T, store core.Store, projectID string, n int) []*core.RequestLog {
+	t.Helper()
+	ctx := context.Background()
+	logs := make([]*core.RequestLog, 0, n)
+	for i := 0; i < n; i++ {
+		l := &core.RequestLog{
+			ID:             core.NewRequestLogID(),
+			ProjectID:      projectID,
+			Adapter:        "twilio",
+			Method:         http.MethodPost,
+			Path:           "/2010-04-01/Accounts/AC123/Messages.json",
+			RequestHeaders: map[string]string{"Content-Type": "application/x-www-form-urlencoded"},
+			RequestBody:    []byte("To=%2B15551234567&Body=Hello"),
+			ResponseStatus: http.StatusCreated,
+			ResponseBody:   []byte(`{"sid":"SM123"}`),
+			DurationMS:     int64(i + 1),
+			CreatedAt:      time.Now(),
+		}
+		if err := store.CreateRequestLog(ctx, l); err != nil {
+			t.Fatalf("CreateRequestLog: %v", err)
+		}
+		logs = append(logs, l)
+	}
+	return logs
+}
+
+func TestHandlers_RequestLogs(t *testing.T) {
+	router, _, store := setupTestRouter(t, nil, nil)
+	ctx := context.Background()
+
+	prjA := &core.Project{ID: core.NewProjectID(), Name: "reqlog-a", Settings: map[string]interface{}{}, CreatedAt: time.Now()}
+	if err := store.CreateProject(ctx, prjA); err != nil {
+		t.Fatalf("CreateProject A: %v", err)
+	}
+	prjB := &core.Project{ID: core.NewProjectID(), Name: "reqlog-b", Settings: map[string]interface{}{}, CreatedAt: time.Now()}
+	if err := store.CreateProject(ctx, prjB); err != nil {
+		t.Fatalf("CreateProject B: %v", err)
+	}
+	logs := seedRequestLogs(t, store, prjA.ID, 3)
+
+	t.Run("list returns all logs with JSON content type", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/requests?project="+prjA.ID, nil)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
+		}
+		if ct := rec.Header().Get("Content-Type"); !strings.HasPrefix(ct, "application/json") {
+			t.Errorf("expected Content-Type application/json, got %q", ct)
+		}
+		var resp map[string]any
+		if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("failed to decode response: %v", err)
+		}
+		items, ok := resp["logs"].([]any)
+		if !ok || len(items) != 3 {
+			t.Fatalf("expected 3 logs, got %v (%s)", resp["logs"], rec.Body.String())
+		}
+		first, _ := items[0].(map[string]any)
+		for _, key := range []string{"id", "project_id", "adapter", "method", "path", "request_body", "response_status", "response_body", "duration_ms", "created_at"} {
+			if _, ok := first[key]; !ok {
+				t.Errorf("expected key %q in log, got %v", key, first)
+			}
+		}
+		if first["project_id"] != prjA.ID {
+			t.Errorf("expected project_id %s, got %v", prjA.ID, first["project_id"])
+		}
+	})
+
+	t.Run("list respects limit and cursor", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/requests?project="+prjA.ID+"&limit=2", nil)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
+		}
+		var resp map[string]any
+		if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("failed to decode response: %v", err)
+		}
+		items, ok := resp["logs"].([]any)
+		if !ok || len(items) != 2 {
+			t.Fatalf("expected 2 logs with limit=2, got %v (%s)", resp["logs"], rec.Body.String())
+		}
+		cursor, _ := resp["next_cursor"].(string)
+		if cursor == "" {
+			t.Fatalf("expected non-empty next_cursor, got %v", resp)
+		}
+
+		req2 := httptest.NewRequest(http.MethodGet, "/requests?project="+prjA.ID+"&limit=2&cursor="+cursor, nil)
+		rec2 := httptest.NewRecorder()
+		router.ServeHTTP(rec2, req2)
+
+		if rec2.Code != http.StatusOK {
+			t.Fatalf("expected status 200 on second page, got %d: %s", rec2.Code, rec2.Body.String())
+		}
+		var resp2 map[string]any
+		if err := json.Unmarshal(rec2.Body.Bytes(), &resp2); err != nil {
+			t.Fatalf("failed to decode second page: %v", err)
+		}
+		items2, ok := resp2["logs"].([]any)
+		if !ok || len(items2) != 1 {
+			t.Fatalf("expected 1 log on second page, got %v (%s)", resp2["logs"], rec2.Body.String())
+		}
+	})
+
+	t.Run("get by id returns the log", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/requests/"+logs[0].ID+"?project="+prjA.ID, nil)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
+		}
+		var resp map[string]any
+		if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("failed to decode response: %v", err)
+		}
+		if resp["id"] != logs[0].ID {
+			t.Errorf("expected id %s, got %v", logs[0].ID, resp["id"])
+		}
+		if resp["adapter"] != "twilio" {
+			t.Errorf("expected adapter twilio, got %v", resp["adapter"])
+		}
+	})
+
+	t.Run("get nonexistent returns 404", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/requests/req_00000000000000000000000000?project="+prjA.ID, nil)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusNotFound {
+			t.Fatalf("expected status 404, got %d: %s", rec.Code, rec.Body.String())
+		}
+		var resp map[string]any
+		if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("failed to decode response: %v", err)
+		}
+		errObj, ok := resp["error"].(map[string]any)
+		if !ok {
+			t.Fatalf("expected 'error' object, got %v", resp)
+		}
+		if errObj["code"] != "not_found" {
+			t.Errorf("expected code not_found, got %v", errObj["code"])
+		}
+	})
+
+	t.Run("get from another project returns 404", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/requests/"+logs[0].ID+"?project="+prjB.ID, nil)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusNotFound {
+			t.Fatalf("expected status 404 for cross-project access, got %d: %s", rec.Code, rec.Body.String())
+		}
+	})
 }

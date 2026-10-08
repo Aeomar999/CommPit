@@ -194,6 +194,7 @@ See [`SYSTEM_DESIGN_LESSONS.md`](../../SYSTEM_DESIGN_LESSONS.md) for full entrie
 9. **Input normalization to canonical form at the system boundary** — Canonicalizing phone numbers to E.164 at ingress to guarantee consistent lookups and reliable opt-out suppression.
 10. **Partial batch acceptance: structured rejection reporting vs. silent drops** — Accepting valid batch messages in a single transaction while returning explicit structured rejection items.
 11. **Hermetic local sandboxing: replacing third-party APIs with a zero-cost local provider** — Decoupling development and testing from rate limits, API costs, and network flakiness.
+12. **Streaming request interception and ingress credential redaction** — Capping memory footprint with streaming body duplication while stripping sensitive secrets at the system boundary before logging or event publishing.
 
 ---
 
