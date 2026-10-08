@@ -924,3 +924,365 @@ func TestHandlers_RequestLogs(t *testing.T) {
 		}
 	})
 }
+
+func sendTestSMS(t *testing.T, router http.Handler, from, to, body string) map[string]any {
+	t.Helper()
+	payload, _ := json.Marshal(map[string]any{"from": from, "to": to, "body": body})
+	req := httptest.NewRequest(http.MethodPost, "/sms", bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("send SMS: expected status 201, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var resp map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("send SMS: failed to decode response: %v", err)
+	}
+	return resp
+}
+
+func startTestVerification(t *testing.T, router http.Handler, to, channel string) (id, code string) {
+	t.Helper()
+	payload, _ := json.Marshal(map[string]any{"to": to, "channel": channel})
+	req := httptest.NewRequest(http.MethodPost, "/verifications", bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("start verification: expected status 201, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var resp map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("start verification: failed to decode response: %v", err)
+	}
+	verObj, ok := resp["verification"].(map[string]any)
+	if !ok {
+		t.Fatalf("start verification: no verification in response: %v", resp)
+	}
+	return verObj["id"].(string), verObj["code"].(string)
+}
+
+func TestHandlers_GetLatestOTP(t *testing.T) {
+	t.Run("extracted code from plain SMS", func(t *testing.T) {
+		router, _, _ := setupTestRouter(t, nil, nil)
+		sendTestSMS(t, router, "+15555550100", "+15005550006", "Your code is 445566")
+
+		req := httptest.NewRequest(http.MethodGet, "/otp/latest?to=%2B15005550006", nil)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
+		}
+		var resp map[string]any
+		if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("failed to decode response: %v", err)
+		}
+		if resp["code"] != "445566" {
+			t.Errorf("expected code 445566, got %v", resp["code"])
+		}
+		if resp["source"] != "extracted" {
+			t.Errorf("expected source extracted, got %v", resp["source"])
+		}
+		if _, ok := resp["message_id"].(string); !ok {
+			t.Errorf("expected message_id, got %v", resp)
+		}
+		if _, ok := resp["verification_id"]; ok {
+			t.Errorf("expected no verification_id, got %v", resp)
+		}
+	})
+
+	t.Run("verification code with linkage", func(t *testing.T) {
+		router, _, _ := setupTestRouter(t, nil, nil)
+		verID, verCode := startTestVerification(t, router, "+15005550006", "sms")
+
+		req := httptest.NewRequest(http.MethodGet, "/otp/latest?to=%2B15005550006", nil)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
+		}
+		var resp map[string]any
+		if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("failed to decode response: %v", err)
+		}
+		if resp["code"] != verCode {
+			t.Errorf("expected code %s, got %v", verCode, resp["code"])
+		}
+		if resp["source"] != "verification" {
+			t.Errorf("expected source verification, got %v", resp["source"])
+		}
+		if resp["verification_id"] != verID {
+			t.Errorf("expected verification_id %s, got %v", verID, resp["verification_id"])
+		}
+	})
+
+	t.Run("newer verification beats older SMS", func(t *testing.T) {
+		router, _, _ := setupTestRouter(t, nil, nil)
+		sendTestSMS(t, router, "+15555550100", "+15005550006", "Your code is 445566")
+		_, verCode := startTestVerification(t, router, "+15005550006", "sms")
+
+		req := httptest.NewRequest(http.MethodGet, "/otp/latest?to=%2B15005550006", nil)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
+		}
+		var resp map[string]any
+		_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+		if resp["code"] != verCode || resp["source"] != "verification" {
+			t.Errorf("expected verification code %s, got %v", verCode, resp)
+		}
+	})
+
+	t.Run("newer SMS beats older verification", func(t *testing.T) {
+		router, _, _ := setupTestRouter(t, nil, nil)
+		startTestVerification(t, router, "+15005550006", "sms")
+		sendTestSMS(t, router, "+15555550100", "+15005550006", "Your code is 445566")
+
+		req := httptest.NewRequest(http.MethodGet, "/otp/latest?to=%2B15005550006", nil)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
+		}
+		var resp map[string]any
+		_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+		if resp["code"] != "445566" || resp["source"] != "extracted" {
+			t.Errorf("expected extracted code 445566, got %v", resp)
+		}
+	})
+
+	t.Run("not found returns 404", func(t *testing.T) {
+		router, _, _ := setupTestRouter(t, nil, nil)
+		req := httptest.NewRequest(http.MethodGet, "/otp/latest?to=%2B15005550010", nil)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		if rec.Code != http.StatusNotFound {
+			t.Fatalf("expected status 404, got %d: %s", rec.Code, rec.Body.String())
+		}
+	})
+
+	t.Run("missing to returns 400", func(t *testing.T) {
+		router, _, _ := setupTestRouter(t, nil, nil)
+		req := httptest.NewRequest(http.MethodGet, "/otp/latest", nil)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("expected status 400, got %d: %s", rec.Code, rec.Body.String())
+		}
+	})
+
+	t.Run("future since returns 404", func(t *testing.T) {
+		router, _, _ := setupTestRouter(t, nil, nil)
+		sendTestSMS(t, router, "+15555550100", "+15005550006", "Your code is 445566")
+		req := httptest.NewRequest(http.MethodGet, "/otp/latest?to=%2B15005550006&since=2999-01-01T00%3A00%3A00Z", nil)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		if rec.Code != http.StatusNotFound {
+			t.Fatalf("expected status 404, got %d: %s", rec.Code, rec.Body.String())
+		}
+	})
+}
+
+func TestHandlers_GetLatestEmail(t *testing.T) {
+	sendTestEmail := func(t *testing.T, router http.Handler, to, text string) {
+		t.Helper()
+		payload, _ := json.Marshal(map[string]any{
+			"from":    "app@example.com",
+			"to":      []string{to},
+			"subject": "Verify",
+			"text":    text,
+		})
+		req := httptest.NewRequest(http.MethodPost, "/email", bytes.NewReader(payload))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("send email: expected status 201, got %d: %s", rec.Code, rec.Body.String())
+		}
+	}
+
+	t.Run("latest email with codes and links", func(t *testing.T) {
+		router, _, _ := setupTestRouter(t, nil, nil)
+		sendTestEmail(t, router, "user@example.com", "Your code is 778899, verify at https://example.com/verify")
+
+		req := httptest.NewRequest(http.MethodGet, "/emails/latest?to=user%40example.com", nil)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
+		}
+		var resp map[string]any
+		if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("failed to decode response: %v", err)
+		}
+		codes, _ := resp["codes"].([]any)
+		if len(codes) != 1 || codes[0] != "778899" {
+			t.Errorf("expected codes [778899], got %v", resp["codes"])
+		}
+		links, _ := resp["links"].([]any)
+		if len(links) != 1 || links[0] != "https://example.com/verify" {
+			t.Errorf("expected verify link, got %v", resp["links"])
+		}
+		if resp["primary_link"] != "https://example.com/verify" {
+			t.Errorf("expected primary_link, got %v", resp["primary_link"])
+		}
+		if _, ok := resp["message"].(map[string]any); !ok {
+			t.Errorf("expected message object, got %v", resp)
+		}
+	})
+
+	t.Run("newest email wins", func(t *testing.T) {
+		router, _, _ := setupTestRouter(t, nil, nil)
+		sendTestEmail(t, router, "user@example.com", "Your code is 111111")
+		sendTestEmail(t, router, "user@example.com", "Your code is 222222")
+
+		req := httptest.NewRequest(http.MethodGet, "/emails/latest?to=user%40example.com", nil)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
+		}
+		var resp map[string]any
+		_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+		codes, _ := resp["codes"].([]any)
+		if len(codes) != 1 || codes[0] != "222222" {
+			t.Errorf("expected codes [222222], got %v", resp["codes"])
+		}
+	})
+
+	t.Run("not found returns 404", func(t *testing.T) {
+		router, _, _ := setupTestRouter(t, nil, nil)
+		req := httptest.NewRequest(http.MethodGet, "/emails/latest?to=nobody%40example.com", nil)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		if rec.Code != http.StatusNotFound {
+			t.Fatalf("expected status 404, got %d: %s", rec.Code, rec.Body.String())
+		}
+	})
+
+	t.Run("missing to returns 400", func(t *testing.T) {
+		router, _, _ := setupTestRouter(t, nil, nil)
+		req := httptest.NewRequest(http.MethodGet, "/emails/latest", nil)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("expected status 400, got %d: %s", rec.Code, rec.Body.String())
+		}
+	})
+}
+
+func TestHandlers_WaitForMessage(t *testing.T) {
+	t.Run("returns existing match immediately", func(t *testing.T) {
+		router, _, _ := setupTestRouter(t, nil, nil)
+		sendTestSMS(t, router, "+15555550100", "+15005550006", "Wait for me")
+
+		req := httptest.NewRequest(http.MethodGet, "/messages/wait?to=%2B15005550006&since=2020-01-01T00%3A00%3A00Z&timeout=1", nil)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
+		}
+	})
+
+	t.Run("timeout returns 408 wait_timeout", func(t *testing.T) {
+		router, _, _ := setupTestRouter(t, nil, nil)
+		req := httptest.NewRequest(http.MethodGet, "/messages/wait?to=%2B15005550010&since=2999-01-01T00%3A00%3A00Z&timeout=1", nil)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		if rec.Code != http.StatusRequestTimeout {
+			t.Fatalf("expected status 408, got %d: %s", rec.Code, rec.Body.String())
+		}
+		var resp map[string]any
+		if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("failed to decode response: %v", err)
+		}
+		errObj, ok := resp["error"].(map[string]any)
+		if !ok {
+			t.Fatalf("expected 'error' object, got %v", resp)
+		}
+		if errObj["code"] != "wait_timeout" {
+			t.Errorf("expected code wait_timeout, got %v", errObj["code"])
+		}
+	})
+}
+
+func TestHandlers_ExpireVerification(t *testing.T) {
+	t.Run("expire moves to expired", func(t *testing.T) {
+		router, _, _ := setupTestRouter(t, nil, nil)
+		verID, _ := startTestVerification(t, router, "+15005550006", "sms")
+
+		req := httptest.NewRequest(http.MethodPost, "/verifications/"+verID+"/expire", nil)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
+		}
+		var resp map[string]any
+		if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("failed to decode response: %v", err)
+		}
+		if resp["status"] != "expired" {
+			t.Errorf("expected status expired, got %v", resp["status"])
+		}
+	})
+
+	t.Run("expire unknown returns 404", func(t *testing.T) {
+		router, _, _ := setupTestRouter(t, nil, nil)
+		req := httptest.NewRequest(http.MethodPost, "/verifications/vrf_00000000000000000000000000/expire", nil)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		if rec.Code != http.StatusNotFound {
+			t.Fatalf("expected status 404, got %d: %s", rec.Code, rec.Body.String())
+		}
+	})
+}
+
+func TestHandlers_DeleteMessages(t *testing.T) {
+	t.Run("requires explicit project", func(t *testing.T) {
+		router, _, _ := setupTestRouter(t, nil, nil)
+		req := httptest.NewRequest(http.MethodDelete, "/messages", nil)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("expected status 400, got %d: %s", rec.Code, rec.Body.String())
+		}
+	})
+
+	t.Run("deletes project messages", func(t *testing.T) {
+		router, _, _ := setupTestRouter(t, nil, nil)
+		sendTestSMS(t, router, "+15555550100", "+15005550006", "Delete me")
+
+		listReq := httptest.NewRequest(http.MethodGet, "/projects", nil)
+		listRec := httptest.NewRecorder()
+		router.ServeHTTP(listRec, listReq)
+		var listResp map[string]any
+		if err := json.Unmarshal(listRec.Body.Bytes(), &listResp); err != nil {
+			t.Fatalf("list projects: %v", err)
+		}
+		projects, _ := listResp["projects"].([]any)
+		if len(projects) == 0 {
+			t.Fatalf("expected a project, got %v", listResp)
+		}
+		projectID := projects[0].(map[string]any)["id"].(string)
+
+		delReq := httptest.NewRequest(http.MethodDelete, "/messages?project="+projectID, nil)
+		delRec := httptest.NewRecorder()
+		router.ServeHTTP(delRec, delReq)
+		if delRec.Code != http.StatusNoContent {
+			t.Fatalf("expected status 204, got %d: %s", delRec.Code, delRec.Body.String())
+		}
+
+		getReq := httptest.NewRequest(http.MethodGet, "/messages?project="+projectID, nil)
+		getRec := httptest.NewRecorder()
+		router.ServeHTTP(getRec, getReq)
+		var getResp map[string]any
+		_ = json.Unmarshal(getRec.Body.Bytes(), &getResp)
+		if msgs, _ := getResp["messages"].([]any); len(msgs) != 0 {
+			t.Errorf("expected no messages after delete, got %v", msgs)
+		}
+	})
+}

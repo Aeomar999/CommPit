@@ -57,7 +57,7 @@ func (h *Handlers) Routes() http.Handler {
 	r.Get("/events", func(w http.ResponseWriter, r *http.Request) {
 		h.SSEEvents(w, r, SseEventsParams{Project: strPtr(r.URL.Query().Get("project"))})
 	})
-	r.Get("/messages/wait", func(w http.ResponseWriter, r *http.Request) {
+	r.Get("/messages/wait", h.authMiddlewareRead(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var since *time.Time
 		if sinceStr := r.URL.Query().Get("since"); sinceStr != "" {
 			if t, err := time.Parse(time.RFC3339, sinceStr); err == nil {
@@ -81,7 +81,7 @@ func (h *Handlers) Routes() http.Handler {
 			Timeout: timeout,
 			Project: strPtr(r.URL.Query().Get("project")),
 		})
-	})
+	})).ServeHTTP)
 
 	// Remaining endpoints with 60s timeout
 	r.Group(func(r chi.Router) {
@@ -962,7 +962,7 @@ func (h *Handlers) WaitForMessage(w http.ResponseWriter, r *http.Request, params
 }
 
 func (h *Handlers) GetLatestOTP(w http.ResponseWriter, r *http.Request, params GetLatestOTPParams) {
-	_, err := h.getProjectID(r)
+	projectID, err := h.getProjectID(r)
 	if err != nil {
 		h.writeError(w, r, core.NewUnauthorized("authentication required"))
 		return
@@ -974,11 +974,64 @@ func (h *Handlers) GetLatestOTP(w http.ResponseWriter, r *http.Request, params G
 		return
 	}
 
-	h.writeError(w, r, core.NewValidationError("not implemented", ""))
+	var since *time.Time
+	if sinceStr := r.URL.Query().Get("since"); sinceStr != "" {
+		if t, err := time.Parse(time.RFC3339, sinceStr); err == nil {
+			since = &t
+		}
+	}
+
+	normalized := core.NormalizePhone(to)
+	direction := core.DirectionOutbound
+	messages, _, err := h.Store().ListMessages(r.Context(), projectID, core.MessageFilter{
+		To:        &normalized,
+		Direction: &direction,
+		Since:     since,
+		Limit:     100,
+	})
+	if err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+
+	var latest *core.Message
+	for _, m := range messages {
+		if len(m.ExtractedCodes) > 0 {
+			latest = m
+			break
+		}
+	}
+	if latest == nil {
+		h.writeError(w, r, core.NewNotFound("no OTP found", "to"))
+		return
+	}
+
+	verifications, _, err := h.Store().ListVerifications(r.Context(), projectID, 1000, "")
+	if err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	for _, v := range verifications {
+		if v.MessageID == latest.ID {
+			render.JSON(w, r, OTPLatestResponse{
+				Code:           v.Code,
+				Source:         OTPLatestResponseSourceVerification,
+				MessageId:      latest.ID,
+				VerificationId: &v.ID,
+			})
+			return
+		}
+	}
+
+	render.JSON(w, r, OTPLatestResponse{
+		Code:      latest.ExtractedCodes[0],
+		Source:    OTPLatestResponseSourceExtracted,
+		MessageId: latest.ID,
+	})
 }
 
 func (h *Handlers) GetLatestEmail(w http.ResponseWriter, r *http.Request, params GetLatestEmailParams) {
-	_, err := h.getProjectID(r)
+	projectID, err := h.getProjectID(r)
 	if err != nil {
 		h.writeError(w, r, core.NewUnauthorized("authentication required"))
 		return
@@ -990,7 +1043,51 @@ func (h *Handlers) GetLatestEmail(w http.ResponseWriter, r *http.Request, params
 		return
 	}
 
-	h.writeError(w, r, core.NewValidationError("not implemented", ""))
+	var since *time.Time
+	if sinceStr := r.URL.Query().Get("since"); sinceStr != "" {
+		if t, err := time.Parse(time.RFC3339, sinceStr); err == nil {
+			since = &t
+		}
+	}
+
+	normalized := core.NormalizePhone(to)
+	channel := core.ChannelEmail
+	direction := core.DirectionOutbound
+	messages, _, err := h.Store().ListMessages(r.Context(), projectID, core.MessageFilter{
+		Channel:   &channel,
+		To:        &normalized,
+		Direction: &direction,
+		Since:     since,
+		Limit:     1,
+	})
+	if err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	if len(messages) == 0 {
+		h.writeError(w, r, core.NewNotFound("no email found", "to"))
+		return
+	}
+
+	m := messages[0]
+	codes := m.ExtractedCodes
+	if codes == nil {
+		codes = []string{}
+	}
+	links := m.ExtractedLinks
+	if links == nil {
+		links = []string{}
+	}
+	primaryLink := ""
+	if m.PrimaryLink != nil {
+		primaryLink = *m.PrimaryLink
+	}
+	render.JSON(w, r, EmailLatestResponse{
+		Message:     *convertMessage(m),
+		Codes:       codes,
+		Links:       links,
+		PrimaryLink: primaryLink,
+	})
 }
 
 func (h *Handlers) SimulateInbound(w http.ResponseWriter, r *http.Request) {

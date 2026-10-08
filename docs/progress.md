@@ -8,7 +8,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 |---|---|
 | **Phase** | Milestone 2 in progress |
 | **Current milestone** | M2 |
-| **Next action** | M2-10: Test API (`messages/wait`, `otp/latest`, `emails/latest`, `verifications/{id}/expire`, scoped `DELETE /messages`) |
+| **Next action** | M2-11: Dedicated adapter ports (`adapters.<name>.port`) |
 | **Last updated** | 2026-10-08 |
 
 ## Milestones
@@ -16,7 +16,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 | Milestone | Release | Status | Tasks done |
 |---|---|---|---|
 | M1: Core, native API, SMTP, inbox | v0.1.0 | Done | 21 / 21 |
-| M2: Twilio, Termii, test API, inspector | v0.2.0 | In progress | 9 / 14 |
+| M2: Twilio, Termii, test API, inspector | v0.2.0 | In progress | 10 / 14 |
 | M3: Webhooks, failure simulation, inbound, batches | v0.3.0 | Not started | 0 / 12 |
 | M4: Estimate, MCP, CI kit | v0.4.0 | Not started | 0 / 8 |
 
@@ -32,6 +32,16 @@ Single source of truth for where the project stands. Update it in every PR that 
 ## Session log
 
 Newest first. One entry per working session: what changed, decisions made, what's next.
+
+### 2026-10-08 (Session 16): Test API (M2-10)
+
+- Completed M2-10 (`REQ-040`–`REQ-043`, `REQ-023`): the two M1 stubs are now real endpoints, and the rest got coverage.
+  - **`GET /otp/latest`** (`to` required, `since` optional with no lower bound when omitted): newest outbound coded message for the recipient; returns the verification code with linkage (`source: verification`, `verification_id`) when the message carries one, else the first extracted code (`source: extracted`); 404 when nothing matches. OpenAPI shapes already existed, so no spec change was needed.
+  - **`GET /emails/latest`**: newest outbound email with codes, links and primary link (nil slices render as `[]`, not null).
+  - **Real gap found**: `/messages/wait` was mounted outside the auth groups with no middleware, so every call 401'd. Wrapped the route with the read auth middleware (spec-compliant: `?project=` accepted); added wait tests (immediate match, 408 `wait_timeout`).
+  - Added expire tests (200 + `expired`, 404 unknown) and DELETE tests (400 without project, 204 + empty inbox with `?project=`).
+  - `go test ./...`, `golangci-lint run` (0 issues), `gofmt` clean.
+- **Next:** M2-11: Dedicated adapter ports.
 
 ### 2026-10-08 (Session 15): Termii Golden Fixtures (M2-09)
 
