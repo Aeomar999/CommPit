@@ -88,3 +88,29 @@ verification and check shapes, `VA`/`VE` SID patterns, and the
 - `date_updated` mirrors `date_created`; verification updates don't track a
   separate timestamp.
 - No per-request `Ttl`/`CustomCode`/`Locale` parameters yet.
+
+## Termii SMS (M2-07)
+
+Implemented: `POST /api/sms/send`, `POST /api/sms/send/bulk`,
+`POST /api/sms/number/send` (all under `/termii`, JSON bodies).
+
+- `api_key` in the body is the credential (masked in request logs);
+  missing keys return 401.
+- Success is HTTP 200 with `{message_id, message, balance, user}`
+  (bulk adds `code: "ok"`).
+- Multi-recipient requests map to core batches; rejected recipients are
+  reported per recipient instead of dropped.
+- Sender allow-list lives in project settings (`termii.sender_allowlist`).
+  Empty lists accept every sender with a server warning; inspector
+  surfacing lands with the M2-13 UI.
+
+**Unverified** (correct against a real account in X-01 / M2-09 fixtures):
+
+- Success message text (`"Successfully Sent"`), `balance`/`user` nullability.
+- HTTP 200 (not 201/202) for sends; the 401 shape for bad keys.
+- Recipient caps (100 single / 10,000 bulk) and the `rejected` array shape.
+- `type`/`channel` parameters accepted and ignored (no DND routing).
+- `/number/send` behaves like `/send` (no number provisioning model yet).
+- Batch-level `message_id` is generated, not stored (core batches carry no
+  provider ref); per-message numeric refs apply to single sends only.
+- Credential extraction reads up to 1 MB bodies (bulk batches are ~200 KB).

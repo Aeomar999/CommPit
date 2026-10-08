@@ -14,6 +14,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/Aeomar999/CommPit/adapters/adapterkit"
+	"github.com/Aeomar999/CommPit/adapters/termii"
 	"github.com/Aeomar999/CommPit/adapters/twilio"
 	"github.com/Aeomar999/CommPit/api"
 	"github.com/Aeomar999/CommPit/bus"
@@ -152,8 +153,18 @@ func runWithContext(ctx context.Context, cfg *config.Config) error {
 	twilioKit := adapterkit.New(projectResolver, adapterkit.WithBus(eventBus), adapterkit.WithSink(twilioSink))
 	twilioHandler := twilioKit.Wrap(twilioAdapter, twilio.Extractor(), adapterkit.WithRequired(true))
 
+	// Termii adapter: same middleware stack, api_key credential from the
+	// JSON body (bulk bodies need a larger extraction cap).
+	termiiAdapter := termii.New(service)
+	termiiSink := adapterkit.RequestLogSinkFunc(func(ctx context.Context, entry *core.RequestLog) error {
+		return store.CreateRequestLog(ctx, entry)
+	})
+	termiiKit := adapterkit.New(projectResolver, adapterkit.WithBus(eventBus), adapterkit.WithSink(termiiSink))
+	termiiHandler := termiiKit.Wrap(termiiAdapter, termii.Extractor(), adapterkit.WithRequired(true))
+
 	rootRouter := chi.NewRouter()
 	rootRouter.Mount("/twilio", middleware.SecurityMiddleware(&cfg.Security)(twilioHandler))
+	rootRouter.Mount("/termii", middleware.SecurityMiddleware(&cfg.Security)(termiiHandler))
 	rootRouter.Mount("/", handlers.Routes())
 
 	server := &http.Server{

@@ -8,7 +8,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 |---|---|
 | **Phase** | Milestone 2 in progress |
 | **Current milestone** | M2 |
-| **Next action** | M2-07: Termii SMS (`/api/sms/send`, `/send/bulk`, `/number/send`; batches; sender allow-list) |
+| **Next action** | M2-08: Termii Token (`otp/send`, `otp/verify`, `otp/generate`, `email/otp/send`) |
 | **Last updated** | 2026-10-08 |
 
 ## Milestones
@@ -16,7 +16,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 | Milestone | Release | Status | Tasks done |
 |---|---|---|---|
 | M1: Core, native API, SMTP, inbox | v0.1.0 | Done | 21 / 21 |
-| M2: Twilio, Termii, test API, inspector | v0.2.0 | In progress | 6 / 14 |
+| M2: Twilio, Termii, test API, inspector | v0.2.0 | In progress | 7 / 14 |
 | M3: Webhooks, failure simulation, inbound, batches | v0.3.0 | Not started | 0 / 12 |
 | M4: Estimate, MCP, CI kit | v0.4.0 | Not started | 0 / 8 |
 
@@ -32,6 +32,17 @@ Single source of truth for where the project stands. Update it in every PR that 
 ## Session log
 
 Newest first. One entry per working session: what changed, decisions made, what's next.
+
+### 2026-10-08 (Session 13): Termii SMS (M2-07)
+
+- Completed M2-07 (`REQ-033`): new `adapters/termii` package, mounted at `/termii` with store-backed logging and required `api_key` credentials.
+  - **Endpoints**: `POST /api/sms/send` (single `to` or array up to 100), `POST /api/sms/send/bulk` (up to 10,000, response adds `code: "ok"`), `POST /api/sms/number/send`. HTTP 200 with `{message_id, message, balance, user}`; numeric IDs in `provider_ref`; multi-recipient sends map to core batches with per-recipient `rejected` reporting.
+  - **Sender allow-list** from project settings (`termii.sender_allowlist`, read-only until M2-12): empty accepts all with a warning log, unlisted senders get `invalid_sender`.
+  - **Real bug found by TDD**: bodies over 64 KB fail credential extraction (truncated JSON never parses), which would have broken every bulk batch. Added `adapterkit.JSONBodyKeyExtractorWithLimit` (default stays 64 KB) and gave Termii a 1 MB cap; covered by a new adapterkit test with a ~90 KB body.
+  - `/termii` exempt from `X-Mocksms` (Host protection kept), covered by a middleware test.
+  - Tests first, all green: `go test ./...`, `golangci-lint run` (0 issues), `gofmt` clean. Live-binary smoke test (single, bulk with `code: ok`, number/send, 401 without key). Debugging note: Windows PowerShell corrupts inline curl JSON — byte-exact `@file` bodies (via the Write tool) are the reliable path.
+  - `docs/fidelity.md` gained a Termii section with **unverified** items for X-01/M2-09.
+- **Next:** M2-08: Termii Token.
 
 ### 2026-10-08 (Session 12): Twilio Redirect Snippets (M2-06)
 

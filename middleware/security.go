@@ -74,7 +74,8 @@ func isExemptPath(path string) bool {
 	}
 	// Provider adapters carry their own credentials (Twilio Basic auth, Termii
 	// api_key) and serve official SDKs that cannot send the X-Mocksms header.
-	return path == "/twilio" || strings.HasPrefix(path, "/twilio/")
+	return path == "/twilio" || strings.HasPrefix(path, "/twilio/") ||
+		path == "/termii" || strings.HasPrefix(path, "/termii/")
 }
 
 func isUIPath(path string) bool {

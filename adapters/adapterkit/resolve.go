@@ -76,14 +76,23 @@ func PathExtractor(paramName string) CredentialExtractor {
 }
 
 // JSONBodyKeyExtractor peeks at a top-level field in a JSON request body
-// and restores the request body for downstream handlers.
+// and restores the request body for downstream handlers. It reads at most
+// 64 KB; larger bodies fail closed (no credential found).
 func JSONBodyKeyExtractor(fieldName string) CredentialExtractor {
+	return JSONBodyKeyExtractorWithLimit(fieldName, 64*1024)
+}
+
+// JSONBodyKeyExtractorWithLimit behaves like JSONBodyKeyExtractor with a
+// caller-chosen read cap. Bulk endpoints (e.g. Termii's 10,000-recipient
+// batch) legitimately exceed 64 KB, so those adapters pass a larger cap.
+// Bodies beyond the cap fail closed.
+func JSONBodyKeyExtractorWithLimit(fieldName string, maxBytes int) CredentialExtractor {
 	return func(req *http.Request) (string, bool, error) {
 		if req.Body == nil {
 			return "", false, nil
 		}
 
-		bodyBytes, err := io.ReadAll(io.LimitReader(req.Body, 64*1024))
+		bodyBytes, err := io.ReadAll(io.LimitReader(req.Body, int64(maxBytes)))
 		if err != nil {
 			return "", false, err
 		}
