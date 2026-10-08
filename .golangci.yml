@@ -1,0 +1,103 @@
+version: "2"
+
+linters:
+  enable:
+    - govet
+    - staticcheck
+    - unused
+    - ineffassign
+    - bodyclose
+    - copyloopvar
+    - predeclared
+    - errorlint
+    - depguard
+    - misspell
+    - whitespace
+  disable:
+    - errcheck
+  settings:
+    depguard:
+      rules:
+        core:
+          files:
+            - "**/core/**/*.go"
+          list-mode: lax
+          deny:
+            - pkg: "github.com/Aeomar999/CommPit/store"
+              desc: "core may import only phone and extract"
+            - pkg: "github.com/Aeomar999/CommPit/bus"
+              desc: "core may import only phone and extract"
+            - pkg: "github.com/Aeomar999/CommPit/api"
+              desc: "core may import only phone and extract"
+            - pkg: "github.com/Aeomar999/CommPit/sim"
+              desc: "core may import only phone and extract"
+            - pkg: "github.com/Aeomar999/CommPit/smtpd"
+              desc: "core may import only phone and extract"
+            - pkg: "github.com/Aeomar999/CommPit/config"
+              desc: "core may import only phone and extract"
+        api:
+          files:
+            - "**/api/**/*.go"
+          list-mode: lax
+          deny:
+            - pkg: "github.com/Aeomar999/CommPit/store"
+              desc: "api may import only core"
+            - pkg: "github.com/Aeomar999/CommPit/bus"
+              desc: "api may import only core"
+            - pkg: "github.com/Aeomar999/CommPit/sim"
+              desc: "api may import only core"
+            - pkg: "github.com/Aeomar999/CommPit/smtpd"
+              desc: "api may import only core"
+        sim:
+          files:
+            - "**/sim/**/*.go"
+          list-mode: lax
+          deny:
+            - pkg: "github.com/Aeomar999/CommPit/store"
+              desc: "sim may import only core and phone"
+            - pkg: "github.com/Aeomar999/CommPit/bus"
+              desc: "sim may import only core and phone"
+            - pkg: "github.com/Aeomar999/CommPit/api"
+              desc: "sim may import only core and phone"
+        bus:
+          files:
+            - "**/bus/**/*.go"
+          list-mode: lax
+          deny:
+            - pkg: "github.com/Aeomar999/CommPit/store"
+              desc: "bus may import only core"
+            - pkg: "github.com/Aeomar999/CommPit/api"
+              desc: "bus may import only core"
+    govet:
+      enable:
+        - structtag
+        - nilfunc
+        - httpresponse
+        - loopclosure
+        - lostcancel
+        - printf
+        - shift
+        - stdmethods
+        - stringintconv
+        - tests
+        - unmarshal
+        - unreachable
+        - unsafeptr
+        - unusedresult
+        - unusedwrite
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters:
+          - depguard
+
+formatters:
+  enable:
+    - gofmt
+  exclusions:
+    generated: lax
+
+run:
+  timeout: 5m
+  tests: true
+  modules-download-mode: readonly

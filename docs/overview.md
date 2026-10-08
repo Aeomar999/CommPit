@@ -65,6 +65,8 @@ Point your app's SMTP settings at `localhost:1025`, open `http://localhost:4010`
 | Document | Purpose |
 |---|---|
 | [PRD.md](PRD.md) | Product requirements: problem, personas, prioritized requirements, metrics |
+| [../PRODUCT.md](../PRODUCT.md) | Durable product truth in the format the impeccable design skill reads |
+| [design.md](design.md) | Visual and interaction design for the inbox, docs site and landing page: colour, type, components, motion, voice, accessibility |
 | [architecture.md](architecture.md) | Living system architecture: components, boundaries, flows, data |
 | [techstack.md](techstack.md) | Every technology used, and why |
 | [engineering.md](engineering.md) | Engineering standards: code, tests, git, releases, definition of done |

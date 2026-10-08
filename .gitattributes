@@ -1,0 +1,32 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Go
+*.go text eol=lf
+go.mod text eol=lf
+go.sum text eol=lf
+
+# Web
+*.ts text eol=lf
+*.tsx text eol=lf
+*.json text eol=lf
+*.css text eol=lf
+*.html text eol=lf
+
+# Config
+*.yml text eol=lf
+*.yaml text eol=lf
+*.toml text eol=lf
+
+# Documentation
+*.md text eol=lf
+
+# Generated files (should not be committed)
+web/dist/ binary
+bin/ binary
+*.db binary
+*.db-wal binary
+*.db-shm binary
+
+# Test fixtures
+**/testdata/** linguist-generated

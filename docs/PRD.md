@@ -5,7 +5,7 @@
 | Field | Value |
 |---|---|
 | Product | mocksms (working name) |
-| Author | [Author Name] |
+| Author | Jerry Amoah |
 | Date | 2026-10-03 |
 | Version | v1.0 |
 | Status | In Review |

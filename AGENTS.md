@@ -15,6 +15,7 @@ mocksms is a local-first sandbox messaging provider for development. Apps send S
 3. [docs/architecture.md](docs/architecture.md): package boundaries and dependency rules. **Binding.**
 4. [docs/engineering.md](docs/engineering.md): code, test and git standards.
 5. The relevant section of the [design spec](docs/superpowers/specs/2026-10-03-mocksms-design.md) and, if one exists, the milestone plan in `docs/superpowers/plans/`.
+6. **For any UI work:** [docs/design.md](docs/design.md) (tokens, components, voice, accessibility) and [PRODUCT.md](PRODUCT.md). Follow its §16 workflow for the design skills (impeccable, taste, ui-ux-pro-max, design-system).
 
 ## No AI attribution (absolute rule)
 
@@ -178,6 +179,21 @@ Whenever you make — or help make — a decision that illustrates a system desi
 - Adding rate limiting or scaling decisions
 
 **Tone:** Plain English. No jargon without a definition. Write as if Jerry is reading with fresh eyes.
+
+### 📝 Lessons Logged for mocksms
+
+See [`SYSTEM_DESIGN_LESSONS.md`](../../SYSTEM_DESIGN_LESSONS.md) for full entries and explanations:
+1. **Canonical error translation and HTTP header ordering at API boundaries** — Presenting domain errors transparently and setting response headers before flushing status.
+2. **Graceful shutdown sequence and fail-fast listener supervision** — Strict teardown dependency order and propagating port collision errors to exit safely.
+3. **Compile-time asset embedding for portable binaries** — Packing SQL migrations into the executable via `go:embed` for self-contained distribution.
+4. **SQLite foreign key pragmas, connection pool separation, and transactional batching** — Enabling cascading deletes, separating write connection from concurrent read pool, and batching inserts inside transactions.
+5. **Entity immutability across worker boundaries, deterministic virtual clocks, and throttled batch aggregations** — Passing entity IDs instead of shared mutable pointers to background workers, and simulating time without sleeps.
+6. **Ports and Adapters (Hexagonal Architecture) with linter-enforced boundaries** — Keeping core domain logic pure and isolated from external providers and database drivers, guarded by `depguard`.
+7. **In-process pub/sub event bus: copy-on-write dispatch and leak-free unsubscription** — Calling subscriber handlers outside locks and purging closed subscriptions to prevent deadlocks and memory leaks.
+8. **Server-Sent Events (SSE) with non-blocking drops for live feeds** — Choosing unidirectional SSE over WebSockets for live inboxes, with non-blocking drops to prevent slow consumers from hanging the bus.
+9. **Input normalization to canonical form at the system boundary** — Canonicalizing phone numbers to E.164 at ingress to guarantee consistent lookups and reliable opt-out suppression.
+10. **Partial batch acceptance: structured rejection reporting vs. silent drops** — Accepting valid batch messages in a single transaction while returning explicit structured rejection items.
+11. **Hermetic local sandboxing: replacing third-party APIs with a zero-cost local provider** — Decoupling development and testing from rate limits, API costs, and network flakiness.
 
 ---
 

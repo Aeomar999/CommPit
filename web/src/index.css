@@ -1,0 +1,91 @@
+@import url("https://fonts.googleapis.com/css2?family=Figtree:ital,wght@0,300..900;1,300..900&family=JetBrains+Mono:wght@400;500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 216 20% 97.5%; /* #F7F8FA neutral-50 */
+    --foreground: 215 20% 12%; /* #181D24 neutral-900 */
+    --card: 0 0% 100%; /* #FFFFFF white card */
+    --card-foreground: 215 20% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 20% 12%;
+    --primary: 24 93% 52%; /* #F76E14 ember-500 */
+    --primary-foreground: 18 83% 14%; /* #401406 ember-950 text on ember button */
+    --secondary: 210 14% 94%; /* #EDF0F3 neutral-100 */
+    --secondary-foreground: 215 13% 37%; /* #535D6B neutral-600 */
+    --muted: 210 14% 94%; /* #EDF0F3 neutral-100 */
+    --muted-foreground: 215 11% 46%; /* #687382 neutral-500 */
+    --accent: 29 100% 96.5%; /* #FFF6ED ember-50 */
+    --accent-foreground: 18 90% 38%; /* #BA3F0A ember-700 */
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 210 14% 92%; /* #DFE3E8 neutral-200 */
+    --input: 210 14% 92%;
+    --ring: 24 93% 52%;
+    --radius: 0.75rem; /* 12px container radius */
+  }
+
+  .dark {
+    --background: 214 24% 8%; /* #0F1318 neutral-950 */
+    --foreground: 216 20% 97.5%; /* #F7F8FA neutral-50 */
+    --card: 215 20% 12%; /* #181D24 neutral-900 */
+    --card-foreground: 216 20% 97.5%;
+    --popover: 215 20% 12%;
+    --popover-foreground: 216 20% 97.5%;
+    --primary: 24 93% 52%;
+    --primary-foreground: 18 83% 14%;
+    --secondary: 215 17% 19%; /* #272E38 neutral-800 */
+    --secondary-foreground: 213 14% 81%; /* #C6CDD5 neutral-300 */
+    --muted: 215 17% 19%;
+    --muted-foreground: 215 11% 55%; /* #9BA5B1 neutral-400 */
+    --accent: 215 17% 19%;
+    --accent-foreground: 24 93% 60%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 215 17% 22%; /* #3C4552 neutral-700 */
+    --input: 215 17% 22%;
+    --ring: 24 93% 52%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Custom fine scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c6cdd5;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #9ba5b1;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #3c4552;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #535d6b;
+}

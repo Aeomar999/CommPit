@@ -1,0 +1,134 @@
+version: '3'
+
+vars:
+  GO_VERSION: '1.26'
+  NODE_VERSION: '20'
+
+tasks:
+  dev:
+    desc: Start Go server + Vite dev server with proxy
+    cmds:
+      - task: dev:go
+      - task: dev:web
+    silent: true
+
+  dev:go:
+    desc: Start Go server with live reload
+    cmds:
+      - air -c .air.toml
+    silent: true
+
+  dev:web:
+    desc: Start Vite dev server
+    dir: web
+    cmds:
+      - pnpm run dev
+    silent: true
+
+  test:
+    desc: Run Go tests (use task test:race for race detector) plus UI unit tests
+    cmds:
+      - go test ./...
+      - task: test:web
+
+  test:web:
+    desc: Run UI unit tests
+    dir: web
+    status:
+      - test ! -f package.json
+    cmds:
+      - pnpm test
+
+  test:race:
+    desc: Run Go tests with -race (requires CGO/C compiler)
+    cmds:
+      - set CGO_ENABLED=1 && go test -race ./...
+
+  lint:
+    desc: Run golangci-lint (incl. depguard) + Biome
+    cmds:
+      - golangci-lint run
+      - task: lint:web
+
+  lint:web:
+    desc: Run Biome on web/
+    dir: web
+    status:
+      - test ! -f package.json
+    cmds:
+      - pnpm biome check .
+
+  generate:
+    desc: Generate code from openapi/openapi.yaml (oapi-codegen + openapi-typescript)
+    cmds:
+      - go generate ./...
+      - task: generate:web
+
+  generate:web:
+    desc: Generate TypeScript types from OpenAPI spec
+    dir: web
+    cmds:
+      - pnpm openapi-typescript ../openapi/openapi.yaml -o src/lib/api.ts
+
+  build:
+    desc: Build UI, then Go binary with embedded UI
+    cmds:
+      - task: build:web
+      - task: build:go
+
+  build:web:
+    desc: Build Vite production bundle
+    dir: web
+    cmds:
+      - pnpm run build
+
+  build:go:
+    desc: Build Go binary with embedded web/dist
+    cmds:
+      - set CGO_ENABLED=1 && go build -tags embed -o bin/mocksms ./cmd/mocksms
+
+  e2e:
+    desc: Run real-SDK examples + Playwright against built binary
+    cmds:
+      - task: build
+      - task: e2e:examples
+      - task: e2e:playwright
+
+  e2e:examples:
+    desc: Run real-SDK integration examples
+    cmds:
+      - set CGO_ENABLED=1 && go test -v -tags e2e ./examples/...
+
+  e2e:playwright:
+    desc: Run Playwright tests against embedded UI
+    dir: web
+    cmds:
+      - pnpm playwright test
+
+  fmt:
+    desc: Format Go and web code
+    cmds:
+      - gofmt -w .
+      - task: fmt:web
+
+  fmt:web:
+    desc: Format web code with Biome
+    dir: web
+    cmds:
+      - pnpm biome check --write .
+
+  vet:
+    desc: Run go vet
+    cmds:
+      - go vet ./...
+
+  clean:
+    desc: Clean build artifacts
+    cmds:
+      - rm -rf bin/ web/dist/
+      - go clean -cache
+
+  db:reset:
+    desc: Delete SQLite database files
+    cmds:
+      - rm -f *.db *.db-wal *.db-shm

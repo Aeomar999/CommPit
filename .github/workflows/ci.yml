@@ -1,0 +1,121 @@
+name: CI
+
+on:
+  push:
+    branches: [main, 'milestone/*']
+  pull_request:
+    branches: [main]
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: v2.0
+      - name: Run Biome
+        if: hashFiles('web/package.json') != ''
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+      - run: bun install
+        if: hashFiles('web/package.json') != ''
+        working-directory: web
+      - run: bun run biome check .
+        if: hashFiles('web/package.json') != ''
+        working-directory: web
+
+  test:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+      - name: Run Go tests with race detector
+        run: go test -race ./...
+
+  test-web:
+    name: UI Tests
+    if: hashFiles('web/package.json') != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+      - run: bun install
+        working-directory: web
+      - run: bun test
+        working-directory: web
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+      - uses: oven-sh/setup-bun@v1
+        if: hashFiles('web/package.json') != ''
+        with:
+          bun-version: latest
+      - run: bun install
+        if: hashFiles('web/package.json') != ''
+        working-directory: web
+      - run: bun run build
+        if: hashFiles('web/package.json') != ''
+        working-directory: web
+      - run: go build -tags embed -o bin/mocksms ./cmd/mocksms
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: mocksms-${{ runner.os }}
+          path: bin/mocksms
+
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    needs: build
+    if: hashFiles('web/package.json') != ''
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: mocksms-Linux
+          path: bin/
+      - run: chmod +x bin/mocksms
+      - name: Start mocksms
+        run: |
+          bin/mocksms serve &
+          sleep 3
+          curl -f http://127.0.0.1:4010/healthz
+      - name: Run real-SDK examples
+        run: go test -v -tags e2e ./examples/...
+      - name: Run Playwright tests
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+      - run: bun install
+        working-directory: web
+      - run: npx playwright install --with-deps chromium
+        working-directory: web
+      - run: npx playwright test
+        working-directory: web
+        env:
+          MOCKSMS_URL: http://127.0.0.1:4010
