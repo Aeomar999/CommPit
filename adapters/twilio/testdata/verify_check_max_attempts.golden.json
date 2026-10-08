@@ -1,0 +1,13 @@
+{
+  "body": {
+    "code": 60202,
+    "message": "maximum attempts reached",
+    "more_info": "https://www.twilio.com/docs/errors/60202",
+    "status": 429
+  },
+  "request": {
+    "method": "POST",
+    "path": "/v2/Services/{sid}/VerificationCheck"
+  },
+  "status": 429
+}

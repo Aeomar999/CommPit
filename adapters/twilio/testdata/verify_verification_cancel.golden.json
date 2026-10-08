@@ -1,0 +1,25 @@
+{
+  "body": {
+    "account_sid": "ACXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+    "amount": null,
+    "channel": "sms",
+    "date_created": "DATE",
+    "date_updated": "DATE",
+    "service_sid": "VA00000000000000000000000000000000",
+    "sid": "VE00000000000000000000000000000000",
+    "status": "canceled",
+    "to": "+15005550006",
+    "url": "/v2/Services/VA00000000000000000000000000000000/Verifications/VE00000000000000000000000000000000",
+    "valid": false
+  },
+  "request": {
+    "form": {
+      "Status": [
+        "canceled"
+      ]
+    },
+    "method": "POST",
+    "path": "/v2/Services/{sid}/Verifications/{sid}"
+  },
+  "status": 200
+}

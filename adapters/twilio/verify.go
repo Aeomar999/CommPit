@@ -203,6 +203,15 @@ func renderService(accountSid string, svc *verifyService) servicePayload {
 	}
 }
 
+// twilioVerifyStatus maps a canonical verification status onto Verify v2's
+// vocabulary. They match except max_attempts, which Twilio spells out.
+func twilioVerifyStatus(s core.VerificationStatus) string {
+	if s == core.VerificationMaxAttempts {
+		return "max_attempts_reached"
+	}
+	return string(s)
+}
+
 // renderVerification converts a core verification into Twilio's shape.
 func renderVerification(accountSid string, v *core.Verification) verificationPayload {
 	serviceSid := ""
@@ -215,7 +224,7 @@ func renderVerification(accountSid string, v *core.Verification) verificationPay
 		AccountSid:  accountSid,
 		To:          v.To,
 		Channel:     string(v.Channel),
-		Status:      string(v.Status),
+		Status:      twilioVerifyStatus(v.Status),
 		Valid:       v.Status == core.VerificationApproved,
 		Amount:      nil,
 		DateCreated: isoDate(v.CreatedAt),
@@ -513,7 +522,7 @@ func (a *Adapter) checkVerification(w http.ResponseWriter, r *http.Request) {
 		AccountSid:  adapterkit.Credential(r),
 		To:          v.To,
 		Channel:     string(v.Channel),
-		Status:      string(v.Status),
+		Status:      twilioVerifyStatus(v.Status),
 		Valid:       v.Status == core.VerificationApproved,
 		Amount:      nil,
 		DateCreated: isoDate(v.CreatedAt),
