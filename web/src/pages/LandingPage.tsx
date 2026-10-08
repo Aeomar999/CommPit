@@ -23,8 +23,8 @@ import {
 } from "lucide-react";
 import { useId, useState } from "react";
 import { Link } from "react-router-dom";
-import { cn } from "../lib/utils";
 import { StoryScroll } from "../components/StoryScroll";
+import { cn } from "../lib/utils";
 
 // Supported install methods for quick start
 interface InstallTab {
