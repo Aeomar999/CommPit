@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 
-declare module '@tanstack/react-router' {
+declare module "@tanstack/react-router" {
   interface Register {
-    router: import('./routes').router
+    router: import("./routes").router;
   }
 }

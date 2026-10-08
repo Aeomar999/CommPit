@@ -1,124 +1,220 @@
-const API_BASE = '/api/v1'
+import type {
+  Message,
+  Project,
+  RequestLog,
+  StatusEvent,
+  Verification,
+  WebhookDelivery,
+} from "../types";
 
-function buildUrl(path: string, params?: Record<string, string>) {
-  const url = new URL(`${API_BASE}${path}`, window.location.origin)
+const API_BASE = "/api/v1";
+
+function buildUrl(path: string, params?: Record<string, string | number | undefined>): string {
+  const url = new URL(`${API_BASE}${path}`, window.location.origin);
   if (params) {
-    Object.entries(params).forEach(([key, value]) => {
-      url.searchParams.append(key, value)
-    })
+    for (const [key, value] of Object.entries(params)) {
+      if (value !== undefined && value !== null && value !== "") {
+        url.searchParams.append(key, String(value));
+      }
+    }
   }
-  return url.toString()
+  return url.toString();
 }
 
-async function request<T>(path: string, options: RequestInit & { params?: Record<string, string> } = {}): Promise<T> {
-  const { params, headers, ...init } = options
-  const url = buildUrl(path, params)
+async function request<T>(
+  path: string,
+  options: RequestInit & { params?: Record<string, string | number | undefined> } = {}
+): Promise<T> {
+  const { params, headers, ...init } = options;
+  const url = buildUrl(path, params);
 
   const response = await fetch(url, {
     ...init,
     headers: {
-      'Content-Type': 'application/json',
-      'X-Mocksms': 'true',
+      "Content-Type": "application/json",
+      "X-Mocksms": "true",
       ...headers,
     },
-    credentials: 'include',
-  })
+    credentials: "include",
+  });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: { message: response.statusText } }))
-    throw new Error(error.error?.message || response.statusText)
+    const errorData = await response.json().catch(() => ({
+      error: { message: response.statusText, code: "request_failed" },
+    }));
+    const message = errorData.error?.message || errorData.message || response.statusText;
+    throw new Error(message);
   }
 
   if (response.status === 204) {
-    return undefined as T
+    return undefined as unknown as T;
   }
 
-  return response.json()
+  return response.json();
 }
 
-async function requestWithParams<T>(path: string, options: RequestInit & { params?: Record<string, string | number> } = {}): Promise<T> {
-  const { params, headers, ...init } = options
-  const url = new URL(`${API_BASE}${path}`, window.location.origin)
-  if (params) {
-    Object.entries(params).forEach(([key, value]) => {
-      url.searchParams.append(key, String(value))
-    })
-  }
+export interface ListMessagesParams {
+  channel?: string;
+  to?: string;
+  from?: string;
+  status?: string;
+  batch_id?: string;
+  direction?: string;
+  since?: string;
+  limit?: number;
+  cursor?: string;
+  project?: string;
+}
 
-  const response = await fetch(url.toString(), {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Mocksms': 'true',
-      ...headers,
-    },
-    credentials: 'include',
-  })
+export interface SendSMSInput {
+  to: string;
+  from?: string;
+  body: string;
+  callback_url?: string;
+  project?: string;
+}
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: { message: response.statusText } }))
-    throw new Error(error.error?.message || response.statusText)
-  }
+export interface SendEmailInput {
+  to: string;
+  from: string;
+  subject: string;
+  text?: string;
+  html?: string;
+  headers?: Record<string, string>;
+  project?: string;
+}
 
-  if (response.status === 204) {
-    return undefined as T
-  }
-
-  return response.json()
+export interface SimulateInboundInput {
+  to: string;
+  from: string;
+  body: string;
 }
 
 // Message API
 export const messagesApi = {
-  list: (params?: { channel?: string; to?: string; from?: string; status?: string; batch_id?: string; direction?: string; since?: string; limit?: number; cursor?: string }) =>
-    requestWithParams<{ messages: any[]; next_cursor: string | null }>('/messages', { method: 'GET', params }),
+  list: (params?: ListMessagesParams) =>
+    request<{ messages: Message[]; next_cursor: string | null }>("/messages", {
+      method: "GET",
+      params: params as Record<string, string | number | undefined>,
+    }),
 
   get: (id: string) =>
-    request<{ message: any; status_events: any[] }>(`/messages/${id}`),
+    request<{ message: Message; status_events: StatusEvent[] }>(`/messages/${id}`),
 
   getRaw: (id: string) =>
-    fetch(`${API_BASE}/messages/${id}/raw`, { credentials: 'include' }).then(r => r.blob()),
+    fetch(`${API_BASE}/messages/${id}/raw`, {
+      credentials: "include",
+      headers: { "X-Mocksms": "true" },
+    }).then((r) => r.blob()),
+
+  sendSMS: (body: SendSMSInput) =>
+    request<Message>("/sms", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  sendEmail: (body: SendEmailInput) =>
+    request<Message>("/email", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  simulateInbound: (body: SimulateInboundInput) =>
+    request<Message>("/inbound", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
 
   delete: (projectId?: string) =>
-    request<{}>(`/messages${projectId ? `?project=${projectId}` : ''}`, { method: 'DELETE' }),
+    request<Record<string, unknown>>(`/messages${projectId ? `?project=${projectId}` : ""}`, {
+      method: "DELETE",
+    }),
 
   wait: (params: { to?: string; channel?: string; since?: string; timeout?: number }) =>
-    requestWithParams<{ message: any }>('/messages/wait', { method: 'GET', params }),
-}
+    request<{ message: Message }>("/messages/wait", {
+      method: "GET",
+      params,
+    }),
+};
 
 // Verification API
 export const verificationsApi = {
   list: (params?: { limit?: number; cursor?: string; project?: string }) =>
-    requestWithParams<{ verifications: any[]; next_cursor: string | null }>('/verifications', { method: 'GET', params }),
+    request<{ verifications: Verification[]; next_cursor: string | null }>("/verifications", {
+      method: "GET",
+      params,
+    }),
 
-  create: (body: { to: string; channel: 'sms' | 'email'; code_length?: number; ttl_seconds?: number; max_attempts?: number }) =>
-    request<{ verification: any; message: any }>('/verifications', { method: 'POST', body: JSON.stringify(body) }),
+  create: (body: {
+    to: string;
+    channel: "sms" | "email";
+    code_length?: number;
+    ttl_seconds?: number;
+    max_attempts?: number;
+  }) =>
+    request<{ verification: Verification; message: Message }>("/verifications", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
 
   get: (id: string, params?: { project?: string }) =>
-    requestWithParams<any>(`/verifications/${id}`, { method: 'GET', params }),
+    request<Verification>(`/verifications/${id}`, {
+      method: "GET",
+      params,
+    }),
 
   check: (id: string, code: string) =>
-    request<{ valid: boolean; status: string }>(`/verifications/${id}/check`, { method: 'POST', body: JSON.stringify({ code }) }),
+    request<{ valid: boolean; status: string }>(`/verifications/${id}/check`, {
+      method: "POST",
+      body: JSON.stringify({ code }),
+    }),
 
   expire: (id: string) =>
-    request<{ }>(`/verifications/${id}/expire`, { method: 'POST', body: JSON.stringify({}) }),
-}
+    request<Record<string, unknown>>(`/verifications/${id}/expire`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    }),
+};
 
 // Projects API
 export const projectsApi = {
   list: (params?: { limit?: number; cursor?: string }) =>
-    requestWithParams<{ projects: any[]; next_cursor: string | null }>('/projects', { method: 'GET', params }),
+    request<{ projects: Project[]; next_cursor: string | null }>("/projects", {
+      method: "GET",
+      params,
+    }),
 
-  get: (id: string) =>
-    request<any>(`/projects/${id}`),
+  get: (id: string) => request<Project>(`/projects/${id}`),
 
-  update: (id: string, body: { name?: string; settings?: any }) =>
-    requestWithParams<any>(`/projects/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  update: (id: string, body: { name?: string; settings?: Record<string, unknown> }) =>
+    request<Project>(`/projects/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
 
   linkCredential: (id: string, body: { provider: string; key: string }) =>
-    request<{ message: string }>(`/projects/${id}/credentials`, { method: 'POST', body: JSON.stringify(body) }),
-}
+    request<{ message: string }>(`/projects/${id}/credentials`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+};
 
-// Health
+// Request logs & Webhook inspector API
+export const inspectorApi = {
+  listRequests: (params?: { limit?: number; cursor?: string }) =>
+    request<{ requests: RequestLog[]; next_cursor: string | null }>("/requests", {
+      method: "GET",
+      params,
+    }).catch(() => ({ requests: [], next_cursor: null })),
+
+  listWebhooks: (params?: { limit?: number; cursor?: string }) =>
+    request<{ webhooks: WebhookDelivery[]; next_cursor: string | null }>("/webhooks", {
+      method: "GET",
+      params,
+    }).catch(() => ({ webhooks: [], next_cursor: null })),
+};
+
+// Health & System
 export const healthApi = {
-  check: () => request<{ status: string; version: string }>('/healthz'),
-}
+  check: () => request<{ status: string; version: string }>("/healthz"),
+};

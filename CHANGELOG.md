@@ -6,10 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 Provider-compatible adapters follow the real providers' behavior. Fixes that make an adapter match its provider more closely are listed under **Fixed** with the `fidelity:` prefix.
 
-## [Unreleased]
+## [0.1.0] - 2026-10-07
 
 ### Added
 
+- Marketing Landing Page: dedicated developer landing page at `/landing` inspired by BMS design language with hero install commands, live interactive OTP demo, dual-tone ember statement bands, 3-column feature breakdowns, multi-language code snippets, and go-live cost calculator vs. Twilio and Termii. **Now enhanced with a high-craft $50k-budget UI/UX layer featuring Framer Motion scroll reveals, staggered entry animations, and premium hover micro-interactions.**
+- Web Inbox & UI Overhaul: complete UI/UX refresh inspired by BMS (Bulk Messaging Solutions) and `docs/design.md` specifications, featuring ember brand design tokens, collapsible 248px/72px sidebar, master-detail inbox, sandboxed email plate with HTML/Text/Headers tabs, signature CodeTiles with 1-click copy, 4-step delivery progress tracker, multi-channel compose modal with country phone code picker, OTPs grid page, batches tracker page, inspector page, and real-time SSE live updates
 - SSE hub: `SSEHub` subscribes to `bus.EventBus` events (message.created, message.status, verification.updated, batch.updated, request.logged, webhook.delivered), fans out to HTTP clients via `GET /api/v1/events` with project filter, heartbeat keepalive (30s), connection event
 - `api` package: OpenAPI 3.1 spec (`openapi/openapi.yaml`) with all M1 endpoints (SMS, email, verifications, messages, batches, attachments, webhooks, projects, requests, test helpers, events); oapi-codegen generating types and chi-server; `api` handlers implementing ServerInterface with Bearer auth, project-scoped access, send/receive endpoints, project management, test helpers (messages/wait; otp/latest and emails/latest are stubs), webhook replay
 - `config` package: configuration loading with koanf (flags > env > YAML > defaults), all settings from spec §9

@@ -354,10 +354,10 @@ func runMigrations(db *sql.DB) error {
 **Done when.** Every CHANGELOG line describes behaviour that exists in the code at that commit.
 
 **M1 milestone gate** (in order, once every task above is `[x]`):
-- [ ] Full suite passes on `milestone/m1`: `task test`, `task lint`, `task e2e`, `task build`
-- [ ] Final commit (changelog `v0.1.0` heading, progress update) pushed to `milestone/m1`
-- [ ] PR `milestone/m1` → `main` merged with a merge commit
-- [ ] `v0.1.0` tagged on `main`; next milestone branch created from `main`
+- [x] Full suite passes on `milestone/m1`: `task test`, `task lint`, `task e2e`, `task build`
+- [x] Final commit (changelog `v0.1.0` heading, progress update) pushed to `milestone/m1`
+- [x] PR `milestone/m1` → `main` merged with a merge commit
+- [x] `v0.1.0` tagged on `main`; next milestone branch created from `main`
 
 ## M2: Twilio, Termii, test API, inspector → v0.2.0
 

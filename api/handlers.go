@@ -672,7 +672,9 @@ func (h *Handlers) ListVerifications(w http.ResponseWriter, r *http.Request, par
 
 	limit := 50
 	if l := r.URL.Query().Get("limit"); l != "" {
-		// parse limit
+		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 {
+			limit = parsed
+		}
 	}
 
 	verifications, nextCursor, err := h.Store().ListVerifications(r.Context(), projectID, limit, r.URL.Query().Get("cursor"))

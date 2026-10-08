@@ -13,7 +13,7 @@ import (
 )
 
 type Config struct {
-	HTTP      struct {
+	HTTP struct {
 		Host string
 		Port int
 	}

@@ -24,6 +24,7 @@ web/node_modules/
 # Impeccable session state
 .impeccable/questions/
 .impeccable/review/
+.impeccable/critique/
 
 # Coverage
 coverage.out

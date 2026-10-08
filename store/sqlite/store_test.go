@@ -304,9 +304,5 @@ func TestSQLiteStoreConcurrentReads(t *testing.T) {
 }
 
 func TestMain(m *testing.M) {
-	// Ensure migrations directory exists
-	if _, err := os.Stat("migrations"); os.IsNotExist(err) {
-		// Migrations are embedded in the test binary via goose
-	}
 	os.Exit(m.Run())
 }

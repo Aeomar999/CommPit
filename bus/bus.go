@@ -90,7 +90,3 @@ func (s *subscription) Unsubscribe() {
 type noopSubscription struct{}
 
 func (n *noopSubscription) Unsubscribe() {}
-
-func generateID() string {
-	return "sub_" + ulid.Make().String()
-}

@@ -1,5 +1,5 @@
-import { HomePage } from './HomePage'
+import { HomePage } from "./HomePage";
 
 export function InboxPage() {
-  return <HomePage />
+  return <HomePage />;
 }

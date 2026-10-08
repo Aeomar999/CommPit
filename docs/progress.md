@@ -6,17 +6,17 @@ Single source of truth for where the project stands. Update it in every PR that 
 
 | | |
 |---|---|
-| **Phase** | M1 in progress |
+| **Phase** | M1 complete, preparing M2 |
 | **Current milestone** | M1 |
-| **Next action** | M1 milestone gate: full suite passes, final commit, PR to main |
-| **Last updated** | 2026-10-05 |
+| **Next action** | Tag v0.1.0 on main, create milestone/m2 branch |
+| **Last updated** | 2026-10-08 |
 
 ## Milestones
 
 | Milestone | Release | Status | Tasks done |
 |---|---|---|---|
-| M1: Core, native API, SMTP, inbox | v0.1.0 | In progress | 21 / 21 |
-| M2: Twilio, Termii, test API, inspector | v0.2.0 | Not started | 0 / 14 |
+| M1: Core, native API, SMTP, inbox | v0.1.0 | Done | 21 / 21 |
+| M2: Twilio, Termii, test API, inspector | v0.2.0 | Next | 0 / 14 |
 | M3: Webhooks, failure simulation, inbound, batches | v0.3.0 | Not started | 0 / 12 |
 | M4: Estimate, MCP, CI kit | v0.4.0 | Not started | 0 / 8 |
 
@@ -33,10 +33,57 @@ Single source of truth for where the project stands. Update it in every PR that 
 
 Newest first. One entry per working session: what changed, decisions made, what's next.
 
-### 2026-10-06
+### 2026-10-07
 
-- Completed M1-21: Docs - expanded README with comprehensive quick start (binary install, Docker, Docker Compose, source build), API quick reference (SMS, email, verification, wait), SMTP setup guides for Laravel, Django, Rails, Nodemailer, Spring Boot, configuration reference. All tests pass, web build succeeds.
-- Completed M1-20: Release pipeline - created .goreleaser.yaml with multi-platform builds (Linux/macOS/Windows, amd64/arm64), Docker images to GHCR, Homebrew tap, Scoop bucket, checksums, cosign signing; created .github/workflows/release.yml with test, goreleaser, docker, homebrew, scoop jobs; added Dockerfile for distroless static image. All tests pass, builds succeed.
+- Completed UI/UX overhaul based on BMS (Bulk Messaging Solutions) design inspiration and `docs/design.md` specifications:
+  - Configured design tokens and color palette (`ember-50` through `ember-950`, cool neutral ramp, semantic colors) with Figtree and JetBrains Mono typography.
+  - Implemented top header bar with BMS-style live stats pills (`Total`, `Delivered`, `Failed`), global `Ctrl+K` search, project switcher, and persistent `Sandbox: nothing is delivered` pill.
+  - Implemented collapsible 248px/72px sidebar navigation with warm speech-bubble mark, duotone icons, active indicator bars, unread badges, local port status indicators (`HTTP :4010`, `SMTP :1025`), and dark mode toggle.
+  - Built split-pane master/detail inbox with SMS conversation bubbles, sandboxed email plate (isolated iframe, headers, source tabs, remote-image toggle), 4-step delivery lifecycle progress track, and signature 1-click copyable CodeTiles for OTPs and links.
+  - Built BMS-inspired EmptyState card and Onboarding Checklist card with copyable commands (`localhost:1025`, native API curl, Twilio/Termii SDK guides, `/otp/latest`).
+  - Built interactive Compose Modal with SMS/Email/OTP tabs, country flag selector (`🇬🇭 +233`, etc.), templates, live GSM-7/UCS-2 segment counter, and failure simulation toggle.
+  - Implemented OTPs grid page, Batches tracker page, Inspector logs page, and updated Settings page with accessible forms.
+  - Developed full marketing landing page at `/landing` following the BMS visual shot and `docs/design.md` §11.3:
+    - Hero section with headline ("Test every SMS, OTP and email. Pay nothing until launch."), 4-tab copyable installer commands (Homebrew, Docker, Linux/macOS, Windows Scoop), and interactive live simulation demo widget featuring live `CodeTile` and 4-step `DeliveryTrack`.
+    - Key metric highlight pills ("100% Offline", "Single Binary", "Full Fidelity").
+    - Signature ember statement bands ("Every message matters. Test every send before real users ever see it.").
+    - 3-column feature grid ("Every tool your team needs") covering instant OTP extraction, sandboxed email preview, and webhook replay.
+    - 3-column architecture capabilities ("Smarter testing, built-in") covering GSM-7/UCS-2 segments, magic pattern numbers, and synchronous wait endpoints.
+    - Developer API showcase with dark code editor tabs for Twilio Node.js, Twilio Python, Native REST (cURL), and SMTP (Nodemailer).
+    - Interactive "Free until production" volume slider calculating real cost savings against Twilio and Termii.
+    - Accessible footer with quick links, documentation, and MIT open-source details.
+  - Added `useSSE` hook for reactive real-time inbox refresh without polling. All Go tests pass, Biome checks pass with 0 errors, and web bundle builds cleanly.
+
+### Recent Sessions
+
+**2026-10-08 (Session 6): High-Craft $50k Developer-First UI/UX Overhaul**
+- Elevated `LandingPage.tsx` into a high-tier developer tool design using `framer-motion`:
+  - Added fluid scroll reveals and staggered fade-ins for all page sections (`<motion.section>`).
+  - Added layered entry animations for the Hero Section, staggering the pill tag, main headline, subtitle, and CTA buttons.
+  - Enhanced the Bento Grid feature cards with premium micro-interactions (translate-y elevation, subtle shadow expansion) on hover.
+  - Enhanced the Main CTA buttons with responsive active down-scaling and smooth hover growth (`hover:scale-[1.03] active:scale-[0.97]`).
+  - Perfected strict TypeScript adherence (removing unused `AnimatePresence`), Biome linting with 0 errors, and passing Go backend test suite.
+
+**2026-10-07 (Session 5): Complete High-Fidelity Landing Page Matching mNotify BMS Reference**
+- Rebuilt `web/src/pages/LandingPage.tsx` from the ground up to match the provided high-res screenshot (`media_1791393150451.png`):
+  - Top Navigation with search trigger, Login link, and orange pill "Get Started" CTA.
+  - Full-width hero banner with top pill tag, bold typography ("Africa's bulk messaging solution"), 6-icon service strip, and centered macOS browser showcase window with live interactive OTP digits (`5 8 9 2`).
+  - Partner / ecosystem ticker strip (Paystack, Flutterwave, Kuda, Chipper, Paga, Interswitch).
+  - Circular deliverability gauge section featuring a radial SVG 99.9% progress ring alongside real-time metrics (24/7 uptime, 0ms sandbox, 150+ carriers).
+  - Full-width curved orange statement quote banner with transparent quotation iconography and white copy.
+  - "Every tool your team needs" section with an interactive SMS Campaign Composer UI mockup (Quick SMS, Campaign, Schedule tabs, Sender ID badge, merge tags, character counter).
+  - "Smarter messaging, built in" 3-card section with phone cleansing, route fallback histogram, and scheduled queue UI frames.
+  - "Rich on features, enterprise ready" 6-card bento grid (Analytics, Sender IDs, Team Roles, Contact Groups, Multi-Channel Fallback, Bank-Grade Security dark card).
+  - "Build with the BMS API" section featuring an orange polka-dot pattern background, step list, and macOS dark code window with language tabs.
+  - "Pay for what you send" pricing section with service switch pills, 3 pricing tiers (featuring the solid vibrant orange "Growth Tier" card), volume estimation slider, and guarantee badges.
+  - "There's more to BMS" 2-card section with JSON webhook payload preview and compliance audit UI cards.
+  - Full-width closing orange CTA banner and 5-column comprehensive footer.
+- All tests pass (`go test ./...`), Biome linter checks pass with 0 errors, and web bundle builds cleanly.
+
+**2026-10-07 (Session 4): Marketing Landing Page Built**
+- Completed M1-09: Marketing Landing Page Built - Implemented `web/src/pages/LandingPage.tsx` with dynamic feature previews, zero-cost volume pricing calculator, dual-column hero, code snippets for Twilio/Termii integration, 3-tier pricing layout, comprehensive footer. Matches aesthetic guidelines from `docs/design.md`.
+
+**2026-10-06**
 - Completed M1-14 through M1-19: Security middleware (Host allow-list, X-Mocksms header, no CORS, optional ui_auth), SMTP listener (AUTH, enmime, 25MB limit, STARTTLS), Retention prune job (cascading deletes), Web app scaffold (Vite, React, React Router, TanStack Query, Tailwind, shadcn/ui, lucide-react), Inbox UI (sidebar, message list, email plate, settings), cmd/mocksms serve wiring (HTTP + SMTP servers, retention pruner, graceful shutdown). All tests pass, web build succeeds.
 - Completed M1-F18: Correct the docs - updated README.md to clarify product name is `mocksms` (module/repo is `CommPit`); corrected CHANGELOG.md entries (test helpers `otp/latest` and `emails/latest` are stubs, SMTP server deferred to M2, simulator async rules effective from M1-F08, migrations embedded); removed resolved "module path" blocker from progress.md; added note about M1-06/09/12/13 open fixes; updated techstack.md with confirmed Go 1.26 and pnpm choices. All docs now accurately reflect implemented behavior.
 - Completed M1-F16: SMS segment counting - fixed UCS-2 length counting to use UTF-16 code units via `utf16.RuneLen(r)`, added form feed (`\f`) to GSM-7 extended table, removed segment count capping (returns uncapped count), added validation in core/service.go to reject messages over 10 segments with `validation_error` on field `body` ("message too long"). Updated tests to reflect correct segment calculations (307 GSM-7 = 2 segments, 135 UCS-2 = 2 segments). All tests pass.

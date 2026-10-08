@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -59,7 +60,7 @@ func SecurityMiddleware(cfg *config.SecurityConfig) func(http.Handler) http.Hand
 
 			// Non-loopback warning (logged, not enforced)
 			if isNonLoopback(r) {
-				// Could log a warning here
+				slog.Warn("request from non-loopback address", "remote_addr", r.RemoteAddr)
 			}
 
 			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), securityConfigKey{}, cfg)))
