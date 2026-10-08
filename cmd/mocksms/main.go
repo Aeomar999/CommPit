@@ -39,6 +39,8 @@ func main() {
 
 	flag.StringVar(&cfg.HTTP.Host, "host", cfg.HTTP.Host, "HTTP server host")
 	flag.IntVar(&cfg.HTTP.Port, "port", cfg.HTTP.Port, "HTTP server port")
+	flag.IntVar(&cfg.Adapters.Twilio.Port, "twilio-port", cfg.Adapters.Twilio.Port, "Dedicated Twilio adapter port (0 disables)")
+	flag.IntVar(&cfg.Adapters.Termii.Port, "termii-port", cfg.Adapters.Termii.Port, "Dedicated Termii adapter port (0 disables)")
 	flag.StringVar(&cfg.SMTP.Host, "smtp-host", cfg.SMTP.Host, "SMTP server host")
 	flag.IntVar(&cfg.SMTP.Port, "smtp-port", cfg.SMTP.Port, "SMTP server port")
 	flag.StringVar(&cfg.DataDir, "data-dir", cfg.DataDir, "Data directory")
@@ -167,38 +169,70 @@ func runWithContext(ctx context.Context, cfg *config.Config) error {
 	rootRouter.Mount("/termii", middleware.SecurityMiddleware(&cfg.Security)(termiiHandler))
 	rootRouter.Mount("/", handlers.Routes())
 
-	server := &http.Server{
-		Addr:         fmt.Sprintf("%s:%d", cfg.HTTP.Host, cfg.HTTP.Port),
-		Handler:      rootRouter,
-		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 30 * time.Second,
-		IdleTimeout:  120 * time.Second,
+	newHTTPServer := func(addr string, handler http.Handler) *http.Server {
+		return &http.Server{
+			Addr:         addr,
+			Handler:      handler,
+			ReadTimeout:  30 * time.Second,
+			WriteTimeout: 30 * time.Second,
+			IdleTimeout:  120 * time.Second,
+		}
 	}
 
-	serverErrCh := make(chan error, 1)
-	go func() {
-		fmt.Printf("Starting HTTP server on %s:%d\n", cfg.HTTP.Host, cfg.HTTP.Port)
-		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			serverErrCh <- err
-		}
-	}()
+	type namedServer struct {
+		name   string
+		server *http.Server
+	}
+	servers := []namedServer{
+		{name: "HTTP", server: newHTTPServer(fmt.Sprintf("%s:%d", cfg.HTTP.Host, cfg.HTTP.Port), rootRouter)},
+	}
+	// Dedicated adapter ports serve the adapter handler at / for SDKs that
+	// accept only a hostname. Off by default (port 0). These listeners skip
+	// the X-Mocksms header check (provider SDKs cannot send it) while keeping
+	// the Host allow-list.
+	adapterSecurity := cfg.Security
+	adapterSecurity.RequireXMocksms = false
+	if cfg.Adapters.Twilio.Port > 0 {
+		servers = append(servers, namedServer{
+			name:   "Twilio adapter",
+			server: newHTTPServer(fmt.Sprintf("%s:%d", cfg.HTTP.Host, cfg.Adapters.Twilio.Port), middleware.SecurityMiddleware(&adapterSecurity)(twilioHandler)),
+		})
+	}
+	if cfg.Adapters.Termii.Port > 0 {
+		servers = append(servers, namedServer{
+			name:   "Termii adapter",
+			server: newHTTPServer(fmt.Sprintf("%s:%d", cfg.HTTP.Host, cfg.Adapters.Termii.Port), middleware.SecurityMiddleware(&adapterSecurity)(termiiHandler)),
+		})
+	}
+
+	serverErrCh := make(chan error, len(servers))
+	for _, s := range servers {
+		go func(s namedServer) {
+			fmt.Printf("Starting %s server on %s\n", s.name, s.server.Addr)
+			if err := s.server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				serverErrCh <- fmt.Errorf("%s server error: %w", s.name, err)
+			}
+		}(s)
+	}
 
 	var runErr error
 	select {
 	case <-ctx.Done():
 		fmt.Println("Shutting down...")
 	case err := <-serverErrCh:
-		runErr = fmt.Errorf("HTTP server error: %w", err)
+		runErr = err
 	case err := <-smtpErrCh:
 		runErr = fmt.Errorf("SMTP server error: %w", err)
 	}
 
-	// 1. Drain HTTP server (architecture.md §7)
+	// 1. Drain HTTP servers (architecture.md §7)
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer shutdownCancel()
 
-	if err := server.Shutdown(shutdownCtx); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		fmt.Fprintf(os.Stderr, "Server shutdown error: %v\n", err)
+	for _, s := range servers {
+		if err := s.server.Shutdown(shutdownCtx); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			fmt.Fprintf(os.Stderr, "%s shutdown error: %v\n", s.name, err)
+		}
 	}
 
 	// 2. Stop SMTP server

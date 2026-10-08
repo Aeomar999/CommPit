@@ -45,6 +45,32 @@ func TestConfig_Defaults(t *testing.T) {
 	}
 }
 
+func TestConfig_AdapterPorts(t *testing.T) {
+	t.Run("defaults disable dedicated ports", func(t *testing.T) {
+		t.Setenv("MOCKSMS_ADAPTERS_TWILIO_PORT", "")
+		t.Setenv("MOCKSMS_ADAPTERS_TERMII_PORT", "")
+		cfg := Load()
+		if cfg.Adapters.Twilio.Port != 0 {
+			t.Errorf("expected twilio port 0, got %d", cfg.Adapters.Twilio.Port)
+		}
+		if cfg.Adapters.Termii.Port != 0 {
+			t.Errorf("expected termii port 0, got %d", cfg.Adapters.Termii.Port)
+		}
+	})
+
+	t.Run("env enables dedicated ports", func(t *testing.T) {
+		t.Setenv("MOCKSMS_ADAPTERS_TWILIO_PORT", "4020")
+		t.Setenv("MOCKSMS_ADAPTERS_TERMII_PORT", "4021")
+		cfg := Load()
+		if cfg.Adapters.Twilio.Port != 4020 {
+			t.Errorf("expected twilio port 4020, got %d", cfg.Adapters.Twilio.Port)
+		}
+		if cfg.Adapters.Termii.Port != 4021 {
+			t.Errorf("expected termii port 4021, got %d", cfg.Adapters.Termii.Port)
+		}
+	})
+}
+
 func TestConfig_PhoneValidationModes(t *testing.T) {
 	tests := []struct {
 		name     string
