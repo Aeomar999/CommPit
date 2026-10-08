@@ -294,3 +294,67 @@ func TestRun_YAMLProjectLinking(t *testing.T) {
 		t.Fatal("server did not shutdown within 5s timeout")
 	}
 }
+
+func TestRun_ApiV1Prefix(t *testing.T) {
+	httpPort := getFreePort(t)
+	smtpPort := getFreePort(t)
+
+	cfg := config.Load()
+	cfg.HTTP.Host = "127.0.0.1"
+	cfg.HTTP.Port = httpPort
+	cfg.SMTP.Host = "127.0.0.1"
+	cfg.SMTP.Port = smtpPort
+	cfg.Memory = true
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- runWithContext(ctx, cfg)
+	}()
+
+	base := fmt.Sprintf("http://127.0.0.1:%d", httpPort)
+	ready := false
+	for i := 0; i < 50; i++ {
+		time.Sleep(20 * time.Millisecond)
+		resp, err := http.Get(base + "/api/v1/healthz")
+		if err == nil {
+			resp.Body.Close()
+			if resp.StatusCode == http.StatusOK {
+				ready = true
+				break
+			}
+		}
+	}
+	if !ready {
+		t.Fatal("server did not become ready in time")
+	}
+
+	// The spec-canonical /api/v1 prefix serves the native API for the web UI.
+	payload, _ := json.Marshal(map[string]any{"from": "+15555550100", "to": "+15005550006", "body": "Hi"})
+	req, err := http.NewRequest(http.MethodPost, base+"/api/v1/sms", bytes.NewReader(payload))
+	if err != nil {
+		t.Fatalf("build request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Mocksms", "1")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("send SMS: %v", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("expected status 201, got %d", resp.StatusCode)
+	}
+
+	cancel()
+
+	select {
+	case err := <-errCh:
+		if err != nil {
+			t.Fatalf("expected clean shutdown with nil error, got: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("server did not shutdown within 5s timeout")
+	}
+}

@@ -202,16 +202,18 @@ export const projectsApi = {
 // Request logs & Webhook inspector API
 export const inspectorApi = {
   listRequests: (params?: { limit?: number; cursor?: string }) =>
-    request<{ requests: RequestLog[]; next_cursor: string | null }>("/requests", {
+    request<{ logs: RequestLog[]; next_cursor: string | null }>("/requests", {
       method: "GET",
       params,
-    }).catch(() => ({ requests: [], next_cursor: null })),
+    }),
+
+  getRequest: (id: string) => request<RequestLog>(`/requests/${id}`),
 
   listWebhooks: (params?: { limit?: number; cursor?: string }) =>
-    request<{ webhooks: WebhookDelivery[]; next_cursor: string | null }>("/webhooks", {
+    request<{ deliveries: WebhookDelivery[]; next_cursor: string | null }>("/webhooks", {
       method: "GET",
       params,
-    }).catch(() => ({ webhooks: [], next_cursor: null })),
+    }),
 };
 
 // Health & System

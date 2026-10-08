@@ -172,6 +172,11 @@ func runWithContext(ctx context.Context, cfg *config.Config) error {
 	rootRouter := chi.NewRouter()
 	rootRouter.Mount("/twilio", middleware.SecurityMiddleware(&cfg.Security)(twilioHandler))
 	rootRouter.Mount("/termii", middleware.SecurityMiddleware(&cfg.Security)(termiiHandler))
+	// The native API is served at both /api/v1 (the spec-canonical prefix in
+	// openapi.yaml and the one the web UI uses) and / (historical).
+	// See ADR-010. The specific prefix must mount first: Mount("/") is a
+	// catch-all that would otherwise shadow it.
+	rootRouter.Mount("/api/v1", handlers.Routes())
 	rootRouter.Mount("/", handlers.Routes())
 
 	newHTTPServer := func(addr string, handler http.Handler) *http.Server {

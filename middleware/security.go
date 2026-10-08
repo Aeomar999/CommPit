@@ -69,7 +69,11 @@ func SecurityMiddleware(cfg *config.SecurityConfig) func(http.Handler) http.Hand
 }
 
 func isExemptPath(path string) bool {
-	if path == "/healthz" || strings.HasPrefix(path, "/api/v1/events") || strings.HasPrefix(path, "/api/v1/messages/wait") {
+	// The native API is served at both /api/v1 (canonical) and / (alias),
+	// but r.URL.Path always carries the full client path even inside a
+	// mount. Normalize the prefix away so exemptions apply on both mounts.
+	p := strings.TrimPrefix(path, "/api/v1")
+	if p == "/healthz" || strings.HasPrefix(p, "/events") || strings.HasPrefix(p, "/messages/wait") {
 		return true
 	}
 	// Provider adapters carry their own credentials (Twilio Basic auth, Termii
