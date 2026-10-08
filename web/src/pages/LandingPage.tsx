@@ -1,3 +1,4 @@
+import { motion } from "framer-motion";
 import {
   ArrowRight,
   Check,
@@ -22,8 +23,8 @@ import {
 } from "lucide-react";
 import { useId, useState } from "react";
 import { Link } from "react-router-dom";
-import { motion } from "framer-motion";
 import { cn } from "../lib/utils";
+import { StoryScroll } from "../components/StoryScroll";
 
 // Supported install methods for quick start
 interface InstallTab {
@@ -390,7 +391,8 @@ export function LandingPage() {
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, margin: "-100px" }}
         transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-        className="relative pt-12 pb-20 lg:pt-20 lg:pb-28 overflow-hidden">
+        className="relative pt-12 pb-20 lg:pt-20 lg:pb-28 overflow-hidden"
+      >
         {/* Subtle Ambient Radial Lighting */}
         <div
           className="absolute -top-40 left-1/2 -translate-x-1/2 w-[1000px] h-[550px] opacity-40 pointer-events-none blur-3xl"
@@ -405,11 +407,12 @@ export function LandingPage() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-            className="max-w-3xl mx-auto lg:mx-0 space-y-6 text-center lg:text-left">
+            className="max-w-3xl mx-auto lg:mx-0 space-y-6 text-center lg:text-left"
+          >
             {/* Pill Tag */}
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-orange-50 border border-orange-200/80 text-orange-800 text-xs font-bold tracking-wide uppercase shadow-xs">
               <Flame className="w-3.5 h-3.5 text-orange-500" />
-              <span>Local-First Sandbox Provider · Wave 1 Available</span>
+              <span>Local-First Sandbox Provider Â· Wave 1 Available</span>
             </div>
 
             {/* Main Headline */}
@@ -428,11 +431,12 @@ export function LandingPage() {
             </p>
 
             {/* Action Buttons */}
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              className="flex flex-wrap items-center justify-center lg:justify-start gap-4 pt-2">
+              className="flex flex-wrap items-center justify-center lg:justify-start gap-4 pt-2"
+            >
               <Link
                 to="/inbox"
                 className="inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold text-sm shadow-lg shadow-orange-500/30 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
@@ -525,8 +529,7 @@ export function LandingPage() {
           </motion.div>
 
           {/* Large Hero Interactive Browser Showcase Window */}
-          <div
-            className="mt-14 rounded-3xl bg-slate-900/5 p-2 sm:p-4 border border-slate-200 shadow-2xl">
+          <div className="mt-14 rounded-3xl bg-slate-900/5 p-2 sm:p-4 border border-slate-200 shadow-2xl">
             <div className="rounded-2xl bg-white border border-slate-200 shadow-lg overflow-hidden">
               {/* macOS Window Chrome Bar */}
               <div className="px-4 py-3 bg-slate-100 border-b border-slate-200 flex items-center justify-between">
@@ -671,8 +674,7 @@ export function LandingPage() {
           </div>
 
           {/* Compatibility Ecosystem Ticker */}
-          <div
-            className="mt-14 pt-8 border-t border-slate-200/80 text-center space-y-4">
+          <div className="mt-14 pt-8 border-t border-slate-200/80 text-center space-y-4">
             <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
               Tested and verified with official client libraries and testing frameworks
             </p>
@@ -689,16 +691,19 @@ export function LandingPage() {
         </div>
       </motion.section>
 
+      {/* NEW INTERACTIVE STORY TELLING SCROLL SECTION */}
+      <StoryScroll />
+
       {/* 3. "MESSAGES THAT STAY LOCAL" (100% Hermetic Gauge & Privacy) */}
       <motion.section
         initial={{ opacity: 0, y: 40 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, margin: "-100px" }}
         transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-        className="py-20 lg:py-28 bg-slate-50 border-y border-slate-200">
+        className="py-20 lg:py-28 bg-slate-50 border-y border-slate-200"
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div
-            className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
             {/* Left: Dual Radial SVG Gauge */}
             <div className="lg:col-span-4 flex flex-col items-center justify-center text-center">
               <div className="relative w-48 h-48 flex items-center justify-center">
@@ -753,9 +758,9 @@ export function LandingPage() {
                 stay on your machine.
               </h2>
               <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
-                Never accidentally blast test messages to real customer handsets, drain live
-                carrier budgets in staging, or wait for external carrier network latency during
-                automated CI runs.
+                Never accidentally blast test messages to real customer handsets, drain live carrier
+                budgets in staging, or wait for external carrier network latency during automated CI
+                runs.
               </p>
             </div>
 
@@ -797,13 +802,13 @@ export function LandingPage() {
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, margin: "-100px" }}
         transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-        className="py-14 bg-white">
+        className="py-14 bg-white"
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div
-            className="rounded-3xl bg-gradient-to-tr from-orange-600 via-orange-500 to-amber-500 text-white p-8 sm:p-14 lg:p-16 shadow-2xl relative overflow-hidden">
+          <div className="rounded-3xl bg-gradient-to-tr from-orange-600 via-orange-500 to-amber-500 text-white p-8 sm:p-14 lg:p-16 shadow-2xl relative overflow-hidden">
             {/* Transparent decorative quotation mark in top right */}
             <div className="absolute right-8 top-4 text-white/15 text-8xl sm:text-9xl font-serif select-none pointer-events-none">
-              “
+              â€œ
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center relative z-10">
@@ -834,9 +839,10 @@ export function LandingPage() {
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, margin: "-100px" }}
         transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-        id="composer" className="py-20 lg:py-28 bg-white">
-        <div
-            className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
+        id="composer"
+        className="py-20 lg:py-28 bg-white"
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
           {/* Header Row */}
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-4">
             <div className="max-w-xl space-y-3">
@@ -937,7 +943,7 @@ export function LandingPage() {
                         {isUnicode ? "Unicode (UCS-2)" : "GSM-7 Standard"}
                       </span>
                       <span className="text-xs font-mono font-bold text-orange-600">
-                        {composerText.length} chars · {segmentCount} Segment
+                        {composerText.length} chars Â· {segmentCount} Segment
                         {segmentCount > 1 ? "s" : ""}
                       </span>
                     </div>
@@ -1010,9 +1016,9 @@ export function LandingPage() {
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, margin: "-100px" }}
         transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-        className="py-20 lg:py-28 bg-slate-50 border-t border-slate-200">
-        <div
-            className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
+        className="py-20 lg:py-28 bg-slate-50 border-t border-slate-200"
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
           {/* Header Row */}
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
             <div className="max-w-xl space-y-2">
@@ -1117,9 +1123,10 @@ export function LandingPage() {
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, margin: "-100px" }}
         transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-        id="features" className="py-20 lg:py-28 bg-white">
-        <div
-            className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
+        id="features"
+        className="py-20 lg:py-28 bg-white"
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
           {/* Header Row */}
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
             <div className="max-w-xl space-y-2">
@@ -1176,7 +1183,9 @@ export function LandingPage() {
                   Isolated SQLite
                 </span>
               </div>
-              <h3 className="text-base font-bold text-slate-950">Project Scoping &amp; Isolation</h3>
+              <h3 className="text-base font-bold text-slate-950">
+                Project Scoping &amp; Isolation
+              </h3>
               <p className="text-xs text-slate-600">
                 Isolate test suites and developers using dedicated project headers or query
                 parameters.
@@ -1243,15 +1252,13 @@ export function LandingPage() {
         <div
           className="absolute inset-0 opacity-25 pointer-events-none"
           style={{
-            backgroundImage:
-              "radial-gradient(circle at 2px 2px, #f97316 1.5px, transparent 0)",
+            backgroundImage: "radial-gradient(circle at 2px 2px, #f97316 1.5px, transparent 0)",
             backgroundSize: "24px 24px",
           }}
         />
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div
-            className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
             {/* Left: API Steps */}
             <div className="lg:col-span-5 space-y-6">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-100 text-orange-800 text-xs font-mono font-bold">
@@ -1374,9 +1381,10 @@ export function LandingPage() {
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, margin: "-100px" }}
         transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-        id="savings" className="py-20 lg:py-28 bg-white">
-        <div
-            className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
+        id="savings"
+        className="py-20 lg:py-28 bg-white"
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
           {/* Header & Pill Switcher */}
           <div className="text-center max-w-2xl mx-auto space-y-4">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-100 text-orange-800 text-xs font-bold uppercase tracking-wider">
@@ -1572,9 +1580,9 @@ export function LandingPage() {
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, margin: "-100px" }}
         transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-        className="py-20 lg:py-28 bg-slate-50 border-t border-slate-200">
-        <div
-            className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
+        className="py-20 lg:py-28 bg-slate-50 border-t border-slate-200"
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
           {/* Header Row */}
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
             <div className="max-w-xl space-y-2">
@@ -1678,10 +1686,10 @@ export function LandingPage() {
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, margin: "-100px" }}
         transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-        className="py-16 sm:py-20 bg-gradient-to-r from-orange-600 to-amber-500 text-white">
+        className="py-16 sm:py-20 bg-gradient-to-r from-orange-600 to-amber-500 text-white"
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div
-            className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
             <div className="lg:col-span-7">
               <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight leading-tight">
                 Send your first test <br />
@@ -1799,9 +1807,7 @@ export function LandingPage() {
 
             {/* Column 3: Documentation */}
             <div className="space-y-3">
-              <div className="font-bold uppercase tracking-wider text-slate-900">
-                Documentation
-              </div>
+              <div className="font-bold uppercase tracking-wider text-slate-900">Documentation</div>
               <ul className="space-y-2">
                 <li>
                   <a href="#api" className="hover:text-slate-900 transition-colors">
@@ -1871,12 +1877,12 @@ export function LandingPage() {
 
           {/* Bottom Copyright */}
           <div className="pt-8 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
-            <div>© 2026 mocksms. Local sandbox messaging provider. Released under MIT.</div>
+            <div>Â© 2026 mocksms. Local sandbox messaging provider. Released under MIT.</div>
             <div className="flex items-center gap-6">
               <span>Local-First</span>
-              <span>·</span>
+              <span>Â·</span>
               <span>Zero Telemetry</span>
-              <span>·</span>
+              <span>Â·</span>
               <span>MIT License</span>
             </div>
           </div>
