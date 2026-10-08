@@ -15,6 +15,7 @@ Provider-compatible adapters follow the real providers' behavior. Fixes that mak
   - Credential resolution middleware supporting Basic Auth, Bearer tokens, headers, path params, query params, and JSON bodies with automatic project provisioning via `core.ProjectResolver`.
   - Ingress request logging middleware capping recorded request and response bodies at 64 KB while preserving full downstream streams via `io.MultiReader`.
   - Credential masking across headers (Basic, Bearer, API keys, cookies), JSON/form payloads, and URI query strings before persistence or event bus publishing.
+- Request inspector API: `GET /api/v1/requests` (project-scoped list with `limit`/`cursor` pagination) and `GET /api/v1/requests/{id}` (single log, 404 across projects) (REQ-090).
 
 ## [0.1.0] - 2026-10-07
 

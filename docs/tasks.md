@@ -366,7 +366,7 @@ func runMigrations(db *sql.DB) error {
 | | ID | Task | Depends on | REQ |
 |---|---|---|---|---|
 | [x] | M2-01 | `adapterkit`: panic recovery via `WriteError`, credential → project resolution, request logging with masking (64 KB cap) | M1 | REQ-090 |
-| [ ] | M2-02 | RequestLog storage and `GET /api/v1/requests[/{id}]` | M2-01 | REQ-090 |
+| [x] | M2-02 | RequestLog storage and `GET /api/v1/requests[/{id}]` | M2-01 | REQ-090 |
 | [ ] | M2-03 | Twilio Messages API: create, list (filters, paging), fetch; Twilio response shape and error mapping; stores `StatusCallback` | M2-01 | REQ-030, REQ-032 |
 | [ ] | M2-04 | Twilio Verify v2: services, verifications, checks, cancel/approve | M2-03 | REQ-031 |
 | [ ] | M2-05 | Twilio golden fixtures and contract tests against a pinned twilio-oai spec; scheduled spec-refresh workflow | M2-04 | REQ-032 |

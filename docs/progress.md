@@ -8,7 +8,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 |---|---|
 | **Phase** | Milestone 2 in progress |
 | **Current milestone** | M2 |
-| **Next action** | M2-02: RequestLog storage and `GET /api/v1/requests[/{id}]` |
+| **Next action** | M2-03: Twilio Messages API (create, list, fetch; error mapping; StatusCallback) |
 | **Last updated** | 2026-10-08 |
 
 ## Milestones
@@ -16,7 +16,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 | Milestone | Release | Status | Tasks done |
 |---|---|---|---|
 | M1: Core, native API, SMTP, inbox | v0.1.0 | Done | 21 / 21 |
-| M2: Twilio, Termii, test API, inspector | v0.2.0 | In progress | 1 / 14 |
+| M2: Twilio, Termii, test API, inspector | v0.2.0 | In progress | 2 / 14 |
 | M3: Webhooks, failure simulation, inbound, batches | v0.3.0 | Not started | 0 / 12 |
 | M4: Estimate, MCP, CI kit | v0.4.0 | Not started | 0 / 8 |
 
@@ -32,6 +32,16 @@ Single source of truth for where the project stands. Update it in every PR that 
 ## Session log
 
 Newest first. One entry per working session: what changed, decisions made, what's next.
+
+### 2026-10-08 (Session 8): RequestLog Inspector API (M2-02)
+
+- Completed M2-02 (`REQ-090`): `GET /api/v1/requests` and `GET /api/v1/requests/{id}` are now spec-complete.
+  - **List** honors `limit` (default 50, clamped to 200) and `cursor` from the generated params instead of a hardcoded 50; responses use the generated `RequestLog` type via a new `convertRequestLog` helper (request/response bodies as strings, `duration_ms` as int).
+  - **Get** is now project-scoped: a log from another project returns 404 `not_found` instead of leaking across projects (M1-F13 scoping rule).
+  - Store layer (`core.Store`, SQLite, memstore, `storetest` case, migration, retention pruner) already covered RequestLog from M1, so no schema or port changes were needed; adapter sink wiring lands with the first adapter in M2-03 via `adapterkit.RequestLogSinkFunc`.
+  - Added `TestHandlers_RequestLogs` (list shape, limit+cursor paging over two pages, get by id, 404 on unknown id, 404 on cross-project access). Written failing first: limit ignored and cross-project 200 confirmed before the fix.
+  - `go test ./...`, `golangci-lint run` (0 issues) and `biome check` pass. Note: `pnpm test`/`pnpm lint` script spawning hangs in this sandbox (even for the no-op echo script); Go tests, golangci-lint and biome run directly are green.
+- **Next:** M2-03: Twilio Messages API.
 
 ### 2026-10-08 (Session 7): Milestone 2 Start — Adapterkit Middleware & Request Logging (M2-01)
 
