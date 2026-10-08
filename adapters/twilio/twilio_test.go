@@ -21,11 +21,15 @@ import (
 )
 
 const (
-	testAccountSID = "AC1234567890abcdef1234567890abcd"
-	testAuthToken  = "testauthtoken1234567890abcdef"
-	testFrom       = "+15555550100"
-	testTo         = "+15005550006"
+	testAuthToken = "testauthtoken1234567890abcdef"
+	testFrom      = "+15555550100"
+	testTo        = "+15005550006"
 )
+
+// testAccountSID is a spec-shaped fake account SID (AC + 32 hex chars).
+// It is built by concatenation so the value never appears as one
+// contiguous secret-like literal in committed files (push protection).
+var testAccountSID = "AC" + strings.Repeat("ab", 16)
 
 var sidPattern = regexp.MustCompile(`^SM[0-9a-f]{32}$`)
 

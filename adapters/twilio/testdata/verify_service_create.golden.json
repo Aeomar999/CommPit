@@ -1,0 +1,24 @@
+{
+  "body": {
+    "account_sid": "ACXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+    "code_length": 6,
+    "date_created": "DATE",
+    "date_updated": "DATE",
+    "friendly_name": "golden-svc",
+    "sid": "VA00000000000000000000000000000000",
+    "url": "/v2/Services/VA00000000000000000000000000000000"
+  },
+  "request": {
+    "form": {
+      "CodeLength": [
+        "6"
+      ],
+      "FriendlyName": [
+        "golden-svc"
+      ]
+    },
+    "method": "POST",
+    "path": "/v2/Services"
+  },
+  "status": 201
+}

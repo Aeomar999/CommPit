@@ -36,6 +36,11 @@ Decisions (intentional, not Twilio behavior):
 - `MediaUrl` attachments are accepted and counted into `num_media`, but the
   URLs are not stored or served (no media subresources yet).
 
+Confirmed by contract tests (M2-05) against the pinned spec: message
+fields, status/direction enums, the `SM`+32-hex SID pattern, paging envelope
+keys, and account SIDs as `AC`+32 chars (34 total — the test suite
+previously used a 32-char account SID, fixed).
+
 **Unverified** (correct in M2-05 contract tests if wrong):
 
 - Missing-field codes 21604 (`To`), 21606 (`From`), 21602 (`Body`).
@@ -66,6 +71,10 @@ Implemented: `POST /v2/Services`, `GET /v2/Services/{VA}`,
   false`), correct code approves, exhausted attempts are 429 code 60202,
   expired/canceled/unknown verifications are 404 code 20404.
 - Dates are ISO 8601; `channel` accepts `sms` and `email`.
+
+Confirmed by contract tests (M2-05) against the pinned spec: service,
+verification and check shapes, `VA`/`VE` SID patterns, and the
+`max_attempts_reached` status spelling.
 
 **Unverified** (correct in M2-05 contract tests if wrong):
 

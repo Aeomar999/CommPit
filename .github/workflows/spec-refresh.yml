@@ -1,0 +1,44 @@
+name: Spec refresh
+
+# Re-downloads the pinned twilio-oai specs weekly and opens a PR when the
+# trimmed output changes, so contract drift is reviewed before it breaks
+# the adapter tests. See adapters/twilio/spec/README.md.
+on:
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  refresh:
+    name: Refresh pinned specs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+      - name: Download upstream specs
+        run: |
+          curl -fsSL -o /tmp/twilio_api_v2010.json https://raw.githubusercontent.com/twilio/twilio-oai/main/spec/json/twilio_api_v2010.json
+          curl -fsSL -o /tmp/twilio_verify_v2.json https://raw.githubusercontent.com/twilio/twilio-oai/main/spec/json/twilio_verify_v2.json
+      - name: Re-trim pinned specs
+        run: |
+          go run ./adapters/twilio/spectrim -in /tmp/twilio_api_v2010.json -out adapters/twilio/spec/twilio_api_v2010.json -paths /2010-04-01/Accounts/{AccountSid}/Messages.json,/2010-04-01/Accounts/{AccountSid}/Messages/{Sid}.json
+          go run ./adapters/twilio/spectrim -in /tmp/twilio_verify_v2.json -out adapters/twilio/spec/twilio_verify_v2.json -paths /v2/Services,/v2/Services/{Sid},/v2/Services/{ServiceSid}/Verifications,/v2/Services/{ServiceSid}/Verifications/{Sid},/v2/Services/{ServiceSid}/VerificationCheck
+      - name: Open PR on change
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: chore/spec-refresh
+          title: 'chore(specs): refresh pinned twilio-oai specs'
+          body: |
+            Upstream twilio-oai changed the trimmed endpoints. Review the
+            diff, then run the adapter contract tests
+            (`go test ./adapters/twilio/ -run TestTwilio_Contract`) and
+            update `docs/fidelity.md` for any behavior change.
+          commit-message: 'chore(specs): refresh pinned twilio-oai specs'
+      - name: Contract tests on refreshed specs
+        run: go test ./adapters/twilio/ -run 'TestTwilio_Contract|TestTwilio_Golden'

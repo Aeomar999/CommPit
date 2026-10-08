@@ -1,0 +1,45 @@
+{
+  "body": {
+    "account_sid": "ACXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+    "api_version": "2010-04-01",
+    "body": "With callback",
+    "date_created": "DATE",
+    "date_sent": null,
+    "date_updated": "DATE",
+    "direction": "outbound-api",
+    "error_code": null,
+    "error_message": null,
+    "from": "+15555550100",
+    "messaging_service_sid": null,
+    "num_media": "0",
+    "num_segments": "1",
+    "price": null,
+    "price_unit": "USD",
+    "sid": "SM00000000000000000000000000000000",
+    "status": "queued",
+    "subresource_uris": {
+      "media": "/2010-04-01/Accounts/ACXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX/Messages/SM00000000000000000000000000000000/Media.json"
+    },
+    "to": "+15005550006",
+    "uri": "/2010-04-01/Accounts/ACXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX/Messages/SM00000000000000000000000000000000.json"
+  },
+  "request": {
+    "form": {
+      "Body": [
+        "With callback"
+      ],
+      "From": [
+        "+15555550100"
+      ],
+      "StatusCallback": [
+        "https://example.com/cb"
+      ],
+      "To": [
+        "+15005550006"
+      ]
+    },
+    "method": "POST",
+    "path": "/2010-04-01/Accounts/ACXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX/Messages.json"
+  },
+  "status": 201
+}

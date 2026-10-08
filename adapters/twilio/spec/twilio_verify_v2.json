@@ -1,0 +1,1783 @@
+{
+  "components": {
+    "schemas": {
+      "verification_check_enum_channel": {
+        "description": "The verification method to use. One of: [`email`](https://www.twilio.com/docs/verify/email), `sms`, `whatsapp`, `call`, or `sna`.",
+        "enum": [
+          "sms",
+          "call",
+          "email",
+          "whatsapp",
+          "sna"
+        ],
+        "type": "string"
+      },
+      "verification_enum_channel": {
+        "description": "The verification method used. One of: [`email`](https://www.twilio.com/docs/verify/email), `sms`, `whatsapp`, `call`, `sna`, or `rcs`.",
+        "enum": [
+          "sms",
+          "call",
+          "email",
+          "whatsapp",
+          "sna"
+        ],
+        "type": "string"
+      },
+      "verification_enum_risk_check": {
+        "description": "Risk_check overrides Fraud Prevention measures like Fraud Guard, Geo Permissions etc per verification attempt basis, allowing Verify to block traffic considered fraudulent if enabled or bypass active protections if disabled. Can be: `enable`(default) or `disable`. For SMS channel only.",
+        "enum": [
+          "enable",
+          "disable"
+        ],
+        "type": "string"
+      },
+      "verification_enum_status": {
+        "description": "The status of the verification. Can be: `pending`, `approved`, `canceled`, `max_attempts_reached`, `deleted`, `failed` or `expired`.",
+        "enum": [
+          "canceled",
+          "approved"
+        ],
+        "type": "string"
+      },
+      "verify.v2.service": {
+        "properties": {
+          "account_sid": {
+            "description": "The SID of the [Account](https://www.twilio.com/docs/iam/api/account) that created the Service resource.",
+            "maxLength": 34,
+            "minLength": 34,
+            "nullable": true,
+            "pattern": "^AC[0-9a-fA-F]{32}$",
+            "type": "string"
+          },
+          "code_length": {
+            "default": 0,
+            "description": "The length of the verification code to generate.",
+            "type": "integer"
+          },
+          "custom_code_enabled": {
+            "description": "Whether to allow sending verifications with a custom code instead of a randomly generated one.",
+            "nullable": true,
+            "type": "boolean"
+          },
+          "date_created": {
+            "description": "The date and time in GMT when the resource was created specified in [RFC 2822](https://www.ietf.org/rfc/rfc2822.txt) format.",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "date_updated": {
+            "description": "The date and time in GMT when the resource was last updated specified in [RFC 2822](https://www.ietf.org/rfc/rfc2822.txt) format.",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "default_template_sid": {
+            "maxLength": 34,
+            "minLength": 34,
+            "nullable": true,
+            "pattern": "^HJ[0-9a-fA-F]{32}$",
+            "type": "string"
+          },
+          "do_not_share_warning_enabled": {
+            "description": "Whether to add a security warning at the end of an SMS verification body. Disabled by default and applies only to SMS. Example SMS body: `Your AppName verification code is: 1234. Don’t share this code with anyone; our employees will never ask for the code`",
+            "nullable": true,
+            "type": "boolean"
+          },
+          "dtmf_input_required": {
+            "description": "Whether to ask the user to press a number before delivering the verify code in a phone call.",
+            "nullable": true,
+            "type": "boolean"
+          },
+          "friendly_name": {
+            "description": "The name that appears in the body of your verification messages. It can be up to 30 characters long and can include letters, numbers, spaces, dashes, underscores. Phone numbers, special characters or links are NOT allowed. It cannot contain more than 4 (consecutive or non-consecutive) digits. **This value should not contain PII.**",
+            "nullable": true,
+            "type": "string"
+          },
+          "links": {
+            "description": "The URLs of related resources.",
+            "format": "uri-map",
+            "nullable": true,
+            "type": "object"
+          },
+          "lookup_enabled": {
+            "description": "Whether to perform a lookup with each verification started and return info about the phone number.",
+            "nullable": true,
+            "type": "boolean"
+          },
+          "passkeys": {
+            "nullable": true
+          },
+          "psd2_enabled": {
+            "description": "Whether to pass PSD2 transaction parameters when starting a verification.",
+            "nullable": true,
+            "type": "boolean"
+          },
+          "push": {
+            "description": "Configurations for the Push factors (channel) created under this Service.",
+            "nullable": true
+          },
+          "sid": {
+            "description": "The unique string that we created to identify the Service resource.",
+            "maxLength": 34,
+            "minLength": 34,
+            "nullable": true,
+            "pattern": "^VA[0-9a-fA-F]{32}$",
+            "type": "string"
+          },
+          "skip_sms_to_landlines": {
+            "description": "Whether to skip sending SMS verifications to landlines. Requires `lookup_enabled`.",
+            "nullable": true,
+            "type": "boolean"
+          },
+          "totp": {
+            "description": "Configurations for the TOTP factors (channel) created under this Service.",
+            "nullable": true
+          },
+          "tts_name": {
+            "description": "The name of an alternative text-to-speech service to use in phone calls. Applies only to TTS languages.",
+            "nullable": true,
+            "type": "string"
+          },
+          "url": {
+            "description": "The absolute URL of the resource.",
+            "format": "uri",
+            "nullable": true,
+            "type": "string"
+          },
+          "verify_event_subscription_enabled": {
+            "description": "Whether to allow verifications from the service to reach the stream-events sinks if configured",
+            "nullable": true,
+            "type": "boolean"
+          },
+          "whatsapp": {
+            "nullable": true
+          }
+        },
+        "type": "object"
+      },
+      "verify.v2.service.verification": {
+        "properties": {
+          "account_sid": {
+            "description": "The SID of the [Account](https://www.twilio.com/docs/iam/api/account) that created the Verification resource.",
+            "maxLength": 34,
+            "minLength": 34,
+            "nullable": true,
+            "pattern": "^AC[0-9a-fA-F]{32}$",
+            "type": "string"
+          },
+          "amount": {
+            "description": "The amount of the associated PSD2 compliant transaction. Requires the PSD2 Service flag enabled.",
+            "nullable": true,
+            "type": "string",
+            "x-twilio": {
+              "pii": {
+                "deleteSla": 1,
+                "handling": "sensitive"
+              }
+            }
+          },
+          "channel": {
+            "$ref": "#/components/schemas/verification_enum_channel"
+          },
+          "date_created": {
+            "description": "The date and time in GMT when the resource was created specified in [RFC 2822](https://www.ietf.org/rfc/rfc2822.txt) format.",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "date_updated": {
+            "description": "The date and time in GMT when the resource was last updated specified in [RFC 2822](https://www.ietf.org/rfc/rfc2822.txt) format.",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "lookup": {
+            "description": "Information about the phone number being verified.",
+            "nullable": true
+          },
+          "payee": {
+            "description": "The payee of the associated PSD2 compliant transaction. Requires the PSD2 Service flag enabled.",
+            "nullable": true,
+            "type": "string",
+            "x-twilio": {
+              "pii": {
+                "deleteSla": 1,
+                "handling": "sensitive"
+              }
+            }
+          },
+          "send_code_attempts": {
+            "description": "An array of verification attempt objects containing the channel attempted and the channel-specific transaction SID.",
+            "items": {},
+            "nullable": true,
+            "type": "array"
+          },
+          "service_sid": {
+            "description": "The SID of the [Service](https://www.twilio.com/docs/verify/api/service) the resource is associated with.",
+            "maxLength": 34,
+            "minLength": 34,
+            "nullable": true,
+            "pattern": "^VA[0-9a-fA-F]{32}$",
+            "type": "string"
+          },
+          "sid": {
+            "description": "The unique string that we created to identify the Verification resource.",
+            "maxLength": 34,
+            "minLength": 34,
+            "nullable": true,
+            "pattern": "^VE[0-9a-fA-F]{32}$",
+            "type": "string"
+          },
+          "sna": {
+            "description": "The set of fields used for a silent network auth (`sna`) verification. Contains a single field with the URL to be invoked to verify the phone number.",
+            "nullable": true
+          },
+          "status": {
+            "description": "The status of the verification. Can be: `pending`, `approved`, `canceled`, `max_attempts_reached`, `deleted`, `failed` or `expired`.",
+            "nullable": true,
+            "type": "string"
+          },
+          "to": {
+            "description": "The phone number or [email](https://www.twilio.com/docs/verify/email) being verified. Phone numbers must be in [E.164 format](https://www.twilio.com/docs/glossary/what-e164).",
+            "nullable": true,
+            "type": "string",
+            "x-twilio": {
+              "pii": {
+                "deleteSla": 30,
+                "handling": "standard"
+              }
+            }
+          },
+          "url": {
+            "description": "The absolute URL of the Verification resource.",
+            "format": "uri",
+            "nullable": true,
+            "type": "string"
+          },
+          "valid": {
+            "description": "Use \"status\" instead. Legacy property indicating whether the verification was successful.",
+            "nullable": true,
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "verify.v2.service.verification_check": {
+        "properties": {
+          "account_sid": {
+            "description": "The SID of the [Account](https://www.twilio.com/docs/iam/api/account) that created the VerificationCheck resource.",
+            "maxLength": 34,
+            "minLength": 34,
+            "nullable": true,
+            "pattern": "^AC[0-9a-fA-F]{32}$",
+            "type": "string"
+          },
+          "amount": {
+            "description": "The amount of the associated PSD2 compliant transaction. Requires the PSD2 Service flag enabled.",
+            "nullable": true,
+            "type": "string",
+            "x-twilio": {
+              "pii": {
+                "deleteSla": 1,
+                "handling": "sensitive"
+              }
+            }
+          },
+          "channel": {
+            "$ref": "#/components/schemas/verification_check_enum_channel"
+          },
+          "date_created": {
+            "description": "The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) date and time in GMT when the Verification Check resource was created.",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "date_updated": {
+            "description": "The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) date and time in GMT when the Verification Check resource was last updated.",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "payee": {
+            "description": "The payee of the associated PSD2 compliant transaction. Requires the PSD2 Service flag enabled.",
+            "nullable": true,
+            "type": "string",
+            "x-twilio": {
+              "pii": {
+                "deleteSla": 1,
+                "handling": "sensitive"
+              }
+            }
+          },
+          "service_sid": {
+            "description": "The SID of the [Service](https://www.twilio.com/docs/verify/api/service) the resource is associated with.",
+            "maxLength": 34,
+            "minLength": 34,
+            "nullable": true,
+            "pattern": "^VA[0-9a-fA-F]{32}$",
+            "type": "string"
+          },
+          "sid": {
+            "description": "The unique string that we created to identify the VerificationCheck resource.",
+            "maxLength": 34,
+            "minLength": 34,
+            "nullable": true,
+            "pattern": "^VE[0-9a-fA-F]{32}$",
+            "type": "string"
+          },
+          "sna_attempts_error_codes": {
+            "description": "List of error codes as a result of attempting a verification using the `sna` channel. The error codes are chronologically ordered, from the first attempt to the latest attempt. This will be an empty list if no errors occured or `null` if the last channel used wasn't `sna`.",
+            "items": {},
+            "nullable": true,
+            "type": "array"
+          },
+          "status": {
+            "description": "The status of the verification. Can be: `pending`, `approved`, `canceled`, `max_attempts_reached`, `deleted`, `failed` or `expired`.",
+            "nullable": true,
+            "type": "string"
+          },
+          "to": {
+            "description": "The phone number or [email](https://www.twilio.com/docs/verify/email) being verified. Phone numbers must be in [E.164 format](https://www.twilio.com/docs/glossary/what-e164).",
+            "nullable": true,
+            "type": "string",
+            "x-twilio": {
+              "pii": {
+                "deleteSla": 30,
+                "handling": "standard"
+              }
+            }
+          },
+          "valid": {
+            "description": "Use \"status\" instead. Legacy property indicating whether the verification was successful.",
+            "nullable": true,
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "contact": {
+      "email": "support@twilio.com",
+      "name": "Twilio Support",
+      "url": "https://support.twilio.com"
+    },
+    "description": "This is the public Twilio REST API.",
+    "license": {
+      "name": "Apache 2.0",
+      "url": "https://www.apache.org/licenses/LICENSE-2.0.html"
+    },
+    "termsOfService": "https://www.twilio.com/legal/tos",
+    "title": "Twilio - Verify",
+    "version": "1.0.0",
+    "x-twilio": {
+      "apiStandards": "v0.1"
+    }
+  },
+  "openapi": "3.0.1",
+  "paths": {
+    "/v2/Services": {
+      "description": "",
+      "get": {
+        "description": "Retrieve a list of all Verification Services for an account.",
+        "operationId": "ListService",
+        "parameters": [
+          {
+            "description": "How many resources to return in each list page. The default is 50, and the maximum is 1000.",
+            "in": "query",
+            "name": "PageSize",
+            "schema": {
+              "format": "int64",
+              "maximum": 1000,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The page index. This value is simply for client state.",
+            "in": "query",
+            "name": "Page",
+            "schema": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The page token. This is provided by the API.",
+            "in": "query",
+            "name": "PageToken",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "meta": {
+                      "properties": {
+                        "first_page_url": {
+                          "format": "uri",
+                          "type": "string"
+                        },
+                        "key": {
+                          "type": "string"
+                        },
+                        "next_page_url": {
+                          "format": "uri",
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "page": {
+                          "type": "integer"
+                        },
+                        "page_size": {
+                          "type": "integer"
+                        },
+                        "previous_page_url": {
+                          "format": "uri",
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "url": {
+                          "format": "uri",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "services": {
+                      "items": {
+                        "$ref": "#/components/schemas/verify.v2.service"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "title": "ListServiceResponse",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "OK",
+            "headers": {
+              "Access-Control-Allow-Credentials": {
+                "description": "Indicates whether the browser should include credentials",
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "Access-Control-Allow-Headers": {
+                "description": "Specify the headers allowed when accessing the resource",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Access-Control-Allow-Methods": {
+                "description": "Specify the HTTP methods allowed when accessing the resource",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Access-Control-Allow-Origin": {
+                "description": "Specify the origin(s) allowed to access the resource",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Access-Control-Expose-Headers": {
+                "description": "Headers exposed to the client",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "accountSid_authToken": []
+          },
+          {
+            "access_token_bearer": []
+          }
+        ],
+        "summary": "Retrieve a list of all Verification Services for an account.",
+        "tags": [
+          "VerifyV2Service"
+        ]
+      },
+      "post": {
+        "description": "Create a new Verification Service.",
+        "operationId": "CreateService",
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "properties": {
+                  "CodeLength": {
+                    "description": "The length of the verification code to generate. Must be an integer value between 4 and 10, inclusive.",
+                    "type": "integer"
+                  },
+                  "CustomCodeEnabled": {
+                    "description": "Whether to allow sending verifications with a custom code instead of a randomly generated one.",
+                    "type": "boolean"
+                  },
+                  "DefaultTemplateSid": {
+                    "description": "The default message [template](https://www.twilio.com/docs/verify/api/templates). Will be used for all SMS verifications unless explicitly overriden. SMS channel only.",
+                    "maxLength": 34,
+                    "minLength": 34,
+                    "pattern": "^HJ[0-9a-fA-F]{32}$",
+                    "type": "string"
+                  },
+                  "DoNotShareWarningEnabled": {
+                    "description": "Whether to add a security warning at the end of an SMS verification body. Disabled by default and applies only to SMS. Example SMS body: `Your AppName verification code is: 1234. Don’t share this code with anyone; our employees will never ask for the code`",
+                    "type": "boolean"
+                  },
+                  "DtmfInputRequired": {
+                    "description": "Whether to ask the user to press a number before delivering the verify code in a phone call.",
+                    "type": "boolean"
+                  },
+                  "FriendlyName": {
+                    "description": "A descriptive string that you create to describe the verification service. It can be up to 32 characters long. **This value should not contain PII.**",
+                    "type": "string"
+                  },
+                  "LookupEnabled": {
+                    "description": "Whether to perform a lookup with each verification started and return info about the phone number.",
+                    "type": "boolean"
+                  },
+                  "Passkeys.AuthenticatorAttachment": {
+                    "description": "The Authenticator Attachment for Passkeys. This is the type of authenticator that will be used to create Passkeys. It can be empty or it can have the values `platform`, `cross-platform` or `any`.",
+                    "type": "string"
+                  },
+                  "Passkeys.DiscoverableCredentials": {
+                    "description": "Indicates whether credentials must be discoverable by the authenticator. It can be empty or it can have the values `required`, `preferred` or `discouraged`.",
+                    "type": "string"
+                  },
+                  "Passkeys.RelyingParty.Id": {
+                    "description": "The Relying Party ID for Passkeys. This is the domain of your application, e.g. `example.com`. It is used to identify your application when creating Passkeys.",
+                    "type": "string"
+                  },
+                  "Passkeys.RelyingParty.Name": {
+                    "description": "The Relying Party Name for Passkeys. This is the name of your application, e.g. `Example App`. It is used to identify your application when creating Passkeys.",
+                    "type": "string"
+                  },
+                  "Passkeys.RelyingParty.Origins": {
+                    "description": "The Relying Party Origins for Passkeys. This is the origin of your application, e.g. `login.example.com,www.example.com`. It is used to identify your application when creating Passkeys, it can have multiple origins split by `,`.",
+                    "type": "string"
+                  },
+                  "Passkeys.UserVerification": {
+                    "description": "The User Verification for Passkeys. This is the type of user verification that will be used to create Passkeys. It can be empty or it can have the values `required`, `preferred` or `discouraged`.",
+                    "type": "string"
+                  },
+                  "Psd2Enabled": {
+                    "description": "Whether to pass PSD2 transaction parameters when starting a verification.",
+                    "type": "boolean"
+                  },
+                  "Push.ApnCredentialSid": {
+                    "description": "Optional configuration for the Push factors. Set the APN Credential for this service. This will allow to send push notifications to iOS devices. See [Credential Resource](https://www.twilio.com/docs/notify/api/credential-resource)",
+                    "maxLength": 34,
+                    "minLength": 34,
+                    "pattern": "^CR[0-9a-fA-F]{32}$",
+                    "type": "string"
+                  },
+                  "Push.FcmCredentialSid": {
+                    "description": "Optional configuration for the Push factors. Set the FCM Credential for this service. This will allow to send push notifications to Android devices. See [Credential Resource](https://www.twilio.com/docs/notify/api/credential-resource)",
+                    "maxLength": 34,
+                    "minLength": 34,
+                    "pattern": "^CR[0-9a-fA-F]{32}$",
+                    "type": "string"
+                  },
+                  "Push.IncludeDate": {
+                    "description": "Optional configuration for the Push factors. If true, include the date in the Challenge's response. Otherwise, the date is omitted from the response. See [Challenge](https://www.twilio.com/docs/verify/api/challenge) resource’s details parameter for more info. Default: false. **Deprecated** do not use this parameter. This timestamp value is the same one as the one found in `date_created`, please use that one instead.",
+                    "type": "boolean"
+                  },
+                  "SkipSmsToLandlines": {
+                    "description": "Whether to skip sending SMS verifications to landlines. Requires `lookup_enabled`.",
+                    "type": "boolean"
+                  },
+                  "Totp.CodeLength": {
+                    "description": "Optional configuration for the TOTP factors. Number of digits for generated TOTP codes. Must be between 3 and 8, inclusive. Defaults to 6",
+                    "type": "integer"
+                  },
+                  "Totp.Issuer": {
+                    "description": "Optional configuration for the TOTP factors. Set TOTP Issuer for this service. This will allow to configure the issuer of the TOTP URI. Defaults to the service friendly name if not provided.",
+                    "type": "string"
+                  },
+                  "Totp.Skew": {
+                    "description": "Optional configuration for the TOTP factors. The number of time-steps, past and future, that are valid for validation of TOTP codes. Must be between 0 and 2, inclusive. Defaults to 1",
+                    "type": "integer"
+                  },
+                  "Totp.TimeStep": {
+                    "description": "Optional configuration for the TOTP factors. Defines how often, in seconds, are TOTP codes generated. i.e, a new TOTP code is generated every time_step seconds. Must be between 20 and 60 seconds, inclusive. Defaults to 30 seconds",
+                    "type": "integer"
+                  },
+                  "TtsName": {
+                    "description": "The name of an alternative text-to-speech service to use in phone calls. Applies only to TTS languages.",
+                    "type": "string"
+                  },
+                  "VerifyEventSubscriptionEnabled": {
+                    "description": "Whether to allow verifications from the service to reach the stream-events sinks if configured",
+                    "type": "boolean"
+                  },
+                  "Whatsapp.From": {
+                    "description": "The number to use as the WhatsApp Sender that Verify will use to send WhatsApp messages to your users.This WhatsApp Sender must be associated with a Messaging Service SID.",
+                    "type": "string"
+                  },
+                  "Whatsapp.MsgServiceSid": {
+                    "description": "The SID of the Messaging Service containing WhatsApp Sender(s) that Verify will use to send WhatsApp messages to your users.",
+                    "maxLength": 34,
+                    "minLength": 34,
+                    "pattern": "^MG[0-9a-fA-F]{32}$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "FriendlyName"
+                ],
+                "title": "CreateServiceRequest",
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/verify.v2.service"
+                }
+              }
+            },
+            "description": "Created",
+            "headers": {
+              "Access-Control-Allow-Credentials": {
+                "description": "Indicates whether the browser should include credentials",
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "Access-Control-Allow-Headers": {
+                "description": "Specify the headers allowed when accessing the resource",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Access-Control-Allow-Methods": {
+                "description": "Specify the HTTP methods allowed when accessing the resource",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Access-Control-Allow-Origin": {
+                "description": "Specify the origin(s) allowed to access the resource",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Access-Control-Expose-Headers": {
+                "description": "Headers exposed to the client",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "accountSid_authToken": []
+          },
+          {
+            "access_token_bearer": []
+          }
+        ],
+        "summary": "Create a new Verification Service.",
+        "tags": [
+          "VerifyV2Service"
+        ]
+      },
+      "servers": [
+        {
+          "url": "https://verify.twilio.com"
+        }
+      ],
+      "x-twilio": {
+        "defaultOutputProperties": [
+          "sid",
+          "friendly_name",
+          "date_created"
+        ],
+        "dependentProperties": {
+          "access_tokens": {
+            "mapping": {
+              "service_sid": "sid"
+            },
+            "resource_url": "/v2/Services/{service_sid}/AccessTokens"
+          },
+          "entities": {
+            "mapping": {
+              "service_sid": "sid"
+            },
+            "resource_url": "/v2/Services/{service_sid}/Entities"
+          },
+          "messaging_configurations": {
+            "mapping": {
+              "service_sid": "sid"
+            },
+            "resource_url": "/v2/Services/{service_sid}/MessagingConfigurations"
+          },
+          "rate_limits": {
+            "mapping": {
+              "service_sid": "sid"
+            },
+            "resource_url": "/v2/Services/{service_sid}/RateLimits"
+          },
+          "verification_checks": {
+            "mapping": {
+              "service_sid": "sid"
+            },
+            "resource_url": "/v2/Services/{service_sid}/VerificationCheck"
+          },
+          "verifications": {
+            "mapping": {
+              "service_sid": "sid"
+            },
+            "resource_url": "/v2/Services/{service_sid}/Verifications"
+          },
+          "webhooks": {
+            "mapping": {
+              "service_sid": "sid"
+            },
+            "resource_url": "/v2/Services/{service_sid}/Webhooks"
+          }
+        },
+        "pathType": "list"
+      }
+    },
+    "/v2/Services/{ServiceSid}/VerificationCheck": {
+      "description": "",
+      "post": {
+        "description": "challenge a specific Verification Check.",
+        "operationId": "CreateVerificationCheck",
+        "parameters": [
+          {
+            "description": "The SID of the verification [Service](https://www.twilio.com/docs/verify/api/service) to create the resource under.",
+            "in": "path",
+            "name": "ServiceSid",
+            "required": true,
+            "schema": {
+              "maxLength": 34,
+              "minLength": 34,
+              "pattern": "^VA[0-9a-fA-F]{32}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "properties": {
+                  "Amount": {
+                    "description": "The amount of the associated PSD2 compliant transaction. Requires the PSD2 Service flag enabled.",
+                    "type": "string"
+                  },
+                  "Code": {
+                    "description": "The 4-10 character string being verified.",
+                    "type": "string"
+                  },
+                  "Payee": {
+                    "description": "The payee of the associated PSD2 compliant transaction. Requires the PSD2 Service flag enabled.",
+                    "type": "string"
+                  },
+                  "SnaClientToken": {
+                    "description": "A sna client token received in sna url invocation response needs to be passed in Verification Check request and should match to get successful response.",
+                    "type": "string"
+                  },
+                  "To": {
+                    "description": "The phone number or [email](https://www.twilio.com/docs/verify/email) to verify. Either this parameter or the `verification_sid` must be specified. Phone numbers must be in [E.164 format](https://www.twilio.com/docs/glossary/what-e164).",
+                    "type": "string"
+                  },
+                  "VerificationSid": {
+                    "description": "A SID that uniquely identifies the Verification Check. Either this parameter or the `to` phone number/[email](https://www.twilio.com/docs/verify/email) must be specified.",
+                    "maxLength": 34,
+                    "minLength": 34,
+                    "pattern": "^VE[0-9a-fA-F]{32}$",
+                    "type": "string"
+                  }
+                },
+                "title": "CreateVerificationCheckRequest",
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/verify.v2.service.verification_check"
+                }
+              }
+            },
+            "description": "OK",
+            "headers": {
+              "Access-Control-Allow-Credentials": {
+                "description": "Indicates whether the browser should include credentials",
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "Access-Control-Allow-Headers": {
+                "description": "Specify the headers allowed when accessing the resource",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Access-Control-Allow-Methods": {
+                "description": "Specify the HTTP methods allowed when accessing the resource",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Access-Control-Allow-Origin": {
+                "description": "Specify the origin(s) allowed to access the resource",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Access-Control-Expose-Headers": {
+                "description": "Headers exposed to the client",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/verify.v2.service.verification_check"
+                }
+              }
+            },
+            "description": "Created",
+            "headers": {
+              "Access-Control-Allow-Credentials": {
+                "description": "Indicates whether the browser should include credentials",
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "Access-Control-Allow-Headers": {
+                "description": "Specify the headers allowed when accessing the resource",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Access-Control-Allow-Methods": {
+                "description": "Specify the HTTP methods allowed when accessing the resource",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Access-Control-Allow-Origin": {
+                "description": "Specify the origin(s) allowed to access the resource",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Access-Control-Expose-Headers": {
+                "description": "Headers exposed to the client",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "accountSid_authToken": []
+          },
+          {
+            "access_token_bearer": []
+          }
+        ],
+        "summary": "challenge a specific Verification Check.",
+        "tags": [
+          "VerifyV2VerificationCheck"
+        ]
+      },
+      "servers": [
+        {
+          "url": "https://verify.twilio.com"
+        }
+      ],
+      "x-twilio": {
+        "defaultOutputProperties": [
+          "sid",
+          "to",
+          "channel",
+          "status",
+          "valid",
+          "date_created"
+        ],
+        "mountName": "verification_checks",
+        "parent": "/Services/{Sid}",
+        "pathType": "list"
+      }
+    },
+    "/v2/Services/{ServiceSid}/Verifications": {
+      "description": "",
+      "post": {
+        "description": "Create a new Verification using a Service",
+        "operationId": "CreateVerification",
+        "parameters": [
+          {
+            "description": "The SID of the verification [Service](https://www.twilio.com/docs/verify/api/service) to create the resource under.",
+            "in": "path",
+            "name": "ServiceSid",
+            "required": true,
+            "schema": {
+              "maxLength": 34,
+              "minLength": 34,
+              "pattern": "^VA[0-9a-fA-F]{32}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "properties": {
+                  "Amount": {
+                    "description": "The amount of the associated PSD2 compliant transaction. Requires the PSD2 Service flag enabled.",
+                    "type": "string"
+                  },
+                  "AppHash": {
+                    "description": "Your [App Hash](https://developers.google.com/identity/sms-retriever/verify#computing_your_apps_hash_string) to be appended at the end of your verification SMS body. Applies only to SMS. Example SMS body: `\u003c#\u003e Your AppName verification code is: 1234 He42w354ol9`.",
+                    "type": "string"
+                  },
+                  "Channel": {
+                    "description": "The verification method to use. One of: [`email`](https://www.twilio.com/docs/verify/email), `sms`, `whatsapp`, `call`, `sna` or `auto`.",
+                    "type": "string"
+                  },
+                  "ChannelConfiguration": {
+                    "description": "[`email`](https://www.twilio.com/docs/verify/email) channel configuration in json format. The fields 'from' and 'from_name' are optional but if included the 'from' field must have a valid email address."
+                  },
+                  "CustomCode": {
+                    "description": "A pre-generated code to use for verification. The code can be between 4 and 10 characters, inclusive.",
+                    "type": "string"
+                  },
+                  "CustomFriendlyName": {
+                    "description": "A custom user defined friendly name that overwrites the existing one in the verification message",
+                    "type": "string"
+                  },
+                  "CustomMessage": {
+                    "deprecated": true,
+                    "description": "The text of a custom message to use for the verification [DEPRECATED].",
+                    "type": "string"
+                  },
+                  "DeviceIp": {
+                    "description": "Strongly encouraged if using the auto channel. The IP address of the client's device. If provided, it has to be a valid IPv4 or IPv6 address.",
+                    "type": "string"
+                  },
+                  "EnableSnaClientToken": {
+                    "description": "An optional Boolean value to indicate the requirement of sna client token in the SNA URL invocation response for added security. This token must match in the Verification Check request to confirm phone number verification.",
+                    "type": "boolean"
+                  },
+                  "Locale": {
+                    "description": "Locale will automatically resolve based on phone number country code for SMS, WhatsApp, and call channel verifications. It will fallback to English or the template’s default translation if the selected translation is not available. This parameter will override the automatic locale resolution. [See supported languages and more information here](https://www.twilio.com/docs/verify/supported-languages).",
+                    "type": "string"
+                  },
+                  "Payee": {
+                    "description": "The payee of the associated PSD2 compliant transaction. Requires the PSD2 Service flag enabled.",
+                    "type": "string"
+                  },
+                  "RateLimits": {
+                    "description": "The custom key-value pairs of Programmable Rate Limits. Keys correspond to `unique_name` fields defined when [creating your Rate Limit](https://www.twilio.com/docs/verify/api/service-rate-limits). Associated value pairs represent values in the request that you are rate limiting on. You may include multiple Rate Limit values in each request."
+                  },
+                  "RiskCheck": {
+                    "$ref": "#/components/schemas/verification_enum_risk_check"
+                  },
+                  "SendDigits": {
+                    "description": "The digits to send after a phone call is answered, for example, to dial an extension. For more information, see the Programmable Voice documentation of [sendDigits](https://www.twilio.com/docs/voice/twiml/number#attributes-sendDigits).",
+                    "type": "string"
+                  },
+                  "Tags": {
+                    "description": "A string containing a JSON map of key value pairs of tags to be recorded as metadata for the message. The tags will also be included as part of the verification and message status event type payloads. The object may contain up to 10 tags. Keys and values can each be up to 128 characters in length. **This value should not contain PII.**",
+                    "type": "string"
+                  },
+                  "TemplateCustomSubstitutions": {
+                    "description": "A stringified JSON object in which the keys are the template's special variables and the values are the variables substitutions.",
+                    "type": "string"
+                  },
+                  "TemplateSid": {
+                    "description": "The message [template](https://www.twilio.com/docs/verify/api/templates). If provided, will override the default template for the Service. SMS and Voice channels only. If the `Templates` parameter is also provided, `Templates` takes precedence over this parameter.",
+                    "maxLength": 34,
+                    "minLength": 34,
+                    "pattern": "^HJ[0-9a-fA-F]{32}$",
+                    "type": "string"
+                  },
+                  "Templates": {
+                    "description": "A stringified JSON array of template entries, ordered by preference. Each entry is an object with the following fields: `sid` (string, required, matching `^HJ[0-9a-fA-F]{32}$`) — the SID of the message [template](https://www.twilio.com/docs/verify/api/templates) to apply; and `substitutions` (object, optional) — a key-value map in which the keys are the template's special variables and the values are their substitution values. The array may contain up to 10 entries. If provided, `Templates` takes precedence over `TemplateSid` and `TemplateCustomSubstitutions`.",
+                    "type": "string"
+                  },
+                  "To": {
+                    "description": "The phone number or [email](https://www.twilio.com/docs/verify/email) to verify. Phone numbers must be in [E.164 format](https://www.twilio.com/docs/glossary/what-e164).",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "To",
+                  "Channel"
+                ],
+                "title": "CreateVerificationRequest",
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/verify.v2.service.verification"
+                }
+              }
+            },
+            "description": "Created",
+            "headers": {
+              "Access-Control-Allow-Credentials": {
+                "description": "Indicates whether the browser should include credentials",
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "Access-Control-Allow-Headers": {
+                "description": "Specify the headers allowed when accessing the resource",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Access-Control-Allow-Methods": {
+                "description": "Specify the HTTP methods allowed when accessing the resource",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Access-Control-Allow-Origin": {
+                "description": "Specify the origin(s) allowed to access the resource",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Access-Control-Expose-Headers": {
+                "description": "Headers exposed to the client",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Twilio-Reached-Rate-Limit": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "description": "Twilio-specific error code",
+                      "format": "int32",
+                      "type": "integer"
+                    },
+                    "message": {
+                      "description": "Error message",
+                      "type": "string"
+                    },
+                    "more_info": {
+                      "description": "Link to Error Code References",
+                      "type": "string"
+                    },
+                    "status": {
+                      "description": "HTTP response status code",
+                      "format": "int32",
+                      "type": "integer"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Too Many Requests",
+            "headers": {
+              "Access-Control-Allow-Credentials": {
+                "description": "Indicates whether the browser should include credentials",
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "Access-Control-Allow-Headers": {
+                "description": "Specify the headers allowed when accessing the resource",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Access-Control-Allow-Methods": {
+                "description": "Specify the HTTP methods allowed when accessing the resource",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Access-Control-Allow-Origin": {
+                "description": "Specify the origin(s) allowed to access the resource",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Access-Control-Expose-Headers": {
+                "description": "Headers exposed to the client",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Twilio-Reached-Rate-Limit": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "accountSid_authToken": []
+          },
+          {
+            "access_token_bearer": []
+          }
+        ],
+        "summary": "Create a new Verification using a Service",
+        "tags": [
+          "VerifyV2Verification"
+        ]
+      },
+      "servers": [
+        {
+          "url": "https://verify.twilio.com"
+        }
+      ],
+      "x-twilio": {
+        "defaultOutputProperties": [
+          "sid",
+          "to",
+          "channel",
+          "status",
+          "valid",
+          "date_created"
+        ],
+        "parent": "/Services/{Sid}",
+        "pathType": "list"
+      }
+    },
+    "/v2/Services/{ServiceSid}/Verifications/{Sid}": {
+      "description": "",
+      "get": {
+        "description": "Fetch a specific Verification",
+        "operationId": "FetchVerification",
+        "parameters": [
+          {
+            "description": "The SID of the verification [Service](https://www.twilio.com/docs/verify/api/service) to fetch the resource from.",
+            "in": "path",
+            "name": "ServiceSid",
+            "required": true,
+            "schema": {
+              "maxLength": 34,
+              "minLength": 34,
+              "pattern": "^VA[0-9a-fA-F]{32}$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The Twilio-provided string that uniquely identifies the Verification resource to fetch.",
+            "in": "path",
+            "name": "Sid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/verify.v2.service.verification"
+                }
+              }
+            },
+            "description": "OK",
+            "headers": {
+              "Access-Control-Allow-Credentials": {
+                "description": "Indicates whether the browser should include credentials",
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "Access-Control-Allow-Headers": {
+                "description": "Specify the headers allowed when accessing the resource",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Access-Control-Allow-Methods": {
+                "description": "Specify the HTTP methods allowed when accessing the resource",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Access-Control-Allow-Origin": {
+                "description": "Specify the origin(s) allowed to access the resource",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Access-Control-Expose-Headers": {
+                "description": "Headers exposed to the client",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "accountSid_authToken": []
+          },
+          {
+            "access_token_bearer": []
+          }
+        ],
+        "summary": "Fetch a specific Verification",
+        "tags": [
+          "VerifyV2Verification"
+        ]
+      },
+      "post": {
+        "description": "Update a Verification status",
+        "operationId": "UpdateVerification",
+        "parameters": [
+          {
+            "description": "The SID of the verification [Service](https://www.twilio.com/docs/verify/api/service) to update the resource from.",
+            "in": "path",
+            "name": "ServiceSid",
+            "required": true,
+            "schema": {
+              "maxLength": 34,
+              "minLength": 34,
+              "pattern": "^VA[0-9a-fA-F]{32}$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The Twilio-provided string that uniquely identifies the Verification resource to update.",
+            "in": "path",
+            "name": "Sid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "properties": {
+                  "Status": {
+                    "$ref": "#/components/schemas/verification_enum_status"
+                  }
+                },
+                "required": [
+                  "Status"
+                ],
+                "title": "UpdateVerificationRequest",
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/verify.v2.service.verification"
+                }
+              }
+            },
+            "description": "OK",
+            "headers": {
+              "Access-Control-Allow-Credentials": {
+                "description": "Indicates whether the browser should include credentials",
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "Access-Control-Allow-Headers": {
+                "description": "Specify the headers allowed when accessing the resource",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Access-Control-Allow-Methods": {
+                "description": "Specify the HTTP methods allowed when accessing the resource",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Access-Control-Allow-Origin": {
+                "description": "Specify the origin(s) allowed to access the resource",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Access-Control-Expose-Headers": {
+                "description": "Headers exposed to the client",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "accountSid_authToken": []
+          },
+          {
+            "access_token_bearer": []
+          }
+        ],
+        "summary": "Update a Verification status",
+        "tags": [
+          "VerifyV2Verification"
+        ]
+      },
+      "servers": [
+        {
+          "url": "https://verify.twilio.com"
+        }
+      ],
+      "x-twilio": {
+        "defaultOutputProperties": [
+          "sid",
+          "to",
+          "channel",
+          "status",
+          "valid",
+          "date_created"
+        ],
+        "parent": "/Services/{Sid}",
+        "pathType": "instance"
+      }
+    },
+    "/v2/Services/{Sid}": {
+      "delete": {
+        "description": "Delete a specific Verification Service Instance.",
+        "operationId": "DeleteService",
+        "parameters": [
+          {
+            "description": "The Twilio-provided string that uniquely identifies the Verification Service resource to delete.",
+            "in": "path",
+            "name": "Sid",
+            "required": true,
+            "schema": {
+              "maxLength": 34,
+              "minLength": 34,
+              "pattern": "^VA[0-9a-fA-F]{32}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The resource was deleted successfully."
+          }
+        },
+        "security": [
+          {
+            "accountSid_authToken": []
+          },
+          {
+            "access_token_bearer": []
+          }
+        ],
+        "summary": "Delete a specific Verification Service Instance.",
+        "tags": [
+          "VerifyV2Service"
+        ]
+      },
+      "description": "",
+      "get": {
+        "description": "Fetch specific Verification Service Instance.",
+        "operationId": "FetchService",
+        "parameters": [
+          {
+            "description": "The Twilio-provided string that uniquely identifies the Verification Service resource to fetch.",
+            "in": "path",
+            "name": "Sid",
+            "required": true,
+            "schema": {
+              "maxLength": 34,
+              "minLength": 34,
+              "pattern": "^VA[0-9a-fA-F]{32}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/verify.v2.service"
+                }
+              }
+            },
+            "description": "OK",
+            "headers": {
+              "Access-Control-Allow-Credentials": {
+                "description": "Indicates whether the browser should include credentials",
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "Access-Control-Allow-Headers": {
+                "description": "Specify the headers allowed when accessing the resource",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Access-Control-Allow-Methods": {
+                "description": "Specify the HTTP methods allowed when accessing the resource",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Access-Control-Allow-Origin": {
+                "description": "Specify the origin(s) allowed to access the resource",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Access-Control-Expose-Headers": {
+                "description": "Headers exposed to the client",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "accountSid_authToken": []
+          },
+          {
+            "access_token_bearer": []
+          }
+        ],
+        "summary": "Fetch specific Verification Service Instance.",
+        "tags": [
+          "VerifyV2Service"
+        ]
+      },
+      "post": {
+        "description": "Update a specific Verification Service.",
+        "operationId": "UpdateService",
+        "parameters": [
+          {
+            "description": "The Twilio-provided string that uniquely identifies the Service resource to update.",
+            "in": "path",
+            "name": "Sid",
+            "required": true,
+            "schema": {
+              "maxLength": 34,
+              "minLength": 34,
+              "pattern": "^VA[0-9a-fA-F]{32}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "properties": {
+                  "CodeLength": {
+                    "description": "The length of the verification code to generate. Must be an integer value between 4 and 10, inclusive.",
+                    "type": "integer"
+                  },
+                  "CustomCodeEnabled": {
+                    "description": "Whether to allow sending verifications with a custom code instead of a randomly generated one.",
+                    "type": "boolean"
+                  },
+                  "DefaultTemplateSid": {
+                    "description": "The default message [template](https://www.twilio.com/docs/verify/api/templates). Will be used for all SMS verifications unless explicitly overriden. SMS channel only.",
+                    "maxLength": 34,
+                    "minLength": 34,
+                    "pattern": "^HJ[0-9a-fA-F]{32}$",
+                    "type": "string"
+                  },
+                  "DoNotShareWarningEnabled": {
+                    "description": "Whether to add a privacy warning at the end of an SMS. **Disabled by default and applies only for SMS.**",
+                    "type": "boolean"
+                  },
+                  "DtmfInputRequired": {
+                    "description": "Whether to ask the user to press a number before delivering the verify code in a phone call.",
+                    "type": "boolean"
+                  },
+                  "FriendlyName": {
+                    "description": "A descriptive string that you create to describe the verification service. It can be up to 32 characters long. **This value should not contain PII.**",
+                    "type": "string"
+                  },
+                  "LookupEnabled": {
+                    "description": "Whether to perform a lookup with each verification started and return info about the phone number.",
+                    "type": "boolean"
+                  },
+                  "Passkeys.AuthenticatorAttachment": {
+                    "description": "The Authenticator Attachment for Passkeys. This is the type of authenticator that will be used to create Passkeys. It can be empty or it can have the values `platform`, `cross-platform` or `any`.",
+                    "type": "string"
+                  },
+                  "Passkeys.DiscoverableCredentials": {
+                    "description": "Indicates whether credentials must be discoverable by the authenticator. It can be empty or it can have the values `required`, `preferred` or `discouraged`.",
+                    "type": "string"
+                  },
+                  "Passkeys.RelyingParty.Id": {
+                    "description": "The Relying Party ID for Passkeys. This is the domain of your application, e.g. `example.com`. It is used to identify your application when creating Passkeys.",
+                    "type": "string"
+                  },
+                  "Passkeys.RelyingParty.Name": {
+                    "description": "The Relying Party Name for Passkeys. This is the name of your application, e.g. `Example App`. It is used to identify your application when creating Passkeys.",
+                    "type": "string"
+                  },
+                  "Passkeys.RelyingParty.Origins": {
+                    "description": "The Relying Party Origins for Passkeys. This is the origin of your application, e.g. `login.example.com,www.example.com`. It is used to identify your application when creating Passkeys, it can have multiple origins split by `,`.",
+                    "type": "string"
+                  },
+                  "Passkeys.UserVerification": {
+                    "description": "The User Verification for Passkeys. This is the type of user verification that will be used to create Passkeys. It can be empty or it can have the values `required`, `preferred` or `discouraged`.",
+                    "type": "string"
+                  },
+                  "Psd2Enabled": {
+                    "description": "Whether to pass PSD2 transaction parameters when starting a verification.",
+                    "type": "boolean"
+                  },
+                  "Push.ApnCredentialSid": {
+                    "description": "Optional configuration for the Push factors. Set the APN Credential for this service. This will allow to send push notifications to iOS devices. See [Credential Resource](https://www.twilio.com/docs/notify/api/credential-resource)",
+                    "maxLength": 34,
+                    "minLength": 34,
+                    "pattern": "^CR[0-9a-fA-F]{32}$",
+                    "type": "string"
+                  },
+                  "Push.FcmCredentialSid": {
+                    "description": "Optional configuration for the Push factors. Set the FCM Credential for this service. This will allow to send push notifications to Android devices. See [Credential Resource](https://www.twilio.com/docs/notify/api/credential-resource)",
+                    "maxLength": 34,
+                    "minLength": 34,
+                    "pattern": "^CR[0-9a-fA-F]{32}$",
+                    "type": "string"
+                  },
+                  "Push.IncludeDate": {
+                    "description": "Optional configuration for the Push factors. If true, include the date in the Challenge's response. Otherwise, the date is omitted from the response. See [Challenge](https://www.twilio.com/docs/verify/api/challenge) resource’s details parameter for more info. Default: false. **Deprecated** do not use this parameter.",
+                    "type": "boolean"
+                  },
+                  "SkipSmsToLandlines": {
+                    "description": "Whether to skip sending SMS verifications to landlines. Requires `lookup_enabled`.",
+                    "type": "boolean"
+                  },
+                  "Totp.CodeLength": {
+                    "description": "Optional configuration for the TOTP factors. Number of digits for generated TOTP codes. Must be between 3 and 8, inclusive. Defaults to 6",
+                    "type": "integer"
+                  },
+                  "Totp.Issuer": {
+                    "description": "Optional configuration for the TOTP factors. Set TOTP Issuer for this service. This will allow to configure the issuer of the TOTP URI.",
+                    "type": "string"
+                  },
+                  "Totp.Skew": {
+                    "description": "Optional configuration for the TOTP factors. The number of time-steps, past and future, that are valid for validation of TOTP codes. Must be between 0 and 2, inclusive. Defaults to 1",
+                    "type": "integer"
+                  },
+                  "Totp.TimeStep": {
+                    "description": "Optional configuration for the TOTP factors. Defines how often, in seconds, are TOTP codes generated. i.e, a new TOTP code is generated every time_step seconds. Must be between 20 and 60 seconds, inclusive. Defaults to 30 seconds",
+                    "type": "integer"
+                  },
+                  "TtsName": {
+                    "description": "The name of an alternative text-to-speech service to use in phone calls. Applies only to TTS languages.",
+                    "type": "string"
+                  },
+                  "VerifyEventSubscriptionEnabled": {
+                    "description": "Whether to allow verifications from the service to reach the stream-events sinks if configured",
+                    "type": "boolean"
+                  },
+                  "Whatsapp.From": {
+                    "description": "The WhatsApp number to use as the sender of the verification messages. This number must be associated with the WhatsApp Message Service.",
+                    "type": "string"
+                  },
+                  "Whatsapp.MsgServiceSid": {
+                    "description": "The SID of the [Messaging Service](https://www.twilio.com/docs/messaging/services) to associate with the Verification Service.",
+                    "maxLength": 34,
+                    "minLength": 34,
+                    "pattern": "^MG[0-9a-fA-F]{32}$",
+                    "type": "string"
+                  }
+                },
+                "title": "UpdateServiceRequest",
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/verify.v2.service"
+                }
+              }
+            },
+            "description": "OK",
+            "headers": {
+              "Access-Control-Allow-Credentials": {
+                "description": "Indicates whether the browser should include credentials",
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "Access-Control-Allow-Headers": {
+                "description": "Specify the headers allowed when accessing the resource",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Access-Control-Allow-Methods": {
+                "description": "Specify the HTTP methods allowed when accessing the resource",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Access-Control-Allow-Origin": {
+                "description": "Specify the origin(s) allowed to access the resource",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Access-Control-Expose-Headers": {
+                "description": "Headers exposed to the client",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "accountSid_authToken": []
+          },
+          {
+            "access_token_bearer": []
+          }
+        ],
+        "summary": "Update a specific Verification Service.",
+        "tags": [
+          "VerifyV2Service"
+        ]
+      },
+      "servers": [
+        {
+          "url": "https://verify.twilio.com"
+        }
+      ],
+      "x-twilio": {
+        "defaultOutputProperties": [
+          "sid",
+          "friendly_name",
+          "date_created"
+        ],
+        "dependentProperties": {
+          "access_tokens": {
+            "mapping": {
+              "service_sid": "sid"
+            },
+            "resource_url": "/v2/Services/{service_sid}/AccessTokens"
+          },
+          "entities": {
+            "mapping": {
+              "service_sid": "sid"
+            },
+            "resource_url": "/v2/Services/{service_sid}/Entities"
+          },
+          "messaging_configurations": {
+            "mapping": {
+              "service_sid": "sid"
+            },
+            "resource_url": "/v2/Services/{service_sid}/MessagingConfigurations"
+          },
+          "rate_limits": {
+            "mapping": {
+              "service_sid": "sid"
+            },
+            "resource_url": "/v2/Services/{service_sid}/RateLimits"
+          },
+          "verification_checks": {
+            "mapping": {
+              "service_sid": "sid"
+            },
+            "resource_url": "/v2/Services/{service_sid}/VerificationCheck"
+          },
+          "verifications": {
+            "mapping": {
+              "service_sid": "sid"
+            },
+            "resource_url": "/v2/Services/{service_sid}/Verifications"
+          },
+          "webhooks": {
+            "mapping": {
+              "service_sid": "sid"
+            },
+            "resource_url": "/v2/Services/{service_sid}/Webhooks"
+          }
+        },
+        "pathType": "instance"
+      }
+    }
+  }
+}

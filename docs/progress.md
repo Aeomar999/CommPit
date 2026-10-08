@@ -8,7 +8,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 |---|---|
 | **Phase** | Milestone 2 in progress |
 | **Current milestone** | M2 |
-| **Next action** | M2-05: Twilio golden fixtures and contract tests against a pinned twilio-oai spec |
+| **Next action** | M2-06: Twilio redirect snippets (Node, Python, PHP, Go, C#) in `examples/`; CI runs them |
 | **Last updated** | 2026-10-08 |
 
 ## Milestones
@@ -16,7 +16,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 | Milestone | Release | Status | Tasks done |
 |---|---|---|---|
 | M1: Core, native API, SMTP, inbox | v0.1.0 | Done | 21 / 21 |
-| M2: Twilio, Termii, test API, inspector | v0.2.0 | In progress | 4 / 14 |
+| M2: Twilio, Termii, test API, inspector | v0.2.0 | In progress | 5 / 14 |
 | M3: Webhooks, failure simulation, inbound, batches | v0.3.0 | Not started | 0 / 12 |
 | M4: Estimate, MCP, CI kit | v0.4.0 | Not started | 0 / 8 |
 
@@ -32,6 +32,17 @@ Single source of truth for where the project stands. Update it in every PR that 
 ## Session log
 
 Newest first. One entry per working session: what changed, decisions made, what's next.
+
+### 2026-10-08 (Session 11): Twilio Golden Fixtures and Contract Tests (M2-05)
+
+- Completed M2-05 (`REQ-032`): the fidelity harness from engineering §5.
+  - **Pinned specs** (`adapters/twilio/spec/`, 73 KB + 112 KB): trimmed from upstream twilio-oai (retrieved 2026-10-08) to the implemented endpoints plus their component closure, as canonical JSON. New `adapters/twilio/spectrim` tool re-derives them deterministically; operation examples are dropped because upstream ships invalid ones (a non-RFC3339 `date-time` example fails strict spec validation). Sources and regeneration commands in `spec/README.md`.
+  - **Golden fixtures** (`adapters/twilio/testdata/`, 17 files): success and error cases for every Messages and Verify endpoint, with volatile fields (SIDs, dates) normalized and fixed-clock timestamps. `TestTwilio_Golden` compares via go-cmp; regenerate with `-update` and review the diff.
+  - **Contract tests** (`adapters/twilio/contract_test.go`): live success responses validated with kin-openapi (now a direct dependency) against the pinned specs — 4 Messages cases, 5 Verify cases. Spec operations are resolved by exact template (the bundled routers can't match suffixed segments like `Messages/{Sid}.json`; route matching itself is covered by handler tests).
+  - **Findings fixed by the harness**: the suite's account SID was 32 chars, but the spec requires `AC`+32 (34 total) — corrected across tests and goldens; added a `max_attempts`→`max_attempts_reached` mapper for Verify statuses per the spec enum description.
+  - **Refresh workflow** (`.github/workflows/spec-refresh.yml`): weekly cron + manual trigger; re-downloads, re-trims, opens a PR on change, then runs the contract tests.
+  - `go test ./...`, `golangci-lint run` (0 issues), `gofmt` clean. `docs/fidelity.md` records what the contract confirms vs. what stays unverified (error codes, lenient coercions, `date_sent` semantics).
+- **Next:** M2-06: Twilio redirect snippets.
 
 ### 2026-10-08 (Session 10): Twilio Verify v2 (M2-04)
 
