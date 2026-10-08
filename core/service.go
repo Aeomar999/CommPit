@@ -376,9 +376,17 @@ func (s *Service) StartVerification(ctx context.Context, projectID string, req V
 	}
 
 	var code string
-	if s.otpFixedCode != nil {
+	switch {
+	case req.CustomCode != nil:
+		// An explicitly supplied code (e.g. Termii email OTP) always wins,
+		// including over the otpFixedCode test override.
+		code = *req.CustomCode
+		if len(code) < 4 || len(code) > 10 {
+			return nil, NewValidationError("custom code must be between 4 and 10 characters", "code")
+		}
+	case s.otpFixedCode != nil:
 		code = *s.otpFixedCode
-	} else {
+	default:
 		code = generateCode(codeLength)
 	}
 
@@ -408,6 +416,9 @@ func (s *Service) StartVerification(ctx context.Context, projectID string, req V
 		CallbackURL: "",
 		Provider:    req.Provider,
 		ProviderRef: req.ProviderRef,
+	}
+	if req.BodyText != nil && *req.BodyText != "" {
+		sendReq.BodyText = *req.BodyText
 	}
 
 	sendResp, err := s.SendMessage(ctx, projectID, sendReq)

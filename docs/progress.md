@@ -8,7 +8,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 |---|---|
 | **Phase** | Milestone 2 in progress |
 | **Current milestone** | M2 |
-| **Next action** | M2-07: Termii SMS (`/api/sms/send`, `/send/bulk`, `/number/send`; batches; sender allow-list) |
+| **Next action** | M2-10: Test API (`messages/wait`, `otp/latest`, `emails/latest`, `verifications/{id}/expire`, scoped `DELETE /messages`) |
 | **Last updated** | 2026-10-08 |
 
 ## Milestones
@@ -16,7 +16,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 | Milestone | Release | Status | Tasks done |
 |---|---|---|---|
 | M1: Core, native API, SMTP, inbox | v0.1.0 | Done | 21 / 21 |
-| M2: Twilio, Termii, test API, inspector | v0.2.0 | In progress | 6 / 14 |
+| M2: Twilio, Termii, test API, inspector | v0.2.0 | In progress | 9 / 14 |
 | M3: Webhooks, failure simulation, inbound, batches | v0.3.0 | Not started | 0 / 12 |
 | M4: Estimate, MCP, CI kit | v0.4.0 | Not started | 0 / 8 |
 
@@ -32,6 +32,36 @@ Single source of truth for where the project stands. Update it in every PR that 
 ## Session log
 
 Newest first. One entry per working session: what changed, decisions made, what's next.
+
+### 2026-10-08 (Session 15): Termii Golden Fixtures (M2-09)
+
+- Completed M2-09: 13 golden fixtures in `adapters/termii/testdata/` covering every SMS and Token endpoint (success + error paths), locked by `TestTermii_Golden` with `-update` regeneration. Normalization is key-based (`message_id`, `pinId`, `pin`) rather than regex, because phone numbers share the digit space.
+- Reviewed and completed the `docs/fidelity.md` Termii sections as the unverified-behavior listing (Termii publishes no spec, so no contract tests apply): added `from`-required, `pin_attempts`/TTL defaults, email code bounds, generate-keeps-nothing, strict E.164, no per-request callback, channel distinctions.
+- `go test ./...`, `golangci-lint run` (0 issues), `gofmt` clean.
+- **Next:** M2-10: Test API.
+
+### 2026-10-08 (Session 14): Termii Token (M2-08)
+
+- Completed M2-08 (`REQ-034`): four Token endpoints on the existing `/termii` mount (no wiring changes).
+  - **otp/send**: `pin_length` (default 6), `pin_attempts`, `pin_time_to_live` (minutes→seconds) map onto the verification; the PIN is minted adapter-side so `message_text` + `pin_placeholder` templates render in one write; UUIDv4 `pinId` in `provider_ref`; responds `{pinId, to, smsStatus}`.
+  - **otp/verify** (`pin_id` + `pin`): wrong PIN → 200 `verified: false`, correct → `verified: true` with `msisdn`, unknown PIN → 404, exhaustion → 429.
+  - **otp/generate** (`NUMERIC` only): returns `{pin}`, sends and stores nothing.
+  - **email/otp/send**: validates the address (net/mail), stores the caller-supplied code verbatim on an email-channel verification.
+  - **Core extension** (same justification as M2-04's `ServiceLabel`): provider-neutral `CustomCode` (explicit codes win over `--otp-code`, 4–10 chars) and `BodyText` (verbatim template override) on `VerificationRequest`. Covered by `TestService_VerificationCustomCodeAndBody` (mock store gained `CreateVerification`).
+  - Tests first, all green: `go test ./...`, `golangci-lint run` (0 issues), `gofmt` clean. Live-binary smoke test of all four endpoints.
+  - `docs/fidelity.md` gained a Token section; every response shape is marked **unverified** for X-01/M2-09.
+- **Next:** M2-09: Termii golden fixtures.
+
+### 2026-10-08 (Session 13): Termii SMS (M2-07)
+
+- Completed M2-07 (`REQ-033`): new `adapters/termii` package, mounted at `/termii` with store-backed logging and required `api_key` credentials.
+  - **Endpoints**: `POST /api/sms/send` (single `to` or array up to 100), `POST /api/sms/send/bulk` (up to 10,000, response adds `code: "ok"`), `POST /api/sms/number/send`. HTTP 200 with `{message_id, message, balance, user}`; numeric IDs in `provider_ref`; multi-recipient sends map to core batches with per-recipient `rejected` reporting.
+  - **Sender allow-list** from project settings (`termii.sender_allowlist`, read-only until M2-12): empty accepts all with a warning log, unlisted senders get `invalid_sender`.
+  - **Real bug found by TDD**: bodies over 64 KB fail credential extraction (truncated JSON never parses), which would have broken every bulk batch. Added `adapterkit.JSONBodyKeyExtractorWithLimit` (default stays 64 KB) and gave Termii a 1 MB cap; covered by a new adapterkit test with a ~90 KB body.
+  - `/termii` exempt from `X-Mocksms` (Host protection kept), covered by a middleware test.
+  - Tests first, all green: `go test ./...`, `golangci-lint run` (0 issues), `gofmt` clean. Live-binary smoke test (single, bulk with `code: ok`, number/send, 401 without key). Debugging note: Windows PowerShell corrupts inline curl JSON — byte-exact `@file` bodies (via the Write tool) are the reliable path.
+  - `docs/fidelity.md` gained a Termii section with **unverified** items for X-01/M2-09.
+- **Next:** M2-08: Termii Token.
 
 ### 2026-10-08 (Session 12): Twilio Redirect Snippets (M2-06)
 

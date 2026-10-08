@@ -371,9 +371,9 @@ func runMigrations(db *sql.DB) error {
 | [x] | M2-04 | Twilio Verify v2: services, verifications, checks, cancel/approve | M2-03 | REQ-031 |
 | [x] | M2-05 | Twilio golden fixtures and contract tests against a pinned twilio-oai spec; scheduled spec-refresh workflow | M2-04 | REQ-032 |
 | [x] | M2-06 | Twilio redirect snippets (Node, Python, PHP, Go, C#) in `examples/`; CI runs them against the built binary | M2-04 | REQ-030 |
-| [ ] | M2-07 | Termii SMS: `/api/sms/send`, `/send/bulk`, `/number/send`; batches; sender allow-list | M2-01 | REQ-033 |
-| [ ] | M2-08 | Termii Token: `otp/send`, `otp/verify`, `otp/generate`, `email/otp/send` | M2-07 | REQ-034 |
-| [ ] | M2-09 | Termii golden fixtures and `docs/fidelity.md` listing unverified behavior | M2-08 | — |
+| [x] | M2-07 | Termii SMS: `/api/sms/send`, `/send/bulk`, `/number/send`; batches; sender allow-list | M2-01 | REQ-033 |
+| [x] | M2-08 | Termii Token: `otp/send`, `otp/verify`, `otp/generate`, `email/otp/send` | M2-07 | REQ-034 |
+| [x] | M2-09 | Termii golden fixtures and `docs/fidelity.md` listing unverified behavior | M2-08 | — |
 | [ ] | M2-10 | Test API: `messages/wait`, `otp/latest`, `emails/latest`, `verifications/{id}/expire`, scoped `DELETE /messages` | M1 | REQ-040–REQ-043, REQ-023 |
 | [ ] | M2-11 | Dedicated adapter ports (`adapters.<name>.port`) | M2-03 | REQ-036 |
 | [ ] | M2-12 | Credential linking: YAML `projects[].credentials`, `POST /projects/{id}/credentials`, UI action | M1 | REQ-091 |

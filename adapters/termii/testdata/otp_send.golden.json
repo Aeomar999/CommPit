@@ -1,0 +1,18 @@
+{
+  "body": {
+    "pinId": "00000000-0000-0000-0000-000000000000",
+    "smsStatus": "Message Sent",
+    "to": "+2348031234567"
+  },
+  "request": {
+    "form": {
+      "from": "TestSender",
+      "message_text": "Your pin is \u003c 1234 \u003e",
+      "pin_length": 6,
+      "to": "+2348031234567"
+    },
+    "method": "POST",
+    "path": "/api/sms/otp/send"
+  },
+  "status": 200
+}

@@ -245,6 +245,33 @@ func TestCredentialResolution(t *testing.T) {
 		}
 	})
 
+	t.Run("json body extractor with limit reads large bulk bodies", func(t *testing.T) {
+		largeTo := strings.Repeat(`"+2348031234567",`, 5000) + `"+2348031234567"`
+		bodyJSON := `{"api_key":"tl_bulk_key","from":"Bulk","sms":"Hi","to":[` + largeTo + `]}`
+		if len(bodyJSON) <= 64*1024 {
+			t.Fatalf("test body should exceed 64 KB, got %d", len(bodyJSON))
+		}
+
+		capped := adapterkit.JSONBodyKeyExtractor("api_key")
+		req := httptest.NewRequest(http.MethodPost, "/sms/send/bulk", strings.NewReader(bodyJSON))
+		if _, ok, _ := capped(req); ok {
+			t.Errorf("default extractor should fail closed on >64 KB bodies")
+		}
+
+		generous := adapterkit.JSONBodyKeyExtractorWithLimit("api_key", 1024*1024)
+		req = httptest.NewRequest(http.MethodPost, "/sms/send/bulk", strings.NewReader(bodyJSON))
+		key, ok, err := generous(req)
+		if err != nil {
+			t.Fatalf("extraction error: %v", err)
+		}
+		if !ok || key != "tl_bulk_key" {
+			t.Errorf("expected tl_bulk_key, got %q (ok=%v)", key, ok)
+		}
+		if _, err := io.ReadAll(req.Body); err != nil {
+			t.Fatalf("body not restored: %v", err)
+		}
+	})
+
 	t.Run("first of extractor falls back in order", func(t *testing.T) {
 		adapter := &mockAdapter{name: "twilio"}
 		resolver := &mockResolver{}

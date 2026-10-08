@@ -1,0 +1,16 @@
+{
+  "body": {
+    "msisdn": "+2348031234567",
+    "pinId": "00000000-0000-0000-0000-000000000000",
+    "verified": false
+  },
+  "request": {
+    "form": {
+      "pin": "000000",
+      "pin_id": "PINID"
+    },
+    "method": "POST",
+    "path": "/api/sms/otp/verify"
+  },
+  "status": 200
+}

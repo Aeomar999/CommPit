@@ -1,0 +1,16 @@
+{
+  "body": {
+    "code": "invalid_number",
+    "message": "invalid number"
+  },
+  "request": {
+    "form": {
+      "from": "TestSender",
+      "sms": "Bad to",
+      "to": "+15005550001"
+    },
+    "method": "POST",
+    "path": "/api/sms/send"
+  },
+  "status": 400
+}
