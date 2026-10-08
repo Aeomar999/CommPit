@@ -72,11 +72,19 @@ go build -o mocksms ./cmd/mocksms
 ## Features (Wave 1)
 
 - **Native API** — Clean REST API for SMS, email, and verifications (`/api/v1/*`)
+- **Twilio adapter** — Official SDKs for Messages and Verify v2 (`/twilio/*`)
+- **Termii adapter** — SMS, bulk, and Token OTP APIs (`/termii/*`)
 - **SMTP listener** — Receive email from any framework on `:1025`
 - **Web inbox** — Live-updating UI with SMS threads, email viewer, OTP codes, filters
 - **Test API** — `messages/wait`, `otp/latest`, `emails/latest` for reliable E2E tests
 - **Lifecycle** — Messages progress through `queued` → `sent` → `delivered` (or `failed`)
 - **Webhooks** — Status callbacks and inbound SMS in provider formats (M3)
+
+## Provider & Test Guides
+
+- [Twilio guide](docs/guides/twilio.md) — redirecting the SDKs, Messages, Verify v2, magic numbers, credential linking
+- [Termii guide](docs/guides/termii.md) — base-URL override, SMS/bulk/Token endpoints, sender allow-list
+- [Test API guide](docs/guides/test-api.md) — `messages/wait`, `otp/latest`, `emails/latest` with Playwright, Cypress and Jest examples
 
 ## SMTP Setup Guides
 
@@ -301,6 +309,17 @@ http:
 smtp:
   host: 127.0.0.1
   port: 1025
+adapters:
+  twilio:
+    port: 0 # dedicated /twilio port for hostname-only SDKs (0 disables)
+  termii:
+    port: 0
+projects:
+  - id: prj_01JAAAAAAAAAAAAAAAAAAAAAAAAA
+    name: combined
+    credentials:
+      - provider: twilio
+        key: ACXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 data_dir: ~/.local/share/mocksms
 memory: false
 lifecycle:

@@ -378,7 +378,7 @@ func runMigrations(db *sql.DB) error {
 | [x] | M2-11 | Dedicated adapter ports (`adapters.<name>.port`) | M2-03 | REQ-036 |
 | [x] | M2-12 | Credential linking: YAML `projects[].credentials`, `POST /projects/{id}/credentials`, UI action | M1 | REQ-091 |
 | [x] | M2-13 | UI: OTPs view, request inspector | M2-02, M2-10 | REQ-090 |
-| [ ] | M2-14 | Docs: Twilio and Termii guides, test-API guide with Playwright/Cypress/Jest examples | M2-06, M2-10 | — |
+| [x] | M2-14 | Docs: Twilio and Termii guides, test-API guide with Playwright/Cypress/Jest examples | M2-06, M2-10 | — |
 
 **M2 milestone gate** (in order, once every task above is `[x]`):
 - [ ] Full suite passes on `milestone/m2`: `task test`, `task lint`, `task e2e`, `task build`

@@ -8,7 +8,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 |---|---|
 | **Phase** | Milestone 2 in progress |
 | **Current milestone** | M2 |
-| **Next action** | M2-14: Docs (Twilio and Termii guides, test-API guide with examples) |
+| **Next action** | M2 milestone gate: full suite, final commit, PR to `main`, tag `v0.2.0` |
 | **Last updated** | 2026-10-08 |
 
 ## Milestones
@@ -16,7 +16,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 | Milestone | Release | Status | Tasks done |
 |---|---|---|---|
 | M1: Core, native API, SMTP, inbox | v0.1.0 | Done | 21 / 21 |
-| M2: Twilio, Termii, test API, inspector | v0.2.0 | In progress | 13 / 14 |
+| M2: Twilio, Termii, test API, inspector | v0.2.0 | In progress | 14 / 14 |
 | M3: Webhooks, failure simulation, inbound, batches | v0.3.0 | Not started | 0 / 12 |
 | M4: Estimate, MCP, CI kit | v0.4.0 | Not started | 0 / 8 |
 
@@ -32,6 +32,13 @@ Single source of truth for where the project stands. Update it in every PR that 
 ## Session log
 
 Newest first. One entry per working session: what changed, decisions made, what's next.
+
+### 2026-10-08 (Session 20): Provider + Test-API Guides (M2-14)
+
+- Completed M2-14 (final M2 task): `docs/guides/twilio.md`, `termii.md` and `test-api.md` (with Playwright, Cypress and Jest examples); README links them and documents the new `adapters.*.port` and `projects` settings.
+- Every curl example was verified live against the binary (Twilio create/Verify, Termii send/otp/verify, wait, otp/latest); magic-number table cross-checked with `sim/simulator.go`. The Jest snippet's undefined `verId` was fixed to use `verification_id` from `otp/latest`.
+- `go test ./...`, `golangci-lint run` (0 issues), `gofmt` clean (docs-only change set, no code touched).
+- **Next:** M2 milestone gate (full suite + `e2e` + `build`, final commit, PR, tag `v0.2.0`, branch `milestone/m3`).
 
 ### 2026-10-08 (Session 19): Request Inspector + OTPs UI (M2-13)
 
