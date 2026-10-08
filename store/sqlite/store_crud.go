@@ -94,7 +94,7 @@ func (s *Store) GetCredential(ctx context.Context, provider, key string) (*core.
 	var c core.Credential
 	if err := row.Scan(&c.ID, &c.Provider, &c.Key, &c.ProjectID, &c.CreatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, core.NewInternal("credential not found")
+			return nil, core.NewNotFound("credential not found", "id")
 		}
 		return nil, err
 	}

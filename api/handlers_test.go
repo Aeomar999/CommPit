@@ -1286,3 +1286,144 @@ func TestHandlers_DeleteMessages(t *testing.T) {
 		}
 	})
 }
+
+func projectIDs(t *testing.T, router http.Handler) []string {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodGet, "/projects", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list projects: %d %s", rec.Code, rec.Body.String())
+	}
+	var resp map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("list projects: %v", err)
+	}
+	projects, _ := resp["projects"].([]any)
+	ids := make([]string, 0, len(projects))
+	for _, p := range projects {
+		ids = append(ids, p.(map[string]any)["id"].(string))
+	}
+	return ids
+}
+
+func sendTestSMSAs(t *testing.T, router http.Handler, bearer, from, to, body string) {
+	t.Helper()
+	payload, _ := json.Marshal(map[string]any{"from": from, "to": to, "body": body})
+	req := httptest.NewRequest(http.MethodPost, "/sms", bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+	if bearer != "" {
+		req.Header.Set("Authorization", "Bearer "+bearer)
+	}
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("send SMS as %q: expected status 201, got %d: %s", bearer, rec.Code, rec.Body.String())
+	}
+}
+
+func messageCount(t *testing.T, router http.Handler, projectID string) int {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodGet, "/messages?project="+projectID, nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list messages: %d %s", rec.Code, rec.Body.String())
+	}
+	var resp map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("list messages: %v", err)
+	}
+	msgs, _ := resp["messages"].([]any)
+	return len(msgs)
+}
+
+func TestHandlers_LinkCredential(t *testing.T) {
+	link := func(t *testing.T, router http.Handler, projectID, provider, key string) *httptest.ResponseRecorder {
+		t.Helper()
+		payload, _ := json.Marshal(map[string]any{"provider": provider, "key": key})
+		req := httptest.NewRequest(http.MethodPost, "/projects/"+projectID+"/credentials", bytes.NewReader(payload))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		return rec
+	}
+
+	t.Run("links new credential and routes traffic", func(t *testing.T) {
+		router, _, _ := setupTestRouter(t, nil, nil)
+		sendTestSMSAs(t, router, "", "+15555550100", "+15005550006", "First")
+		ids := projectIDs(t, router)
+		if len(ids) != 1 {
+			t.Fatalf("expected 1 project, got %v", ids)
+		}
+
+		rec := link(t, router, ids[0], "native", "LINKKEY123")
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
+		}
+
+		sendTestSMSAs(t, router, "LINKKEY123", "+15555550100", "+15005550006", "Second")
+		if got := projectIDs(t, router); len(got) != 1 {
+			t.Fatalf("linking must not create a project, got %v", got)
+		}
+		if n := messageCount(t, router, ids[0]); n != 2 {
+			t.Errorf("expected 2 messages in linked project, got %d", n)
+		}
+	})
+
+	t.Run("moves an existing credential", func(t *testing.T) {
+		router, _, _ := setupTestRouter(t, nil, nil)
+		sendTestSMSAs(t, router, "", "+15555550100", "+15005550006", "Default project")
+		sendTestSMSAs(t, router, "MOVEKEY456", "+15555550100", "+15005550006", "Own project")
+		ids := projectIDs(t, router)
+		if len(ids) != 2 {
+			t.Fatalf("expected 2 projects, got %v", ids)
+		}
+
+		var target, other string
+		if messageCount(t, router, ids[0]) == 1 && messageCount(t, router, ids[1]) == 1 {
+			target, other = ids[0], ids[1]
+		} else {
+			t.Fatalf("expected one message per project, got %v", ids)
+		}
+
+		rec := link(t, router, target, "native", "MOVEKEY456")
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
+		}
+		sendTestSMSAs(t, router, "MOVEKEY456", "+15555550100", "+15005550006", "After move")
+		if n := messageCount(t, router, target); n != 2 {
+			t.Errorf("expected 2 messages in target project, got %d", n)
+		}
+		if n := messageCount(t, router, other); n != 1 {
+			t.Errorf("expected 1 message left in old project, got %d", n)
+		}
+	})
+
+	t.Run("unknown project returns 404", func(t *testing.T) {
+		router, _, _ := setupTestRouter(t, nil, nil)
+		rec := link(t, router, "prj_00000000000000000000000000", "native", "K")
+		if rec.Code != http.StatusNotFound {
+			t.Fatalf("expected status 404, got %d: %s", rec.Code, rec.Body.String())
+		}
+	})
+
+	t.Run("missing provider and key returns 400", func(t *testing.T) {
+		router, _, _ := setupTestRouter(t, nil, nil)
+		sendTestSMSAs(t, router, "", "+15555550100", "+15005550006", "First")
+		target := projectIDs(t, router)[0]
+		for name, payload := range map[string]map[string]any{
+			"missing provider": {"key": "K"},
+			"missing key":      {"provider": "native"},
+		} {
+			raw, _ := json.Marshal(payload)
+			req := httptest.NewRequest(http.MethodPost, "/projects/"+target+"/credentials", bytes.NewReader(raw))
+			req.Header.Set("Content-Type", "application/json")
+			rec := httptest.NewRecorder()
+			router.ServeHTTP(rec, req)
+			if rec.Code != http.StatusBadRequest {
+				t.Errorf("%s: expected status 400, got %d: %s", name, rec.Code, rec.Body.String())
+			}
+		}
+	})
+}

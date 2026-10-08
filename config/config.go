@@ -24,6 +24,7 @@ type Config struct {
 	DataDir             string
 	Memory              bool
 	Store               StoreConfig
+	Projects            []ProjectLinkConfig
 	Adapters            AdaptersConfig
 	Lifecycle           LifecycleConfig
 	OTP                 OTPConfig
@@ -44,6 +45,19 @@ type SecurityConfig struct {
 
 type StoreConfig struct {
 	ReadPoolSize int
+}
+
+// CredentialLinkConfig maps one provider credential to a project.
+type CredentialLinkConfig struct {
+	Provider string
+	Key      string
+}
+
+// ProjectLinkConfig declares a project and the credentials linked to it.
+type ProjectLinkConfig struct {
+	ID          string
+	Name        string
+	Credentials []CredentialLinkConfig
 }
 
 // AdapterPortConfig holds the dedicated-port setting for one provider
@@ -112,6 +126,9 @@ func Load() *Config {
 	cfg.DataDir = getString(k, "data_dir", defaultDataDir())
 	cfg.Memory = getBool(k, "memory", false)
 	cfg.Store.ReadPoolSize = getInt(k, "store.read_pool_size", 4)
+	if k.Exists("projects") {
+		_ = k.Unmarshal("projects", &cfg.Projects)
+	}
 	cfg.Adapters.Twilio.Port = getInt(k, "adapters.twilio.port", 0)
 	cfg.Adapters.Termii.Port = getInt(k, "adapters.termii.port", 0)
 	cfg.Lifecycle.StepDelay = getDuration(k, "lifecycle.step_delay", 300*time.Millisecond)

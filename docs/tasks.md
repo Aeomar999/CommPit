@@ -376,7 +376,7 @@ func runMigrations(db *sql.DB) error {
 | [x] | M2-09 | Termii golden fixtures and `docs/fidelity.md` listing unverified behavior | M2-08 | — |
 | [x] | M2-10 | Test API: `messages/wait`, `otp/latest`, `emails/latest`, `verifications/{id}/expire`, scoped `DELETE /messages` | M1 | REQ-040–REQ-043, REQ-023 |
 | [x] | M2-11 | Dedicated adapter ports (`adapters.<name>.port`) | M2-03 | REQ-036 |
-| [ ] | M2-12 | Credential linking: YAML `projects[].credentials`, `POST /projects/{id}/credentials`, UI action | M1 | REQ-091 |
+| [x] | M2-12 | Credential linking: YAML `projects[].credentials`, `POST /projects/{id}/credentials`, UI action | M1 | REQ-091 |
 | [ ] | M2-13 | UI: OTPs view, request inspector | M2-02, M2-10 | REQ-090 |
 | [ ] | M2-14 | Docs: Twilio and Termii guides, test-API guide with Playwright/Cypress/Jest examples | M2-06, M2-10 | — |
 

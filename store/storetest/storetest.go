@@ -117,6 +117,8 @@ func RunStoreTests(t *testing.T, newStore func() (core.Store, func())) {
 		_, err = store.GetCredential(ctx, "twilio", "AC123")
 		if err == nil {
 			t.Error("expected error after delete")
+		} else if !core.IsError(err, core.ErrCodeNotFound) {
+			t.Errorf("expected not_found after delete, got %v", err)
 		}
 	})
 

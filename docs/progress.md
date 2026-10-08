@@ -8,7 +8,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 |---|---|
 | **Phase** | Milestone 2 in progress |
 | **Current milestone** | M2 |
-| **Next action** | M2-12: Credential linking (YAML `projects[].credentials`, `POST /projects/{id}/credentials`, UI action) |
+| **Next action** | M2-13: UI OTPs view + request inspector |
 | **Last updated** | 2026-10-08 |
 
 ## Milestones
@@ -16,7 +16,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 | Milestone | Release | Status | Tasks done |
 |---|---|---|---|
 | M1: Core, native API, SMTP, inbox | v0.1.0 | Done | 21 / 21 |
-| M2: Twilio, Termii, test API, inspector | v0.2.0 | In progress | 11 / 14 |
+| M2: Twilio, Termii, test API, inspector | v0.2.0 | In progress | 12 / 14 |
 | M3: Webhooks, failure simulation, inbound, batches | v0.3.0 | Not started | 0 / 12 |
 | M4: Estimate, MCP, CI kit | v0.4.0 | Not started | 0 / 8 |
 
@@ -32,6 +32,15 @@ Single source of truth for where the project stands. Update it in every PR that 
 ## Session log
 
 Newest first. One entry per working session: what changed, decisions made, what's next.
+
+### 2026-10-08 (Session 18): Credential Linking (M2-12)
+
+- Completed M2-12 (`REQ-091`): one project can now serve several credentials.
+  - **Core**: `ProjectResolver` gains `LinkCredential` (create-or-move + cache update; target must exist). Also fixed SQLite `GetCredential` to return `not_found` on a miss like the other stores (was `internal`), with a new storetest assertion locking it in.
+  - **API**: `POST /projects/{id}/credentials` was a no-op (resolved and discarded the credential, ignoring `{id}`) — now validates input, 404s on unknown projects, and really links. Tests prove traffic routing: linked keys land in the target, moves drain the old project.
+  - **Config + startup**: YAML `projects[].credentials` (`id`, `name`, credentials with `provider`/`key`) applied before serving; missing projects are created. Covered by YAML-load and live-server tests.
+  - **UI**: Settings page gained a Linked Credentials card (project/provider/key form, success/error feedback, accessible labels); Biome + tsc clean.
+- **Next:** M2-13: UI OTPs view + request inspector.
 
 ### 2026-10-08 (Session 17): Dedicated Adapter Ports (M2-11)
 
