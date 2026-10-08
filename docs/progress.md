@@ -8,7 +8,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 |---|---|
 | **Phase** | Milestone 2 in progress |
 | **Current milestone** | M2 |
-| **Next action** | M2-13: UI OTPs view + request inspector |
+| **Next action** | M2 milestone gate: full suite, final commit, PR to `main`, tag `v0.2.0` |
 | **Last updated** | 2026-10-08 |
 
 ## Milestones
@@ -16,7 +16,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 | Milestone | Release | Status | Tasks done |
 |---|---|---|---|
 | M1: Core, native API, SMTP, inbox | v0.1.0 | Done | 21 / 21 |
-| M2: Twilio, Termii, test API, inspector | v0.2.0 | In progress | 12 / 14 |
+| M2: Twilio, Termii, test API, inspector | v0.2.0 | In progress | 14 / 14 |
 | M3: Webhooks, failure simulation, inbound, batches | v0.3.0 | Not started | 0 / 12 |
 | M4: Estimate, MCP, CI kit | v0.4.0 | Not started | 0 / 8 |
 
@@ -32,6 +32,22 @@ Single source of truth for where the project stands. Update it in every PR that 
 ## Session log
 
 Newest first. One entry per working session: what changed, decisions made, what's next.
+
+### 2026-10-08 (Session 20): Provider + Test-API Guides (M2-14)
+
+- Completed M2-14 (final M2 task): `docs/guides/twilio.md`, `termii.md` and `test-api.md` (with Playwright, Cypress and Jest examples); README links them and documents the new `adapters.*.port` and `projects` settings.
+- Every curl example was verified live against the binary (Twilio create/Verify, Termii send/otp/verify, wait, otp/latest); magic-number table cross-checked with `sim/simulator.go`. The Jest snippet's undefined `verId` was fixed to use `verification_id` from `otp/latest`.
+- `go test ./...`, `golangci-lint run` (0 issues), `gofmt` clean (docs-only change set, no code touched).
+- **Next:** M2 milestone gate (full suite + `e2e` + `build`, final commit, PR, tag `v0.2.0`, branch `milestone/m3`).
+
+### 2026-10-08 (Session 19): Request Inspector + OTPs UI (M2-13)
+
+- Completed M2-13 (`REQ-090`): the inspector is live and the OTPs view is complete.
+  - **Inspector**: HTTP Requests tab lists real adapter logs (method, path, status chip, duration) with a side-by-side raw request/response detail view (headers + pretty-printed bodies); Webhooks Log tab lists real deliveries. Fixed two client bugs the silent `.catch(() => empty)` fallbacks were masking: `logs` vs `requests` and `deliveries` vs `webhooks` keys, plus a new `getRequest` detail call. `useSSE` now invalidates `request-logs` on `request.logged`.
+  - **OTPs view**: added a Found-in-messages section (extracted codes with provider + time) beside the Verify grid; refresh covers both queries.
+  - **Big pre-existing find**: the UI calls `/api/v1/*` but the server only mounted root paths (404 everywhere) — `openapi.yaml` servers, the design spec and the vite proxy all assume `/api/v1`. The API is now mounted at both prefixes (ADR-010 records root as a compat alias); `isExemptPath` normalizes the prefix so health/events/wait exemptions work on both mounts (this also fixes browser `EventSource`, which cannot send the `X-Mocksms` header). Covered by `TestRun_ApiV1Prefix` + middleware mount tests.
+  - Verified end-to-end against the binary (adapter send → requests log with masked auth, verifications list, emails/latest) and with a production `pnpm run build`. `go test ./...`, `golangci-lint run`, `gofmt`, Biome and `tsc` clean.
+- **Next:** M2-14: Docs (final M2 task).
 
 ### 2026-10-08 (Session 18): Credential Linking (M2-12)
 

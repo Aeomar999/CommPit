@@ -44,4 +44,26 @@ func TestSecurityMiddleware_TwilioExemptFromXMocksms(t *testing.T) {
 			t.Fatalf("expected status 400, got %d: %s", rec.Code, rec.Body.String())
 		}
 	})
+
+	t.Run("healthz exempt on both mounts", func(t *testing.T) {
+		for _, path := range []string{"/healthz", "/api/v1/healthz"} {
+			req := httptest.NewRequest(http.MethodGet, path, nil)
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, req)
+			if rec.Code != http.StatusOK {
+				t.Fatalf("%s: expected status 200, got %d: %s", path, rec.Code, rec.Body.String())
+			}
+		}
+	})
+
+	t.Run("events exempt on both mounts", func(t *testing.T) {
+		for _, path := range []string{"/events", "/api/v1/events"} {
+			req := httptest.NewRequest(http.MethodGet, path, nil)
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, req)
+			if rec.Code != http.StatusOK {
+				t.Fatalf("%s: expected status 200, got %d: %s", path, rec.Code, rec.Body.String())
+			}
+		}
+	})
 }
