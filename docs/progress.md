@@ -8,7 +8,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 |---|---|
 | **Phase** | Milestone 2 in progress |
 | **Current milestone** | M2 |
-| **Next action** | M2-03: Twilio Messages API (create, list, fetch; error mapping; StatusCallback) |
+| **Next action** | M2-04: Twilio Verify v2 (services, verifications, checks, cancel/approve) |
 | **Last updated** | 2026-10-08 |
 
 ## Milestones
@@ -16,7 +16,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 | Milestone | Release | Status | Tasks done |
 |---|---|---|---|
 | M1: Core, native API, SMTP, inbox | v0.1.0 | Done | 21 / 21 |
-| M2: Twilio, Termii, test API, inspector | v0.2.0 | In progress | 2 / 14 |
+| M2: Twilio, Termii, test API, inspector | v0.2.0 | In progress | 3 / 14 |
 | M3: Webhooks, failure simulation, inbound, batches | v0.3.0 | Not started | 0 / 12 |
 | M4: Estimate, MCP, CI kit | v0.4.0 | Not started | 0 / 8 |
 
@@ -32,6 +32,18 @@ Single source of truth for where the project stands. Update it in every PR that 
 ## Session log
 
 Newest first. One entry per working session: what changed, decisions made, what's next.
+
+### 2026-10-08 (Session 9): Twilio Messages API (M2-03)
+
+- Completed M2-03 (`REQ-030`, `REQ-032`): new `adapters/twilio` package, mounted at `/twilio` in `cmd/mocksms` with a store-backed `RequestLog` sink and required credentials.
+  - **Create** (`POST /2010-04-01/Accounts/{AC}/Messages.json`): form-encoded `To`/`From`/`Body`/`StatusCallback`, `SM`+32-hex SID stored in `provider_ref`, 201 with Twilio's message shape (string `num_segments`/`num_media`, `direction: outbound-api`, `price: null`, RFC 2822 dates, `date_sent: null` while queued).
+  - **List** (`GET …/Messages.json`): `To`/`From`/`DateSent` (exact + range operators) filters, `PageSize` (default 50, max 1000) / `Page` paging with Twilio's envelope (`total`, `num_pages`, `first/next/previous_page_uri`).
+  - **Fetch** (`GET …/Messages/{SM}.json`): lookup by `provider_ref`, 404 code 20404.
+  - **WriteError**: canonical → Twilio codes (21211, 21212, 21610, 21612, 21614, 20003, 20404, 20429, 20500/20503, 60202) with `{code, message, more_info, status}`.
+  - **Middleware**: `/twilio` exempt from the `X-Mocksms` header (SDKs can't send it) with Host allow-list still enforced; covered by new `middleware/security_test.go`.
+  - Decisions (documented in new `docs/fidelity.md`): URIs omit the `/twilio` prefix; list/fetch show Twilio-provider messages only; `MediaUrl` counted but not stored; in-memory scan cap 5000. Best-guess codes (21604/21606/21602, 20500/20503, …) marked **unverified** for M2-05 contract tests.
+  - Tests written failing first (missing package, then a real pagination-total failure that reshaped the list implementation). `go test ./...`, `golangci-lint run` (0 issues), `gofmt` clean. Smoke-tested the built binary end-to-end: create → 201, lifecycle → `delivered` with `date_sent`, list envelope, fetch, 21211 on bad `To`, 20003 without auth.
+- **Next:** M2-04: Twilio Verify v2.
 
 ### 2026-10-08 (Session 8): RequestLog Inspector API (M2-02)
 
