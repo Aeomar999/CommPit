@@ -1,0 +1,14 @@
+{
+  "body": {
+    "pin": "000000"
+  },
+  "request": {
+    "form": {
+      "pin_length": 6,
+      "pin_type": "NUMERIC"
+    },
+    "method": "POST",
+    "path": "/api/sms/otp/generate"
+  },
+  "status": 200
+}

@@ -1,0 +1,23 @@
+{
+  "body": {
+    "balance": null,
+    "code": "ok",
+    "message": "Successfully Sent",
+    "message_id": 1234567890,
+    "user": null
+  },
+  "request": {
+    "form": {
+      "from": "TestSender",
+      "sms": "Bulk golden",
+      "to": [
+        "+2348031234567",
+        "+2348051234567",
+        "+2348071234567"
+      ]
+    },
+    "method": "POST",
+    "path": "/api/sms/send/bulk"
+  },
+  "status": 200
+}

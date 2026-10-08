@@ -109,11 +109,15 @@ Implemented: `POST /api/sms/send`, `POST /api/sms/send/bulk`,
 - Success message text (`"Successfully Sent"`), `balance`/`user` nullability.
 - HTTP 200 (not 201/202) for sends; the 401 shape for bad keys.
 - Recipient caps (100 single / 10,000 bulk) and the `rejected` array shape.
-- `type`/`channel` parameters accepted and ignored (no DND routing).
+- `type`/`channel` parameters accepted and ignored (no DND/generic routing,
+  no `plain` vs unicode distinction beyond core's GSM-7/UCS-2 detection).
 - `/number/send` behaves like `/send` (no number provisioning model yet).
 - Batch-level `message_id` is generated, not stored (core batches carry no
   provider ref); per-message numeric refs apply to single sends only.
 - Credential extraction reads up to 1 MB bodies (bulk batches are ~200 KB).
+- No per-request delivery callback (Termii reports are account-level;
+  M3-03); `from` is required on every send.
+- Strict E.164 validation — Termii may accept looser number formats.
 
 ## Termii Token (M2-08)
 
@@ -135,8 +139,13 @@ Implemented: `POST /api/sms/otp/send`, `POST /api/sms/otp/verify`,
   bare `pin`, email acknowledge).
 - `"Message Sent"` / `"Successfully Sent"` message strings.
 - Wrong-PIN semantics (implemented as 200 `verified: false`, mirroring the
-  Twilio check mapping).
+  Twilio check mapping); omitted `pin_attempts`/`pin_time_to_live` fall
+  back to core defaults (5 attempts, 600 s).
 - `pin_type` values beyond `NUMERIC`; `message_type`/`channel` accepted
   and ignored; `email_configuration_id` accepted and ignored.
 - Default `pin_placeholder` (`< 1234 >`); placeholder-missing templates get
   the code appended.
+- `otp/generate` keeps no server-side record, so generated PINs cannot be
+  checked later; `from` is required on `otp/send`.
+- Email codes accept 4–10 characters (core `CustomCode` bounds); there is
+  no email sender configuration model yet.

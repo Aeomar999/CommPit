@@ -1,0 +1,15 @@
+{
+  "body": {
+    "code": "validation_error",
+    "message": "valid email_address is required"
+  },
+  "request": {
+    "form": {
+      "code": "731946",
+      "email_address": "not-an-email"
+    },
+    "method": "POST",
+    "path": "/api/email/otp/send"
+  },
+  "status": 400
+}

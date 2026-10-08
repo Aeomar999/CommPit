@@ -8,7 +8,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 |---|---|
 | **Phase** | Milestone 2 in progress |
 | **Current milestone** | M2 |
-| **Next action** | M2-09: Termii golden fixtures and `docs/fidelity.md` unverified listing |
+| **Next action** | M2-10: Test API (`messages/wait`, `otp/latest`, `emails/latest`, `verifications/{id}/expire`, scoped `DELETE /messages`) |
 | **Last updated** | 2026-10-08 |
 
 ## Milestones
@@ -16,7 +16,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 | Milestone | Release | Status | Tasks done |
 |---|---|---|---|
 | M1: Core, native API, SMTP, inbox | v0.1.0 | Done | 21 / 21 |
-| M2: Twilio, Termii, test API, inspector | v0.2.0 | In progress | 8 / 14 |
+| M2: Twilio, Termii, test API, inspector | v0.2.0 | In progress | 9 / 14 |
 | M3: Webhooks, failure simulation, inbound, batches | v0.3.0 | Not started | 0 / 12 |
 | M4: Estimate, MCP, CI kit | v0.4.0 | Not started | 0 / 8 |
 
@@ -32,6 +32,13 @@ Single source of truth for where the project stands. Update it in every PR that 
 ## Session log
 
 Newest first. One entry per working session: what changed, decisions made, what's next.
+
+### 2026-10-08 (Session 15): Termii Golden Fixtures (M2-09)
+
+- Completed M2-09: 13 golden fixtures in `adapters/termii/testdata/` covering every SMS and Token endpoint (success + error paths), locked by `TestTermii_Golden` with `-update` regeneration. Normalization is key-based (`message_id`, `pinId`, `pin`) rather than regex, because phone numbers share the digit space.
+- Reviewed and completed the `docs/fidelity.md` Termii sections as the unverified-behavior listing (Termii publishes no spec, so no contract tests apply): added `from`-required, `pin_attempts`/TTL defaults, email code bounds, generate-keeps-nothing, strict E.164, no per-request callback, channel distinctions.
+- `go test ./...`, `golangci-lint run` (0 issues), `gofmt` clean.
+- **Next:** M2-10: Test API.
 
 ### 2026-10-08 (Session 14): Termii Token (M2-08)
 

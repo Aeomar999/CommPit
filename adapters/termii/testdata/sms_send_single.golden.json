@@ -1,0 +1,18 @@
+{
+  "body": {
+    "balance": null,
+    "message": "Successfully Sent",
+    "message_id": 1234567890,
+    "user": null
+  },
+  "request": {
+    "form": {
+      "from": "TestSender",
+      "sms": "Hello golden",
+      "to": "+2348031234567"
+    },
+    "method": "POST",
+    "path": "/api/sms/send"
+  },
+  "status": 200
+}

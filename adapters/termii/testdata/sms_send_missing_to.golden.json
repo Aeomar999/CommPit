@@ -1,0 +1,15 @@
+{
+  "body": {
+    "code": "validation_error",
+    "message": "recipient is required"
+  },
+  "request": {
+    "form": {
+      "from": "TestSender",
+      "sms": "No to"
+    },
+    "method": "POST",
+    "path": "/api/sms/send"
+  },
+  "status": 400
+}

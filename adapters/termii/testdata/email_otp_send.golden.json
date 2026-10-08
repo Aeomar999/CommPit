@@ -1,0 +1,16 @@
+{
+  "body": {
+    "email": "user@example.com",
+    "message": "Successfully Sent",
+    "message_id": 1234567890
+  },
+  "request": {
+    "form": {
+      "code": "731946",
+      "email_address": "user@example.com"
+    },
+    "method": "POST",
+    "path": "/api/email/otp/send"
+  },
+  "status": 200
+}

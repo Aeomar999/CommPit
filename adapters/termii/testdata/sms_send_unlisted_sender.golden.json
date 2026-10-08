@@ -1,0 +1,16 @@
+{
+  "body": {
+    "code": "invalid_sender",
+    "message": "sender ID not in allow-list"
+  },
+  "request": {
+    "form": {
+      "from": "BlockedSender",
+      "sms": "Blocked",
+      "to": "+2348031234567"
+    },
+    "method": "POST",
+    "path": "/api/sms/send"
+  },
+  "status": 400
+}
