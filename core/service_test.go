@@ -444,3 +444,32 @@ func TestService_GenerateCode10000(t *testing.T) {
 		}
 	}
 }
+
+func TestService_VerificationText(t *testing.T) {
+	svc := &Service{}
+	label := "mocksms"
+	ref := "VA123"
+	cases := []struct {
+		name     string
+		channel  Channel
+		ref      *string
+		label    *string
+		contains []string
+	}{
+		{name: "sms default", channel: ChannelSMS, contains: []string{"Your verification code is 123456"}},
+		{name: "sms service ref", channel: ChannelSMS, ref: &ref, contains: []string{"Your VA123 verification code is: 123456"}},
+		{name: "sms label wins over ref", channel: ChannelSMS, ref: &ref, label: &label, contains: []string{"Your mocksms verification code is: 123456"}},
+		{name: "email ignores service", channel: ChannelEmail, ref: &ref, label: &label, contains: []string{"Your verification code is 123456"}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := svc.defaultVerificationText(tc.channel, "123456", tc.ref, tc.label)
+			for _, want := range tc.contains {
+				if got != want {
+					t.Errorf("expected %q, got %q", want, got)
+				}
+			}
+		})
+	}
+}

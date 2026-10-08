@@ -267,6 +267,10 @@ type VerificationRequest struct {
 	Provider    string
 	ProviderRef string
 	ServiceRef  *string
+	// ServiceLabel is a human-readable service name used in the
+	// verification message text when set (e.g. a Verify service's
+	// friendly name). ServiceRef stays the stable service reference.
+	ServiceLabel *string
 }
 
 type VerificationResponse struct {

@@ -166,7 +166,7 @@ func (a *Adapter) createMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sid, err := newMessageSID()
+	sid, err := newSID("SM")
 	if err != nil {
 		a.WriteError(w, core.NewInternal("failed to allocate message sid"))
 		return

@@ -38,13 +38,21 @@ func (a *Adapter) Name() string {
 	return "twilio"
 }
 
-// Routes registers the Messages endpoints. The router is mounted at
+// Routes registers the Messages and Verify endpoints. The router is mounted at
 // /twilio by the composition root, so paths here are Twilio-relative.
 func (a *Adapter) Routes(r chi.Router) {
 	r.Route("/2010-04-01/Accounts/{AccountSid}", func(r chi.Router) {
 		r.Post("/Messages.json", a.createMessage)
 		r.Get("/Messages.json", a.listMessages)
 		r.Get("/Messages/{MessageSid}.json", a.fetchMessage)
+	})
+	r.Post("/v2/Services", a.createService)
+	r.Route("/v2/Services/{ServiceSid}", func(r chi.Router) {
+		r.Get("/", a.fetchService)
+		r.Post("/Verifications", a.createVerification)
+		r.Get("/Verifications/{VerificationSid}", a.fetchVerification)
+		r.Post("/Verifications/{VerificationSid}", a.updateVerification)
+		r.Post("/VerificationCheck", a.checkVerification)
 	})
 }
 
@@ -57,11 +65,12 @@ func Extractor() adapterkit.CredentialExtractor {
 	)
 }
 
-// newMessageSID generates a Twilio-format message SID: SM + 32 hex chars.
-func newMessageSID() (string, error) {
+// newSID generates a Twilio-format SID: the given prefix plus 32 hex chars
+// (SM for messages, VA for Verify services, VE for verifications).
+func newSID(prefix string) (string, error) {
 	var buf [16]byte
 	if _, err := rand.Read(buf[:]); err != nil {
 		return "", fmt.Errorf("twilio: generate sid: %w", err)
 	}
-	return "SM" + hex.EncodeToString(buf[:]), nil
+	return prefix + hex.EncodeToString(buf[:]), nil
 }

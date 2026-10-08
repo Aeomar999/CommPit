@@ -8,7 +8,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 |---|---|
 | **Phase** | Milestone 2 in progress |
 | **Current milestone** | M2 |
-| **Next action** | M2-04: Twilio Verify v2 (services, verifications, checks, cancel/approve) |
+| **Next action** | M2-05: Twilio golden fixtures and contract tests against a pinned twilio-oai spec |
 | **Last updated** | 2026-10-08 |
 
 ## Milestones
@@ -16,7 +16,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 | Milestone | Release | Status | Tasks done |
 |---|---|---|---|
 | M1: Core, native API, SMTP, inbox | v0.1.0 | Done | 21 / 21 |
-| M2: Twilio, Termii, test API, inspector | v0.2.0 | In progress | 3 / 14 |
+| M2: Twilio, Termii, test API, inspector | v0.2.0 | In progress | 4 / 14 |
 | M3: Webhooks, failure simulation, inbound, batches | v0.3.0 | Not started | 0 / 12 |
 | M4: Estimate, MCP, CI kit | v0.4.0 | Not started | 0 / 8 |
 
@@ -32,6 +32,17 @@ Single source of truth for where the project stands. Update it in every PR that 
 ## Session log
 
 Newest first. One entry per working session: what changed, decisions made, what's next.
+
+### 2026-10-08 (Session 10): Twilio Verify v2 (M2-04)
+
+- Completed M2-04 (`REQ-031`): Verify v2 endpoints on the existing `/twilio` mount (no wiring changes needed).
+  - **Services** (`POST /v2/Services`, `GET /v2/Services/{VA}`): `VA`+32-hex SIDs, `FriendlyName` (default "mocksms"), `CodeLength` (default 6, enforced 4-8). Records persist in project settings under `twilio_verify_services` — no migration, no core store change. Unknown `VA` SIDs auto-provision with defaults on verification create (spec §7.4).
+  - **Verifications**: create by `To` + `Channel=sms|email` (201, `VE` SID, `pending`/`valid:false`); fetch; update with `Status=canceled|approved` (non-pending transitions rejected, event published like the native expire path).
+  - **VerificationCheck** by `To` (newest pending) or `VerificationSid`: wrong code stays `pending`, correct code approves, exhaustion is 429 code 60202, unknown/expired/canceled is 404 code 20404.
+  - **Core extension** (adapter-checklist rule: core was missing something): provider-neutral `ServiceLabel` on `VerificationRequest`, preferred over `ServiceRef` in the message text, so the SMS reads `Your {friendly name} verification code is: {code}` while `ServiceRef` keeps the `VA` reference. Covered by `TestService_VerificationText`; no provider formats in core.
+  - Tests written first (`adapters/twilio/verify_test.go`: services, friendly-name text via the stored message, auto-provision, email channel, check flows incl. 5-attempt exhaustion, cancel/approve/get, error codes). `go test ./...`, `golangci-lint run` (0 issues), `gofmt` clean. Live-binary smoke test: service create → verification create → wrong-code check (`pending/false`) → cancel (`canceled`).
+  - `docs/fidelity.md` gained a Verify section with **unverified** items for M2-05 contract tests.
+- **Next:** M2-05: Twilio golden fixtures and contract tests.
 
 ### 2026-10-08 (Session 9): Twilio Messages API (M2-03)
 

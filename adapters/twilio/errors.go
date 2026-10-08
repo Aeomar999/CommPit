@@ -83,6 +83,41 @@ func (a *Adapter) WriteError(w http.ResponseWriter, err *core.Error) {
 	})
 }
 
+// verifyCodeFor maps a canonical core error to Verify v2's numeric error
+// code. Verify uses the 60200 series for bad parameters; send-pipeline
+// errors keep their shared Messages codes. Assignments are best-effort;
+// see docs/fidelity.md.
+func verifyCodeFor(err *core.Error) int {
+	switch err.Code {
+	case core.ErrCodeValidationError, core.ErrCodeInvalidNumber, core.ErrCodeInvalidSender:
+		return 60200
+	case core.ErrCodeVerificationNotFound, core.ErrCodeNotFound:
+		return 20404
+	case core.ErrCodeMaxAttempts:
+		return 60202
+	default:
+		return twilioCodeFor(err)
+	}
+}
+
+// writeVerifyError translates a canonical core error into Verify v2's error
+// format (same envelope as Messages, Verify-specific codes).
+func (a *Adapter) writeVerifyError(w http.ResponseWriter, err *core.Error) {
+	if err == nil {
+		err = core.NewInternal("internal error")
+	}
+	code := verifyCodeFor(err)
+	status := err.HTTPStatus()
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(twilioError{
+		Code:     code,
+		Message:  err.Message,
+		MoreInfo: "https://www.twilio.com/docs/errors/" + strconv.Itoa(code),
+		Status:   status,
+	})
+}
+
 // writeServiceError converts a service-layer error (canonical or
 // unexpected) into Twilio's error format.
 func (a *Adapter) writeServiceError(w http.ResponseWriter, err error) {
@@ -91,4 +126,14 @@ func (a *Adapter) writeServiceError(w http.ResponseWriter, err error) {
 		ce = core.NewInternal("internal error")
 	}
 	a.WriteError(w, ce)
+}
+
+// writeVerifyServiceError converts a service-layer error into Verify v2's
+// error format.
+func (a *Adapter) writeVerifyServiceError(w http.ResponseWriter, err error) {
+	var ce *core.Error
+	if !errors.As(err, &ce) {
+		ce = core.NewInternal("internal error")
+	}
+	a.writeVerifyError(w, ce)
 }

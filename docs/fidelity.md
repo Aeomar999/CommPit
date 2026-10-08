@@ -48,3 +48,34 @@ Decisions (intentional, not Twilio behavior):
 - `date_sent` is set from the last update for every non-`queued` status.
 - List/fetch scan at most the 5000 newest project messages; totals and
   paging are exact below that volume.
+
+## Twilio Verify v2 (M2-04)
+
+Implemented: `POST /v2/Services`, `GET /v2/Services/{VA}`,
+`POST …/Verifications`, `GET …/Verifications/{VE}`,
+`POST …/Verifications/{VE}` (`Status=canceled|approved`),
+`POST …/VerificationCheck` (by `To` or `VerificationSid`).
+
+- Services persist in project settings (`twilio_verify_services`); any `VA`
+  SID is accepted and auto-provisioned with defaults (friendly name
+  "mocksms", code length 6) when first used.
+- Verification message text uses the service friendly name
+  (`Your {name} verification code is: {code}`), via a provider-neutral
+  `ServiceLabel` on the core verification request.
+- Check semantics follow the core: wrong code stays `pending` (`valid:
+  false`), correct code approves, exhausted attempts are 429 code 60202,
+  expired/canceled/unknown verifications are 404 code 20404.
+- Dates are ISO 8601; `channel` accepts `sms` and `email`.
+
+**Unverified** (correct in M2-05 contract tests if wrong):
+
+- Verify parameter codes: 60200 for bad `To`/`Channel`/`Code`/`Status`.
+- Expired-verification check code (implemented as 20404 per the spec table).
+- 429 (not 403) for exhausted check attempts.
+- `To`-based checks targeting the newest pending verification.
+- Service-scoped lookups 404ing across services.
+- Reduced service/verification field sets (no `lookup_enabled`,
+  `skip_sms_to_landlines`, `rate_limits`, `amount` breakdown, etc.).
+- `date_updated` mirrors `date_created`; verification updates don't track a
+  separate timestamp.
+- No per-request `Ttl`/`CustomCode`/`Locale` parameters yet.
