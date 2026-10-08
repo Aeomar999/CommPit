@@ -271,6 +271,12 @@ type VerificationRequest struct {
 	// verification message text when set (e.g. a Verify service's
 	// friendly name). ServiceRef stays the stable service reference.
 	ServiceLabel *string
+	// CustomCode skips code generation and stores this code instead
+	// (e.g. Termii's caller-supplied email OTP). Must be 4-10 characters.
+	CustomCode *string
+	// BodyText overrides the default verification message text verbatim
+	// (e.g. a Termii message_text template with the code substituted).
+	BodyText *string
 }
 
 type VerificationResponse struct {

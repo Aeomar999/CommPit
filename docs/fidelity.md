@@ -114,3 +114,29 @@ Implemented: `POST /api/sms/send`, `POST /api/sms/send/bulk`,
 - Batch-level `message_id` is generated, not stored (core batches carry no
   provider ref); per-message numeric refs apply to single sends only.
 - Credential extraction reads up to 1 MB bodies (bulk batches are ~200 KB).
+
+## Termii Token (M2-08)
+
+Implemented: `POST /api/sms/otp/send`, `POST /api/sms/otp/verify`,
+`POST /api/sms/otp/generate`, `POST /api/email/otp/send` (all under
+`/termii`, JSON bodies).
+
+- `pin_length` (default 6), `pin_attempts` and `pin_time_to_live`
+  (minutes → seconds) map onto the core verification; the PIN is minted
+  adapter-side so `message_text` templates render in a single write.
+- `pinId` values are UUIDv4, stored in the verification's `provider_ref`.
+- `otp/generate` returns the PIN only; nothing is sent or stored.
+- `email/otp/send` stores the caller-supplied code verbatim (via the core
+  `CustomCode` field) on an email-channel verification.
+
+**Unverified** (correct against a real account in X-01 / M2-09 fixtures):
+
+- Every response shape (`pinId`/`to`/`smsStatus`, `verified`/`msisdn`,
+  bare `pin`, email acknowledge).
+- `"Message Sent"` / `"Successfully Sent"` message strings.
+- Wrong-PIN semantics (implemented as 200 `verified: false`, mirroring the
+  Twilio check mapping).
+- `pin_type` values beyond `NUMERIC`; `message_type`/`channel` accepted
+  and ignored; `email_configuration_id` accepted and ignored.
+- Default `pin_placeholder` (`< 1234 >`); placeholder-missing templates get
+  the code appended.

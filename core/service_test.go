@@ -11,18 +11,20 @@ import (
 
 type testServiceStore struct {
 	Store
-	mu           sync.Mutex
-	messages     map[string]*Message
-	batches      map[string]*Batch
-	unsubscribes map[string]bool
-	statusEvents []*StatusEvent
+	mu            sync.Mutex
+	messages      map[string]*Message
+	batches       map[string]*Batch
+	verifications map[string]*Verification
+	unsubscribes  map[string]bool
+	statusEvents  []*StatusEvent
 }
 
 func newTestServiceStore() *testServiceStore {
 	return &testServiceStore{
-		messages:     make(map[string]*Message),
-		batches:      make(map[string]*Batch),
-		unsubscribes: make(map[string]bool),
+		messages:      make(map[string]*Message),
+		batches:       make(map[string]*Batch),
+		verifications: make(map[string]*Verification),
+		unsubscribes:  make(map[string]bool),
 	}
 }
 
@@ -122,6 +124,14 @@ func (s *testServiceStore) CreateStatusEvent(ctx context.Context, e *StatusEvent
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.statusEvents = append(s.statusEvents, e)
+	return nil
+}
+
+func (s *testServiceStore) CreateVerification(ctx context.Context, v *Verification) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	cp := *v
+	s.verifications[v.ID] = &cp
 	return nil
 }
 
@@ -443,6 +453,65 @@ func TestService_GenerateCode10000(t *testing.T) {
 			t.Errorf("digit %c never appeared in 10,000 codes", d)
 		}
 	}
+}
+
+func TestService_VerificationCustomCodeAndBody(t *testing.T) {
+	newSvc := func() (*Service, *testServiceStore) {
+		store := newTestServiceStore()
+		clock := NewFakeClock()
+		clock.Set(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))
+		fixed := "999999"
+		svc := NewService(ServiceConfig{
+			Store:        store,
+			Bus:          &mockBus{},
+			Simulator:    &mockSimulator{},
+			Clock:        clock,
+			StepDelay:    0,
+			PhoneMode:    phone.ModeValid,
+			OTPFixedCode: &fixed,
+		})
+		return svc, store
+	}
+
+	t.Run("custom code and body win over generation", func(t *testing.T) {
+		svc, store := newSvc()
+		custom, body := "424242", "Your pin is 424242, valid 10 minutes"
+		resp, err := svc.StartVerification(context.Background(), "prj_test", VerificationRequest{
+			To:         "+15005550006",
+			Channel:    ChannelSMS,
+			Provider:   "termii",
+			CustomCode: &custom,
+			BodyText:   &body,
+		})
+		if err != nil {
+			t.Fatalf("StartVerification: %v", err)
+		}
+		if resp.Verification.Code != "424242" {
+			t.Errorf("expected custom code, got %q", resp.Verification.Code)
+		}
+		msg, err := store.GetMessage(context.Background(), "prj_test", resp.Message.ID)
+		if err != nil {
+			t.Fatalf("GetMessage: %v", err)
+		}
+		if msg.BodyText != body {
+			t.Errorf("expected custom body, got %q", msg.BodyText)
+		}
+	})
+
+	t.Run("custom code of bad length rejected", func(t *testing.T) {
+		svc, _ := newSvc()
+		for _, code := range []string{"123", "12345678901"} {
+			_, err := svc.StartVerification(context.Background(), "prj_test", VerificationRequest{
+				To:         "+15005550006",
+				Channel:    ChannelSMS,
+				Provider:   "termii",
+				CustomCode: &code,
+			})
+			if !IsError(err, ErrCodeValidationError) {
+				t.Errorf("code %q: expected validation_error, got %v", code, err)
+			}
+		}
+	})
 }
 
 func TestService_VerificationText(t *testing.T) {

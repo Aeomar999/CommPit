@@ -54,6 +54,10 @@ func (a *Adapter) Routes(r chi.Router) {
 	r.Post("/api/sms/send", a.sendHandler(maxSingleRecipients, false))
 	r.Post("/api/sms/send/bulk", a.sendHandler(maxBulkRecipients, true))
 	r.Post("/api/sms/number/send", a.sendHandler(maxSingleRecipients, false))
+	r.Post("/api/sms/otp/send", a.otpSend)
+	r.Post("/api/sms/otp/verify", a.otpVerify)
+	r.Post("/api/sms/otp/generate", a.otpGenerate)
+	r.Post("/api/email/otp/send", a.emailOtpSend)
 }
 
 // Extractor resolves the caller's credential from the api_key in the JSON

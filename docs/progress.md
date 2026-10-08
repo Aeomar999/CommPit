@@ -8,7 +8,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 |---|---|
 | **Phase** | Milestone 2 in progress |
 | **Current milestone** | M2 |
-| **Next action** | M2-08: Termii Token (`otp/send`, `otp/verify`, `otp/generate`, `email/otp/send`) |
+| **Next action** | M2-09: Termii golden fixtures and `docs/fidelity.md` unverified listing |
 | **Last updated** | 2026-10-08 |
 
 ## Milestones
@@ -16,7 +16,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 | Milestone | Release | Status | Tasks done |
 |---|---|---|---|
 | M1: Core, native API, SMTP, inbox | v0.1.0 | Done | 21 / 21 |
-| M2: Twilio, Termii, test API, inspector | v0.2.0 | In progress | 7 / 14 |
+| M2: Twilio, Termii, test API, inspector | v0.2.0 | In progress | 8 / 14 |
 | M3: Webhooks, failure simulation, inbound, batches | v0.3.0 | Not started | 0 / 12 |
 | M4: Estimate, MCP, CI kit | v0.4.0 | Not started | 0 / 8 |
 
@@ -32,6 +32,18 @@ Single source of truth for where the project stands. Update it in every PR that 
 ## Session log
 
 Newest first. One entry per working session: what changed, decisions made, what's next.
+
+### 2026-10-08 (Session 14): Termii Token (M2-08)
+
+- Completed M2-08 (`REQ-034`): four Token endpoints on the existing `/termii` mount (no wiring changes).
+  - **otp/send**: `pin_length` (default 6), `pin_attempts`, `pin_time_to_live` (minutes→seconds) map onto the verification; the PIN is minted adapter-side so `message_text` + `pin_placeholder` templates render in one write; UUIDv4 `pinId` in `provider_ref`; responds `{pinId, to, smsStatus}`.
+  - **otp/verify** (`pin_id` + `pin`): wrong PIN → 200 `verified: false`, correct → `verified: true` with `msisdn`, unknown PIN → 404, exhaustion → 429.
+  - **otp/generate** (`NUMERIC` only): returns `{pin}`, sends and stores nothing.
+  - **email/otp/send**: validates the address (net/mail), stores the caller-supplied code verbatim on an email-channel verification.
+  - **Core extension** (same justification as M2-04's `ServiceLabel`): provider-neutral `CustomCode` (explicit codes win over `--otp-code`, 4–10 chars) and `BodyText` (verbatim template override) on `VerificationRequest`. Covered by `TestService_VerificationCustomCodeAndBody` (mock store gained `CreateVerification`).
+  - Tests first, all green: `go test ./...`, `golangci-lint run` (0 issues), `gofmt` clean. Live-binary smoke test of all four endpoints.
+  - `docs/fidelity.md` gained a Token section; every response shape is marked **unverified** for X-01/M2-09.
+- **Next:** M2-09: Termii golden fixtures.
 
 ### 2026-10-08 (Session 13): Termii SMS (M2-07)
 
