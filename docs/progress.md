@@ -8,7 +8,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 |---|---|
 | **Phase** | Milestone 2 in progress |
 | **Current milestone** | M2 |
-| **Next action** | M2-11: Dedicated adapter ports (`adapters.<name>.port`) |
+| **Next action** | M2-12: Credential linking (YAML `projects[].credentials`, `POST /projects/{id}/credentials`, UI action) |
 | **Last updated** | 2026-10-08 |
 
 ## Milestones
@@ -16,7 +16,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 | Milestone | Release | Status | Tasks done |
 |---|---|---|---|
 | M1: Core, native API, SMTP, inbox | v0.1.0 | Done | 21 / 21 |
-| M2: Twilio, Termii, test API, inspector | v0.2.0 | In progress | 10 / 14 |
+| M2: Twilio, Termii, test API, inspector | v0.2.0 | In progress | 11 / 14 |
 | M3: Webhooks, failure simulation, inbound, batches | v0.3.0 | Not started | 0 / 12 |
 | M4: Estimate, MCP, CI kit | v0.4.0 | Not started | 0 / 8 |
 
@@ -32,6 +32,15 @@ Single source of truth for where the project stands. Update it in every PR that 
 ## Session log
 
 Newest first. One entry per working session: what changed, decisions made, what's next.
+
+### 2026-10-08 (Session 17): Dedicated Adapter Ports (M2-11)
+
+- Completed M2-11 (`REQ-036`): `adapters.twilio.port` / `adapters.termii.port` (flags `--twilio-port`/`--termii-port`, env, YAML; 0 disables) serve each adapter at `/` on its own port, reusing the same kit handler (logging, recovery, credential resolution) plus Host allow-list security.
+  - Server fan-out in `cmd/mocksms`: named HTTP servers share one error channel (fail-fast on any port conflict, per M1-F05), all drain on shutdown.
+  - **Real bug found by the new test**: dedicated ports serve adapter paths at root, so the `X-Mocksms` path exemption never matches and SDK traffic 400s. Dedicated listeners now skip only that header check (provider auth still applies); the main mount keeps path exemptions.
+  - **Pre-existing bug exposed**: env-var loading never stripped the `MOCKSMS_` prefix, so no `MOCKSMS_*` override ever worked — fixed with a one-line `TrimPrefix` (nothing could have depended on the broken behavior).
+  - Tests: config defaults + env override, dedicated-port serve (201 at root), adapter conflict errors. `go test ./...`, `golangci-lint run` (0 issues), `gofmt` clean. Live check of both dedicated ports.
+- **Next:** M2-12: Credential linking.
 
 ### 2026-10-08 (Session 16): Test API (M2-10)
 

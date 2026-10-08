@@ -24,6 +24,7 @@ type Config struct {
 	DataDir             string
 	Memory              bool
 	Store               StoreConfig
+	Adapters            AdaptersConfig
 	Lifecycle           LifecycleConfig
 	OTP                 OTPConfig
 	Validation          ValidationConfig
@@ -43,6 +44,18 @@ type SecurityConfig struct {
 
 type StoreConfig struct {
 	ReadPoolSize int
+}
+
+// AdapterPortConfig holds the dedicated-port setting for one provider
+// adapter. Port 0 (the default) disables the dedicated listener.
+type AdapterPortConfig struct {
+	Port int
+}
+
+// AdaptersConfig holds per-adapter settings.
+type AdaptersConfig struct {
+	Twilio AdapterPortConfig
+	Termii AdapterPortConfig
 }
 
 type LifecycleConfig struct {
@@ -76,6 +89,7 @@ func Load() *Config {
 	k := koanf.New(".")
 
 	k.Load(env.Provider("MOCKSMS_", ".", func(s string) string {
+		s = strings.TrimPrefix(s, "MOCKSMS_")
 		return strings.ReplaceAll(strings.ToLower(s), "_", ".")
 	}), nil)
 
@@ -98,6 +112,8 @@ func Load() *Config {
 	cfg.DataDir = getString(k, "data_dir", defaultDataDir())
 	cfg.Memory = getBool(k, "memory", false)
 	cfg.Store.ReadPoolSize = getInt(k, "store.read_pool_size", 4)
+	cfg.Adapters.Twilio.Port = getInt(k, "adapters.twilio.port", 0)
+	cfg.Adapters.Termii.Port = getInt(k, "adapters.termii.port", 0)
 	cfg.Lifecycle.StepDelay = getDuration(k, "lifecycle.step_delay", 300*time.Millisecond)
 	cfg.OTP.FixedCode = getString(k, "otp.fixed_code", "")
 	cfg.Validation.Phone = getString(k, "validation.phone", "valid")
