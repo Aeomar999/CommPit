@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 Provider-compatible adapters follow the real providers' behavior. Fixes that make an adapter match its provider more closely are listed under **Fixed** with the `fidelity:` prefix.
 
+## [Unreleased]
+
+### Added
+
+- `adapterkit` package (`adapters/adapterkit`): shared provider adapter middleware and coordinators (REQ-090).
+  - Panic recovery middleware translating unhandled panics into canonical internal errors formatted via the provider's `WriteError`.
+  - Credential resolution middleware supporting Basic Auth, Bearer tokens, headers, path params, query params, and JSON bodies with automatic project provisioning via `core.ProjectResolver`.
+  - Ingress request logging middleware capping recorded request and response bodies at 64 KB while preserving full downstream streams via `io.MultiReader`.
+  - Credential masking across headers (Basic, Bearer, API keys, cookies), JSON/form payloads, and URI query strings before persistence or event bus publishing.
+
 ## [0.1.0] - 2026-10-07
 
 ### Added

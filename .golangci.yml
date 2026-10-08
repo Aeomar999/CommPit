@@ -68,6 +68,40 @@ linters:
               desc: "bus may import only core"
             - pkg: "github.com/Aeomar999/CommPit/api"
               desc: "bus may import only core"
+        adapterkit:
+          files:
+            - "**/adapters/adapterkit/**/*.go"
+          list-mode: lax
+          deny:
+            - pkg: "github.com/Aeomar999/CommPit/store"
+              desc: "adapterkit may import only core"
+            - pkg: "github.com/Aeomar999/CommPit/bus"
+              desc: "adapterkit may import only core"
+            - pkg: "github.com/Aeomar999/CommPit/api"
+              desc: "adapterkit may import only core"
+            - pkg: "github.com/Aeomar999/CommPit/sim"
+              desc: "adapterkit may import only core"
+            - pkg: "github.com/Aeomar999/CommPit/smtpd"
+              desc: "adapterkit may import only core"
+            - pkg: "github.com/Aeomar999/CommPit/phone"
+              desc: "adapterkit may import only core"
+            - pkg: "github.com/Aeomar999/CommPit/config"
+              desc: "adapterkit may import only core"
+        adapters:
+          files:
+            - "**/adapters/**/*.go"
+          list-mode: lax
+          deny:
+            - pkg: "github.com/Aeomar999/CommPit/store"
+              desc: "adapters may not import store"
+            - pkg: "github.com/Aeomar999/CommPit/api"
+              desc: "adapters may not import api"
+            - pkg: "github.com/Aeomar999/CommPit/sim"
+              desc: "adapters may not import sim"
+            - pkg: "github.com/Aeomar999/CommPit/smtpd"
+              desc: "adapters may not import smtpd"
+            - pkg: "github.com/Aeomar999/CommPit/config"
+              desc: "adapters may not import config"
     govet:
       enable:
         - structtag

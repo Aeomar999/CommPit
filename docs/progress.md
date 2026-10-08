@@ -6,9 +6,9 @@ Single source of truth for where the project stands. Update it in every PR that 
 
 | | |
 |---|---|
-| **Phase** | M1 complete, preparing M2 |
-| **Current milestone** | M1 |
-| **Next action** | Tag v0.1.0 on main, create milestone/m2 branch |
+| **Phase** | Milestone 2 in progress |
+| **Current milestone** | M2 |
+| **Next action** | M2-02: RequestLog storage and `GET /api/v1/requests[/{id}]` |
 | **Last updated** | 2026-10-08 |
 
 ## Milestones
@@ -16,7 +16,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 | Milestone | Release | Status | Tasks done |
 |---|---|---|---|
 | M1: Core, native API, SMTP, inbox | v0.1.0 | Done | 21 / 21 |
-| M2: Twilio, Termii, test API, inspector | v0.2.0 | Next | 0 / 14 |
+| M2: Twilio, Termii, test API, inspector | v0.2.0 | In progress | 1 / 14 |
 | M3: Webhooks, failure simulation, inbound, batches | v0.3.0 | Not started | 0 / 12 |
 | M4: Estimate, MCP, CI kit | v0.4.0 | Not started | 0 / 8 |
 
@@ -32,6 +32,19 @@ Single source of truth for where the project stands. Update it in every PR that 
 ## Session log
 
 Newest first. One entry per working session: what changed, decisions made, what's next.
+
+### 2026-10-08 (Session 7): Milestone 2 Start — Adapterkit Middleware & Request Logging (M2-01)
+
+- Implemented `adapters/adapterkit` package providing shared adapter middleware and coordinators (`REQ-090`):
+  - **Adapter Interface**: Defined `Adapter` (`Name`, `Routes`, `WriteError`) contract in `adapters/adapterkit/adapter.go`.
+  - **Panic Recovery (`Recoverer`)**: Catches panics in adapter handlers, logs error and stack trace with `slog.Error`, propagates `http.ErrAbortHandler` using `errors.Is`, and translates panics to canonical 500 errors formatted via `adapter.WriteError`.
+  - **Credential Resolution (`ResolveProject`)**: Modular extractors for Basic Auth username, Bearer tokens, headers, path params, query params, and JSON body keys (`FirstOf`), auto-resolving projects via `core.ProjectResolver` and safely injecting project and credential identities into request context.
+  - **Credential Masking (`MaskHeaders`, `MaskBody`, `MaskURL`)**: Comprehensive redaction of Basic auth passwords, Bearer tokens, cookies, API keys, and sensitive fields across JSON and form-urlencoded bodies, and URI query parameters.
+  - **Bounded Request Logging (`RequestLogger`)**: Audits incoming adapter traffic with a strict 64 KB cap on request and response bodies using `io.LimitReader` and `responseCapture`. Non-destructively preserves full downstream request streaming using `io.MultiReader`. Emits `core.EventRequestLogged` to `core.Bus` and pipes logs to `RequestLogSink`.
+  - **Kit Coordinator (`Kit`)**: Bundles project resolution, event bus, sink, and logging configurations into an ergonomic `Wrap(adapter, extractor)` builder.
+  - Added unit test suite in `adapters/adapterkit/adapterkit_test.go` achieving 80.3% coverage.
+  - Added depguard boundaries for `adapterkit` and `adapters` in `.golangci.yml`.
+  - All tests (`task test`) and linters (`task lint`) pass cleanly.
 
 ### 2026-10-07
 
