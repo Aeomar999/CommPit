@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/Aeomar999/CommPit/config"
@@ -1471,9 +1472,16 @@ func (h *Handlers) LinkCredential(w http.ResponseWriter, r *http.Request) {
 		h.writeError(w, r, core.NewValidationError("invalid JSON", ""))
 		return
 	}
+	if strings.TrimSpace(req.Provider) == "" {
+		h.writeError(w, r, core.NewValidationError("provider is required", "provider"))
+		return
+	}
+	if strings.TrimSpace(req.Key) == "" {
+		h.writeError(w, r, core.NewValidationError("key is required", "key"))
+		return
+	}
 
-	_, err = h.projectResolver.Resolve(r.Context(), req.Provider, req.Key)
-	if err != nil {
+	if err := h.projectResolver.LinkCredential(r.Context(), req.Provider, req.Key, id); err != nil {
 		h.writeError(w, r, err)
 		return
 	}

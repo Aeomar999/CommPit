@@ -1,14 +1,57 @@
-import { Check, Globe, Info, Save, Shield, Trash2 } from "lucide-react";
+import { Check, Globe, Info, KeyRound, Save, Shield, Trash2 } from "lucide-react";
 import type React from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { projectsApi } from "../lib/api";
+import type { Project } from "../types";
 
 export function SettingsPage() {
   const [saved, setSaved] = useState(false);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [linkProject, setLinkProject] = useState("");
+  const [linkProvider, setLinkProvider] = useState("twilio");
+  const [linkKey, setLinkKey] = useState("");
+  const [linkStatus, setLinkStatus] = useState<{ ok: boolean; text: string } | null>(null);
+  const [linking, setLinking] = useState(false);
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+  };
+
+  useEffect(() => {
+    projectsApi
+      .list()
+      .then((resp) => {
+        setProjects(resp.projects);
+        setLinkProject((current) => current || resp.projects[0]?.id || "");
+      })
+      .catch(() => setProjects([]));
+  }, []);
+
+  const handleLink = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!linkProject || !linkKey.trim()) {
+      setLinkStatus({ ok: false, text: "Choose a project and enter a credential key." });
+      return;
+    }
+    setLinking(true);
+    setLinkStatus(null);
+    try {
+      await projectsApi.linkCredential(linkProject, {
+        provider: linkProvider,
+        key: linkKey.trim(),
+      });
+      setLinkStatus({ ok: true, text: `Credential linked to ${linkProject}.` });
+      setLinkKey("");
+    } catch (err) {
+      setLinkStatus({
+        ok: false,
+        text: err instanceof Error ? err.message : "Linking failed.",
+      });
+    } finally {
+      setLinking(false);
+    }
   };
 
   return (
@@ -140,6 +183,89 @@ export function SettingsPage() {
               </select>
             </div>
           </div>
+        </div>
+
+        {/* Linked Credentials Section */}
+        <div className="rounded-xl bg-card border border-border shadow-xs p-5 sm:p-6 space-y-4">
+          <div className="flex items-center gap-2 pb-3 border-b border-border">
+            <KeyRound className="w-4 h-4 text-ember-600" />
+            <h3 className="text-sm font-semibold text-foreground">Linked Credentials</h3>
+          </div>
+
+          <p className="text-[11px] text-muted-foreground">
+            Map several provider credentials (Twilio, Termii, SMTP, native keys) onto one project,
+            so traffic from any of them lands in the same inbox.
+          </p>
+
+          <form onSubmit={handleLink} className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-1.5">
+              <label htmlFor="link-project" className="text-xs font-semibold text-foreground">
+                Project
+              </label>
+              <select
+                id="link-project"
+                value={linkProject}
+                onChange={(e) => setLinkProject(e.target.value)}
+                className="w-full px-3 py-2 rounded-md border border-border bg-card text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-ember-500 font-mono"
+              >
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name} ({project.id})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="link-provider" className="text-xs font-semibold text-foreground">
+                Provider
+              </label>
+              <select
+                id="link-provider"
+                value={linkProvider}
+                onChange={(e) => setLinkProvider(e.target.value)}
+                className="w-full px-3 py-2 rounded-md border border-border bg-card text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-ember-500"
+              >
+                <option value="twilio">twilio</option>
+                <option value="termii">termii</option>
+                <option value="smtp">smtp</option>
+                <option value="native">native</option>
+              </select>
+            </div>
+            <div className="space-y-1.5 md:col-span-2">
+              <label htmlFor="link-key" className="text-xs font-semibold text-foreground">
+                Credential Key
+              </label>
+              <input
+                id="link-key"
+                type="text"
+                value={linkKey}
+                onChange={(e) => setLinkKey(e.target.value)}
+                placeholder="Account SID, api_key, SMTP username or Bearer key"
+                className="w-full px-3 py-2 rounded-md border border-border bg-card text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-ember-500 font-mono"
+              />
+            </div>
+            <div className="md:col-span-2 flex items-center justify-end gap-3">
+              {linkStatus && (
+                <output
+                  className={
+                    linkStatus.ok
+                      ? "text-xs text-emerald-600 dark:text-emerald-400 font-medium"
+                      : "text-xs text-red-600 dark:text-red-400 font-medium"
+                  }
+                >
+                  {linkStatus.text}
+                </output>
+              )}
+              <button
+                type="submit"
+                disabled={linking}
+                className="inline-flex items-center gap-2 px-5 py-2 rounded-md bg-ember-500 hover:bg-ember-600 text-ember-950 font-semibold text-xs shadow-sm transition-all active:scale-[0.98] disabled:opacity-50"
+              >
+                <KeyRound className="w-4 h-4" />
+                <span>{linking ? "Linking…" : "Link Credential"}</span>
+              </button>
+            </div>
+          </form>
         </div>
 
         {/* BMS-inspired Heads-up info card */}

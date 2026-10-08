@@ -1,6 +1,8 @@
 package config
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -69,6 +71,34 @@ func TestConfig_AdapterPorts(t *testing.T) {
 			t.Errorf("expected termii port 4021, got %d", cfg.Adapters.Termii.Port)
 		}
 	})
+}
+func TestConfig_ProjectsFromYAML(t *testing.T) {
+	dir := t.TempDir()
+	yaml := `projects:
+  - id: prj_11111111111111111111111111
+    name: combined
+    credentials:
+      - provider: twilio
+        key: ACyaml001
+      - provider: termii
+        key: tlyaml001
+`
+	if err := os.WriteFile(filepath.Join(dir, "mocksms.yaml"), []byte(yaml), 0644); err != nil {
+		t.Fatalf("write yaml: %v", err)
+	}
+	t.Chdir(dir)
+
+	cfg := Load()
+	if len(cfg.Projects) != 1 {
+		t.Fatalf("expected 1 project, got %v", cfg.Projects)
+	}
+	p := cfg.Projects[0]
+	if p.ID != "prj_11111111111111111111111111" || p.Name != "combined" {
+		t.Errorf("unexpected project: %+v", p)
+	}
+	if len(p.Credentials) != 2 || p.Credentials[0].Provider != "twilio" || p.Credentials[0].Key != "ACyaml001" {
+		t.Errorf("unexpected credentials: %+v", p.Credentials)
+	}
 }
 
 func TestConfig_PhoneValidationModes(t *testing.T) {

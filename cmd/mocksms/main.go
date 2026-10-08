@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -108,6 +109,10 @@ func runWithContext(ctx context.Context, cfg *config.Config) error {
 	}
 
 	projectResolver := core.NewProjectResolver(store)
+
+	if err := linkConfiguredProjects(ctx, store, projectResolver, cfg.Projects); err != nil {
+		return err
+	}
 
 	service := core.NewService(core.ServiceConfig{
 		Store:        store,
@@ -249,4 +254,46 @@ func runWithContext(ctx context.Context, cfg *config.Config) error {
 	// 5. store.Close() is called by defer
 
 	return runErr
+}
+
+// linkConfiguredProjects ensures YAML-declared projects exist and maps
+// their credentials, so one project can serve several provider credentials
+// (e.g. Twilio for SMS plus SMTP for email).
+func linkConfiguredProjects(ctx context.Context, store core.Store, resolver core.ProjectResolver, projects []config.ProjectLinkConfig) error {
+	for _, p := range projects {
+		if strings.TrimSpace(p.ID) == "" {
+			fmt.Fprintln(os.Stderr, "Warning: skipping project entry without ID")
+			continue
+		}
+		project, err := store.GetProject(ctx, p.ID)
+		if err != nil {
+			if !core.IsError(err, core.ErrCodeNotFound) {
+				return fmt.Errorf("load project %s: %w", p.ID, err)
+			}
+			name := p.Name
+			if name == "" {
+				name = p.ID
+			}
+			project = &core.Project{
+				ID:        p.ID,
+				Name:      name,
+				Settings:  map[string]interface{}{},
+				CreatedAt: time.Now(),
+			}
+			if err := store.CreateProject(ctx, project); err != nil {
+				return fmt.Errorf("create project %s: %w", p.ID, err)
+			}
+		}
+		for _, c := range p.Credentials {
+			if strings.TrimSpace(c.Provider) == "" || strings.TrimSpace(c.Key) == "" {
+				fmt.Fprintln(os.Stderr, "Warning: skipping credential with empty provider or key")
+				continue
+			}
+			if err := resolver.LinkCredential(ctx, c.Provider, c.Key, project.ID); err != nil {
+				return fmt.Errorf("link credential %s: %w", c.Provider, err)
+			}
+			fmt.Printf("Linked credential %s to project %s\n", c.Provider, project.ID)
+		}
+	}
+	return nil
 }

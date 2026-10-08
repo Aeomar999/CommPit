@@ -63,6 +63,10 @@ func (m *mockResolver) Resolve(ctx context.Context, provider, key string) (strin
 	return "prj_" + key, nil
 }
 
+func (m *mockResolver) LinkCredential(ctx context.Context, provider, key, projectID string) error {
+	return nil
+}
+
 // mockBus records published events.
 type mockBus struct {
 	mu     sync.Mutex

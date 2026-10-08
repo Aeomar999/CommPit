@@ -264,6 +264,10 @@ func (fc *FakeClock) BlockUntilWaiters(count int) {
 
 type ProjectResolver interface {
 	Resolve(ctx context.Context, provider, key string) (string, error)
+	// LinkCredential maps a provider credential to an existing project,
+	// creating or moving the credential record. Later Resolve calls for
+	// the same credential return the linked project.
+	LinkCredential(ctx context.Context, provider, key, projectID string) error
 }
 
 type MessageFilter struct {
