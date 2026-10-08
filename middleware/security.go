@@ -69,7 +69,12 @@ func SecurityMiddleware(cfg *config.SecurityConfig) func(http.Handler) http.Hand
 }
 
 func isExemptPath(path string) bool {
-	return path == "/healthz" || strings.HasPrefix(path, "/api/v1/events") || strings.HasPrefix(path, "/api/v1/messages/wait")
+	if path == "/healthz" || strings.HasPrefix(path, "/api/v1/events") || strings.HasPrefix(path, "/api/v1/messages/wait") {
+		return true
+	}
+	// Provider adapters carry their own credentials (Twilio Basic auth, Termii
+	// api_key) and serve official SDKs that cannot send the X-Mocksms header.
+	return path == "/twilio" || strings.HasPrefix(path, "/twilio/")
 }
 
 func isUIPath(path string) bool {

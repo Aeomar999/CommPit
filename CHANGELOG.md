@@ -16,6 +16,8 @@ Provider-compatible adapters follow the real providers' behavior. Fixes that mak
   - Ingress request logging middleware capping recorded request and response bodies at 64 KB while preserving full downstream streams via `io.MultiReader`.
   - Credential masking across headers (Basic, Bearer, API keys, cookies), JSON/form payloads, and URI query strings before persistence or event bus publishing.
 - Request inspector API: `GET /api/v1/requests` (project-scoped list with `limit`/`cursor` pagination) and `GET /api/v1/requests/{id}` (single log, 404 across projects) (REQ-090).
+- Twilio Messages adapter (`adapters/twilio`, REQ-030): `POST /twilio/2010-04-01/Accounts/{AC}/Messages.json` (create, 201 with Twilio message shape and `SM…` SID), `GET …/Messages.json` (`To`/`From`/`DateSent` filters, `PageSize`/`Page` paging envelope), `GET …/Messages/{SM}.json` (fetch, 404 code 20404); canonical error mapping (21211, 21212, 21610, 21612, 21614, 20003, …); `StatusCallback` accepted and stored; credentials required (401 code 20003); `/twilio` exempt from the `X-Mocksms` header requirement. Unverified provider details are listed in `docs/fidelity.md`.
+- Twilio Verify v2 adapter (REQ-031): `POST /twilio/v2/Services` (create with `FriendlyName`/`CodeLength`, defaults "mocksms"/6), `GET /v2/Services/{VA}`, `POST …/Verifications` (`To`, `Channel=sms|email`; unknown `VA` auto-provisioned; message text uses the service friendly name), `GET …/Verifications/{VE}`, `POST …` with `Status=canceled|approved`, `POST …/VerificationCheck` by `To` or `VerificationSid` (wrong code stays `pending`, exhaustion is 429 code 60202); Verify error codes (60200, 60202, 20404). Services persist in project settings, no migration.
 
 ## [0.1.0] - 2026-10-07
 

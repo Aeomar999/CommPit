@@ -403,7 +403,7 @@ func (s *Service) StartVerification(ctx context.Context, projectID string, req V
 		Channel:     req.Channel,
 		From:        defaultVerificationSender(req.Channel),
 		To:          []string{to},
-		BodyText:    s.defaultVerificationText(req.Channel, code, req.ServiceRef),
+		BodyText:    s.defaultVerificationText(req.Channel, code, req.ServiceRef, req.ServiceLabel),
 		BodyHTML:    "",
 		CallbackURL: "",
 		Provider:    req.Provider,
@@ -662,9 +662,12 @@ func (s *Service) extractAndSet(msg *Message) error {
 	return nil
 }
 
-func (s *Service) defaultVerificationText(channel Channel, code string, serviceRef *string) string {
+func (s *Service) defaultVerificationText(channel Channel, code string, serviceRef, serviceLabel *string) string {
 	if channel == ChannelEmail {
 		return "Your verification code is " + code
+	}
+	if serviceLabel != nil && *serviceLabel != "" {
+		return "Your " + *serviceLabel + " verification code is: " + code
 	}
 	if serviceRef != nil && *serviceRef != "" {
 		return "Your " + *serviceRef + " verification code is: " + code

@@ -11,10 +11,15 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/go-chi/chi/v5"
+
+	"github.com/Aeomar999/CommPit/adapters/adapterkit"
+	"github.com/Aeomar999/CommPit/adapters/twilio"
 	"github.com/Aeomar999/CommPit/api"
 	"github.com/Aeomar999/CommPit/bus"
 	"github.com/Aeomar999/CommPit/config"
 	"github.com/Aeomar999/CommPit/core"
+	"github.com/Aeomar999/CommPit/middleware"
 	"github.com/Aeomar999/CommPit/phone"
 	"github.com/Aeomar999/CommPit/retention"
 	"github.com/Aeomar999/CommPit/sim"
@@ -137,9 +142,23 @@ func runWithContext(ctx context.Context, cfg *config.Config) error {
 	pruner := retention.NewPruner(&cfg.Retention, store, service)
 	pruner.Start(ctx)
 
+	// Twilio adapter: provider-format routes under /twilio with request
+	// logging persisted to the store. Credentials are required, matching
+	// the real API (401 without them).
+	twilioAdapter := twilio.New(service)
+	twilioSink := adapterkit.RequestLogSinkFunc(func(ctx context.Context, entry *core.RequestLog) error {
+		return store.CreateRequestLog(ctx, entry)
+	})
+	twilioKit := adapterkit.New(projectResolver, adapterkit.WithBus(eventBus), adapterkit.WithSink(twilioSink))
+	twilioHandler := twilioKit.Wrap(twilioAdapter, twilio.Extractor(), adapterkit.WithRequired(true))
+
+	rootRouter := chi.NewRouter()
+	rootRouter.Mount("/twilio", middleware.SecurityMiddleware(&cfg.Security)(twilioHandler))
+	rootRouter.Mount("/", handlers.Routes())
+
 	server := &http.Server{
 		Addr:         fmt.Sprintf("%s:%d", cfg.HTTP.Host, cfg.HTTP.Port),
-		Handler:      handlers.Routes(),
+		Handler:      rootRouter,
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,
 		IdleTimeout:  120 * time.Second,
