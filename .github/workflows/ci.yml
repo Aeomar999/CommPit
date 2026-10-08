@@ -100,13 +100,37 @@ jobs:
           name: mocksms-Linux
           path: bin/
       - run: chmod +x bin/mocksms
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Install snippet dependencies
+        run: |
+          npm ci --prefix examples/twilio/node
+          pip install -r examples/twilio/python/requirements.txt
+          composer install --working-dir=examples/twilio/php --no-interaction --no-progress
+          dotnet restore examples/twilio/csharp
       - name: Start mocksms
         run: |
-          bin/mocksms serve &
+          bin/mocksms --otp-code 123456 serve &
           sleep 3
           curl -f http://127.0.0.1:4010/healthz
       - name: Run real-SDK examples
         run: go test -v -tags e2e ./examples/...
+        env:
+          OTP_CODE: '123456'
       - name: Run Playwright tests
         uses: oven-sh/setup-bun@v1
         with:

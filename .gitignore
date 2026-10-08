@@ -10,6 +10,13 @@
 web/dist/
 web/node_modules/
 
+# Example snippet dependencies (installed in CI)
+examples/**/node_modules/
+examples/**/vendor/
+examples/**/__pycache__/
+examples/**/bin/
+examples/**/obj/
+
 # IDE/Editor
 .idea/
 .vscode/

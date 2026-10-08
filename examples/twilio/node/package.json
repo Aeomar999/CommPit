@@ -1,0 +1,10 @@
+{
+  "name": "mocksms-twilio-node-example",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Twilio redirect snippet for mocksms (M2-06)",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "twilio": "^5.0.0"
+  }
+}

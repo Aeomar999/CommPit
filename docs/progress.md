@@ -8,7 +8,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 |---|---|
 | **Phase** | Milestone 2 in progress |
 | **Current milestone** | M2 |
-| **Next action** | M2-06: Twilio redirect snippets (Node, Python, PHP, Go, C#) in `examples/`; CI runs them |
+| **Next action** | M2-07: Termii SMS (`/api/sms/send`, `/send/bulk`, `/number/send`; batches; sender allow-list) |
 | **Last updated** | 2026-10-08 |
 
 ## Milestones
@@ -16,7 +16,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 | Milestone | Release | Status | Tasks done |
 |---|---|---|---|
 | M1: Core, native API, SMTP, inbox | v0.1.0 | Done | 21 / 21 |
-| M2: Twilio, Termii, test API, inspector | v0.2.0 | In progress | 5 / 14 |
+| M2: Twilio, Termii, test API, inspector | v0.2.0 | In progress | 6 / 14 |
 | M3: Webhooks, failure simulation, inbound, batches | v0.3.0 | Not started | 0 / 12 |
 | M4: Estimate, MCP, CI kit | v0.4.0 | Not started | 0 / 8 |
 
@@ -32,6 +32,16 @@ Single source of truth for where the project stands. Update it in every PR that 
 ## Session log
 
 Newest first. One entry per working session: what changed, decisions made, what's next.
+
+### 2026-10-08 (Session 12): Twilio Redirect Snippets (M2-06)
+
+- Completed M2-06 (`REQ-030`): `examples/twilio/` holds official-SDK snippets for Node, Python, PHP, Go and C#, each with a custom HTTP client rewriting both `api.twilio.com` and `verify.twilio.com` to `<MOCKSMS_URL>/twilio`. Uniform flow per snippet: create Verify service → send SMS (with dummy `StatusCallback`) → start verification → check with `OTP_CODE`, asserting `SM`/`VA` SIDs and `approved`. Distinct default recipients per language (`+15005550010`…`014`) so runs never collide on To-based checks.
+  - SDK hooks used: Node `httpClient` (`RequestClient` subclass), Python `TwilioHttpClient.request` override, PHP `Twilio\Http\Client` wrapper around `CurlClient` (5th `Client` ctor arg), Go `client.Client.SendRequest` override, C# `Twilio.Http.HttpClient` subclass rebuilding the `Request`.
+  - Findings while verifying: twilio-go rejects non-alphanumeric tokens client-side (21224), so all snippets default to `testtoken123`; its `SendRequest` takes a variadic body. Credentials stay push-safe (`ACXXX…` placeholder + env overrides).
+  - Harness `examples/twilio_snippets_test.go` (`//go:build e2e`) runs each snippet, asserts exit 0 + `E2E-OK` marker. Runtime probing (not bare `LookPath`) skips Windows Store python stubs and SDK-less dotnet instead of failing.
+  - Verified locally: Node/Python/Go pass end-to-end against the binary; PHP/C# skip without runtimes and go through CI. CI e2e job now installs Node 20, Python 3.13, PHP 8.3 and .NET 8 toolchains + snippet deps, starts the binary with `--otp-code 123456`, and runs the harness with `OTP_CODE=123456`.
+  - `go test ./...`, `golangci-lint run` (0 issues), `gofmt` clean; `go vet -tags e2e` clean.
+- **Next:** M2-07: Termii SMS.
 
 ### 2026-10-08 (Session 11): Twilio Golden Fixtures and Contract Tests (M2-05)
 
