@@ -6,17 +6,17 @@ Single source of truth for where the project stands. Update it in every PR that 
 
 | | |
 |---|---|
-| **Phase** | Milestone 2 in progress |
-| **Current milestone** | M2 |
-| **Next action** | M2 gate: final commit → PR → merge → tag `v0.2.0` → branch `milestone/m3` |
-| **Last updated** | 2026-10-08 |
+| **Phase** | Milestone 3 starting |
+| **Current milestone** | M3 |
+| **Next action** | M3-01: `webhooks` worker (persistent queue, bus wake-up, 10 s timeout, backoff, attempt records) |
+| **Last updated** | 2026-10-09 |
 
 ## Milestones
 
 | Milestone | Release | Status | Tasks done |
 |---|---|---|---|
 | M1: Core, native API, SMTP, inbox | v0.1.0 | Done | 21 / 21 |
-| M2: Twilio, Termii, test API, inspector | v0.2.0 | In progress | 14 / 14 |
+| M2: Twilio, Termii, test API, inspector | v0.2.0 | Done | 14 / 14 |
 | M3: Webhooks, failure simulation, inbound, batches | v0.3.0 | Not started | 0 / 12 |
 | M4: Estimate, MCP, CI kit | v0.4.0 | Not started | 0 / 8 |
 
@@ -32,6 +32,13 @@ Single source of truth for where the project stands. Update it in every PR that 
 ## Session log
 
 Newest first. One entry per working session: what changed, decisions made, what's next.
+
+### 2026-10-09 (Session 22): M2 Release (v0.2.0)
+
+- Ran the M2 milestone gate to completion. `v0.2.0` is tagged on `main`; `milestone/m3` is branched and pushed; this branch keeps the full task record.
+- Gate work beyond the tasks: repaired CI (it failed instantly on every push — job-level `hashFiles` is schema-illegal; pinned the lint action to v2.14.0; scoped `bun test` to `src` and added a real `utils.test.ts`; converted the 10k-insert timing assertion, flaky under `-race`, into a nightly Benchmark; `NewStore` now creates its data dir; added the missing Playwright browser install; fixed a C# namespace import). CI is green across lint, all three OS test matrices (with `-race`), build, UI tests and e2e.
+- Also in the gate: wired the embedded web UI (`/`, SPA fallback), made `/api/v1` the canonical native prefix (ADR-010), and added a Playwright smoke spec.
+- **Next:** M3-01 (`webhooks` worker) on `milestone/m3`.
 
 ### 2026-10-08 (Session 21): M2 Milestone Gate
 

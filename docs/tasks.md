@@ -383,8 +383,8 @@ func runMigrations(db *sql.DB) error {
 **M2 milestone gate** (in order, once every task above is `[x]`):
 - [x] Full suite passes on `milestone/m2`: `task test`, `task lint`, `task e2e`, `task build`
 - [x] Final commit (changelog `v0.2.0` heading, progress update) pushed to `milestone/m2`
-- [ ] PR `milestone/m2` → `main` merged with a merge commit
-- [ ] `v0.2.0` tagged on `main`; next milestone branch created from `main`
+- [x] PR `milestone/m2` → `main` merged with a merge commit
+- [x] `v0.2.0` tagged on `main`; next milestone branch created from `main`
 
 ## M3: Webhooks, failure simulation, inbound, batches → v0.3.0
 
