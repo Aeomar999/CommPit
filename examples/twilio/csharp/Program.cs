@@ -16,6 +16,7 @@ using Twilio.Clients;
 using Twilio.Http;
 using Twilio.Rest.Api.V2010.Account;
 using Twilio.Rest.Verify.V2;
+using Twilio.Rest.Verify.V2.Service;
 using Twilio.Types;
 
 namespace MocksmsTwilioExample
