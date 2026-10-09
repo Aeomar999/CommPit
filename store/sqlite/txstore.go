@@ -444,8 +444,8 @@ func (t *txStore) UpdateWebhookDelivery(ctx context.Context, w *core.WebhookDeli
 	return err
 }
 
-func (t *txStore) ListPendingWebhooks(ctx context.Context, limit int) ([]*core.WebhookDelivery, error) {
-	return t.base.ListPendingWebhooks(ctx, limit)
+func (t *txStore) ListPendingWebhooks(ctx context.Context, now time.Time, limit int) ([]*core.WebhookDelivery, error) {
+	return t.base.ListPendingWebhooks(ctx, now, limit)
 }
 
 func (t *txStore) CreateRequestLog(ctx context.Context, l *core.RequestLog) error {

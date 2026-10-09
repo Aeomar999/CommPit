@@ -225,7 +225,8 @@ func scanWebhookDelivery(row interface {
 	var payload, headers string
 	var messageID, verificationID sql.NullString
 	var responseStatus sql.NullInt64
-	var responseBody, nextRetryAt sql.NullString
+	var responseBody sql.NullString
+	var nextRetryAt sql.NullTime
 	err := row.Scan(&w.ID, &w.ProjectID, &messageID, &verificationID, &w.Kind, &w.URL, &payload, &headers, &w.Attempt, &w.Status, &responseStatus, &responseBody, &nextRetryAt, &w.CreatedAt)
 	if err != nil {
 		return nil, err
@@ -244,8 +245,8 @@ func scanWebhookDelivery(row interface {
 		w.ResponseBody = &responseBody.String
 	}
 	if nextRetryAt.Valid {
-		t, _ := time.Parse("2006-01-02 15:04:05", nextRetryAt.String)
-		w.NextRetryAt = &t
+		at := nextRetryAt.Time
+		w.NextRetryAt = &at
 	}
 	json.Unmarshal([]byte(payload), &w.Payload)
 	json.Unmarshal([]byte(headers), &w.Headers)
@@ -275,11 +276,11 @@ func (s *Store) UpdateWebhookDelivery(ctx context.Context, w *core.WebhookDelive
 	return err
 }
 
-func (s *Store) ListPendingWebhooks(ctx context.Context, limit int) ([]*core.WebhookDelivery, error) {
+func (s *Store) ListPendingWebhooks(ctx context.Context, now time.Time, limit int) ([]*core.WebhookDelivery, error) {
 	rows, err := s.queryContext(ctx,
 		`SELECT id, project_id, message_id, verification_id, kind, url, payload, headers, attempt, status, response_status, response_body, next_retry_at, created_at
 		 FROM webhook_deliveries WHERE status = 'pending' AND (next_retry_at IS NULL OR next_retry_at <= ?) ORDER BY next_retry_at LIMIT ?`,
-		time.Now(), limit)
+		now, limit)
 	if err != nil {
 		return nil, err
 	}

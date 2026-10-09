@@ -188,11 +188,11 @@ Native-API messages send JSON webhooks: `{"event": "message.status", "message": 
 7. Start the HTTP server(s).
 8. Print the banner (URLs, data directory, warnings).
 
-**Shutdown** (SIGINT/SIGTERM):
-1. Stop accepting new HTTP and SMTP connections; drain in-flight requests (up to 5 s).
-2. Stop the lifecycle runner. State is persisted and resumes on next start.
-3. Stop the webhook worker. The current attempt completes or times out; pending rows stay in the store.
-4. Close the store.
+	**Shutdown** (SIGINT/SIGTERM):
+	1. Stop accepting new HTTP and SMTP connections; drain in-flight requests (up to 5 s).
+	2. Stop the webhook worker. The current attempt completes or times out; pending rows stay in the store.
+	3. Stop the SMTP server, the retention pruner and the lifecycle runner. State is persisted and resumes on next start.
+	4. Close the store.
 
 ## 8. Security architecture
 

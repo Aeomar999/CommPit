@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestConfig_Defaults(t *testing.T) {
@@ -100,7 +101,6 @@ func TestConfig_ProjectsFromYAML(t *testing.T) {
 		t.Errorf("unexpected credentials: %+v", p.Credentials)
 	}
 }
-
 func TestConfig_PhoneValidationModes(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -127,4 +127,35 @@ func TestConfig_PhoneValidationModes(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestConfig_Webhooks(t *testing.T) {
+	t.Run("defaults select worker policy", func(t *testing.T) {
+		t.Setenv("MOCKSMS_WEBHOOKS_TIMEOUT", "")
+		t.Setenv("MOCKSMS_WEBHOOKS_MAX_ATTEMPTS", "")
+		cfg := Load()
+		if cfg.Webhooks.Timeout != 0 || cfg.Webhooks.MaxAttempts != 0 {
+			t.Errorf("expected zero webhooks config, got %+v", cfg.Webhooks)
+		}
+	})
+
+	t.Run("env overrides", func(t *testing.T) {
+		t.Setenv("MOCKSMS_WEBHOOKS_TIMEOUT", "5s")
+		t.Setenv("MOCKSMS_WEBHOOKS_MAX_ATTEMPTS", "3")
+		cfg := Load()
+		if cfg.Webhooks.Timeout != 5*time.Second {
+			t.Errorf("expected 5s timeout, got %v", cfg.Webhooks.Timeout)
+		}
+		if cfg.Webhooks.MaxAttempts != 3 {
+			t.Errorf("expected 3 max attempts, got %d", cfg.Webhooks.MaxAttempts)
+		}
+	})
+
+	t.Run("double-underscore nesting", func(t *testing.T) {
+		t.Setenv("MOCKSMS_WEBHOOKS__MAX_ATTEMPTS", "4")
+		cfg := Load()
+		if cfg.Webhooks.MaxAttempts != 4 {
+			t.Errorf("expected 4 max attempts, got %d", cfg.Webhooks.MaxAttempts)
+		}
+	})
 }

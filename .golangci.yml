@@ -102,6 +102,25 @@ linters:
               desc: "adapters may not import smtpd"
             - pkg: "github.com/Aeomar999/CommPit/config"
               desc: "adapters may not import config"
+        webhooks:
+          files:
+            - "**/webhooks/**/*.go"
+          list-mode: lax
+          deny:
+            - pkg: "github.com/Aeomar999/CommPit/store"
+              desc: "webhooks may import only core"
+            - pkg: "github.com/Aeomar999/CommPit/bus"
+              desc: "webhooks may import only core"
+            - pkg: "github.com/Aeomar999/CommPit/api"
+              desc: "webhooks may import only core"
+            - pkg: "github.com/Aeomar999/CommPit/sim"
+              desc: "webhooks may import only core"
+            - pkg: "github.com/Aeomar999/CommPit/smtpd"
+              desc: "webhooks may import only core"
+            - pkg: "github.com/Aeomar999/CommPit/config"
+              desc: "webhooks may import only core"
+            - pkg: "github.com/Aeomar999/CommPit/adapters"
+              desc: "webhooks may import only core"
     govet:
       enable:
         - structtag

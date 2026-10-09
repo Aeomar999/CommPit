@@ -30,6 +30,7 @@ type Config struct {
 	OTP                 OTPConfig
 	Validation          ValidationConfig
 	Sim                 SimConfig
+	Webhooks            WebhooksConfig
 	Retention           RetentionConfig
 	UIAuth              string
 	NoDockerHostRewrite bool
@@ -99,12 +100,23 @@ type RetentionConfig struct {
 	WebhookTTL      time.Duration
 }
 
+// WebhooksConfig tunes webhook delivery. Zero values select worker defaults.
+type WebhooksConfig struct {
+	Timeout     time.Duration
+	MaxAttempts int
+}
+
 func Load() *Config {
 	k := koanf.New(".")
 
 	k.Load(env.Provider("MOCKSMS_", ".", func(s string) string {
 		s = strings.TrimPrefix(s, "MOCKSMS_")
-		return strings.ReplaceAll(strings.ToLower(s), "_", ".")
+		s = strings.ToLower(s)
+		// Double underscores separate nesting levels; single underscores
+		// stay literal so multi-word segments (max_attempts, step_delay)
+		// survive. Single-underscore names keep working through the
+		// collapsed lookup fallback in the getters below.
+		return strings.ReplaceAll(s, "__", ".")
 	}), nil)
 
 	configPaths := []string{
@@ -136,6 +148,8 @@ func Load() *Config {
 	cfg.Validation.Phone = getString(k, "validation.phone", "valid")
 	cfg.Sim.Latency = getDuration(k, "sim.latency", 0)
 	cfg.Sim.FailureRate = getFloat64(k, "sim.failure_rate", 0)
+	cfg.Webhooks.Timeout = getDuration(k, "webhooks.timeout", 0)
+	cfg.Webhooks.MaxAttempts = getInt(k, "webhooks.max_attempts", 0)
 	cfg.UIAuth = getString(k, "ui_auth", "")
 	cfg.NoDockerHostRewrite = getBool(k, "no_docker_host_rewrite", false)
 	cfg.Security.AllowedHosts = getStringSlice(k, "security.allowed_hosts", []string{"127.0.0.1", "localhost"})
@@ -152,45 +166,69 @@ func Load() *Config {
 }
 
 func getString(k *koanf.Koanf, key, def string) string {
-	if k.Exists(key) {
-		return k.String(key)
+	for _, candidate := range keyVariants(key) {
+		if k.Exists(candidate) {
+			return k.String(candidate)
+		}
 	}
 	return def
 }
 
 func getInt(k *koanf.Koanf, key string, def int) int {
-	if k.Exists(key) {
-		return k.Int(key)
+	for _, candidate := range keyVariants(key) {
+		if k.Exists(candidate) {
+			return k.Int(candidate)
+		}
 	}
 	return def
 }
 
 func getBool(k *koanf.Koanf, key string, def bool) bool {
-	if k.Exists(key) {
-		return k.Bool(key)
+	for _, candidate := range keyVariants(key) {
+		if k.Exists(candidate) {
+			return k.Bool(candidate)
+		}
 	}
 	return def
 }
 
 func getDuration(k *koanf.Koanf, key string, def time.Duration) time.Duration {
-	if k.Exists(key) {
-		return k.Duration(key)
+	for _, candidate := range keyVariants(key) {
+		if k.Exists(candidate) {
+			return k.Duration(candidate)
+		}
 	}
 	return def
 }
 
 func getFloat64(k *koanf.Koanf, key string, def float64) float64 {
-	if k.Exists(key) {
-		return k.Float64(key)
+	for _, candidate := range keyVariants(key) {
+		if k.Exists(candidate) {
+			return k.Float64(candidate)
+		}
 	}
 	return def
 }
 
+// keyVariants returns the canonical key plus a collapsed form where dots
+// become underscores. The collapsed form keeps single-underscore env names
+// (MOCKSMS_ADAPTERS_TWILIO_PORT) working alongside double-underscore
+// nesting (MOCKSMS_ADAPTERS__TWILIO__PORT); the canonical spelling wins.
+func keyVariants(key string) []string {
+	collapsed := strings.ReplaceAll(key, ".", "_")
+	if collapsed == key {
+		return []string{key}
+	}
+	return []string{key, collapsed}
+}
+
 func getStringSlice(k *koanf.Koanf, key string, def []string) []string {
-	if k.Exists(key) {
-		var result []string
-		k.Unmarshal(key, &result)
-		return result
+	for _, candidate := range keyVariants(key) {
+		if k.Exists(candidate) {
+			var result []string
+			k.Unmarshal(candidate, &result)
+			return result
+		}
 	}
 	return def
 }
