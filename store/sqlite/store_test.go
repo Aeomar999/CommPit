@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -14,6 +15,18 @@ func TestSQLiteStoreConformance(t *testing.T) {
 	storetest.RunStoreTests(t, func() (core.Store, func()) {
 		return newTestStore(t)
 	})
+}
+
+func TestSQLiteStoreCreatesDataDir(t *testing.T) {
+	nested := filepath.Join(t.TempDir(), "a", "b")
+	store, err := NewStore(nested, 1)
+	if err != nil {
+		t.Fatalf("NewStore with missing parents: %v", err)
+	}
+	defer store.Close()
+	if _, err := os.Stat(filepath.Join(nested, "mocksms.db")); err != nil {
+		t.Errorf("expected database file, got: %v", err)
+	}
 }
 
 func TestSQLiteStorePersists(t *testing.T) {

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"embed"
 	"fmt"
+	"os"
 	"path/filepath"
 	"sync"
 	"time"
@@ -31,6 +32,11 @@ func NewStore(dataDir string, readPoolSize int) (*Store, error) {
 	if dataDir == ":memory:" {
 		dsn = fmt.Sprintf("file:mocksms-%s?mode=memory&cache=shared&_pragma=busy_timeout(5000)&_pragma=foreign_keys(1)", ulid.Make().String())
 	} else {
+		// First run on a fresh machine must just work: create the data
+		// directory instead of failing to open the database inside it.
+		if err := os.MkdirAll(dataDir, 0755); err != nil {
+			return nil, fmt.Errorf("create data dir: %w", err)
+		}
 		// Use filepath.ToSlash to ensure forward slashes for SQLite URI
 		dataDir = filepath.ToSlash(dataDir)
 		dsn = fmt.Sprintf("file:%s/mocksms.db?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)&_pragma=foreign_keys(1)", dataDir)
