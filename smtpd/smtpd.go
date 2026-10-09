@@ -181,8 +181,10 @@ func (s *Session) submit() error {
 	}
 
 	if s.projectID == "" {
-		// No AUTH: deliver into the default project (spec §6.2).
-		projectID, err := s.backend.resolver.Resolve(context.Background(), "smtp", "default")
+		// No AUTH: deliver into the shared default project (spec §6.2), so
+		// unauthenticated mail shows up in the default inbox next to
+		// unauthenticated native API traffic.
+		projectID, err := s.backend.resolver.Resolve(context.Background(), "native", "default")
 		if err != nil {
 			return errors.New("no project ID available (authentication required)")
 		}

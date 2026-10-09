@@ -95,7 +95,7 @@ func TestSMTP_NoAuthDeliversToDefaultProject(t *testing.T) {
 
 	sendMail(t, addr, "test@app.local", "user@example.com", "Hello SMTP", "Hi from sandbox", nil)
 
-	projectID, err := core.NewProjectResolver(store).Resolve(context.Background(), "smtp", "default")
+	projectID, err := core.NewProjectResolver(store).Resolve(context.Background(), "native", "default")
 	if err != nil {
 		t.Fatalf("resolve default project: %v", err)
 	}
