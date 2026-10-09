@@ -180,6 +180,13 @@ func runWithContext(ctx context.Context, cfg *config.Config) error {
 	termiiKit := adapterkit.New(projectResolver, adapterkit.WithBus(eventBus), adapterkit.WithSink(termiiSink))
 	termiiHandler := termiiKit.Wrap(termiiAdapter, termii.Extractor(), adapterkit.WithRequired(true))
 
+	// Webhook dispatch: provider formatters turn domain events into queued
+	// deliveries for the worker above.
+	webhookFormatters := webhooks.NewFormatters()
+	webhookFormatters.RegisterStatus(twilioAdapter.Name(), twilioAdapter)
+	webhookDispatcher := webhooks.NewDispatcher(store, eventBus, core.RealClock{}, webhookFormatters)
+	webhookDispatcher.Start()
+
 	rootRouter := chi.NewRouter()
 	rootRouter.Mount("/twilio", middleware.SecurityMiddleware(&cfg.Security)(twilioHandler))
 	rootRouter.Mount("/termii", middleware.SecurityMiddleware(&cfg.Security)(termiiHandler))
@@ -256,8 +263,10 @@ func runWithContext(ctx context.Context, cfg *config.Config) error {
 		}
 	}
 
-	// 1b. Stop the webhook worker so no new sends start during shutdown.
+	// 1b. Stop the webhook worker and dispatcher so no new sends start
+	// during shutdown.
 	webhookWorker.Stop()
+	webhookDispatcher.Stop()
 
 	// 2. Stop SMTP server
 	if err := smtpServer.Shutdown(shutdownCtx); err != nil {

@@ -327,6 +327,10 @@ func (a *Adapter) createVerification(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if user, pass, ok := r.BasicAuth(); ok {
+		a.recordCredential(r.Context(), adapterkit.ProjectID(r), user, pass)
+	}
+
 	svc, err := a.getOrProvisionService(r.Context(), projectID, serviceSid)
 	if err != nil {
 		a.writeVerifyError(w, core.NewInternal("failed to load service: "+err.Error()))

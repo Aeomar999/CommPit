@@ -66,7 +66,7 @@ Ports-and-adapters layout: `core` owns the domain types **and the interfaces it 
 | `adapters/adapterkit` | Shared adapter middleware and helpers | `core` |
 | `adapters/twilio`, `adapters/termii` | Provider translation | `core`, `adapters/adapterkit`, `phone` |
 | `smtpd` | SMTP listener and MIME parsing | `core` |
-| `webhooks` | Delivery worker; defines its own `Formatters` interface for looking up adapter webhook formatters | `core` |
+| `webhooks` | Delivery worker; defines its own `Formatters` interface for looking up adapter webhook formatters | `core`, `adapters/adapterkit` |
 | `estimate` | Go-live estimate and pricing tables | `core`, `phone` |
 | `mcpserver` | MCP tools over the core service | `core` |
 | `config` | Flags, env, YAML loading and precedence | none |

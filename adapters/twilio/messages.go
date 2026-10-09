@@ -153,6 +153,10 @@ func (a *Adapter) createMessage(w http.ResponseWriter, r *http.Request) {
 	statusCallback := strings.TrimSpace(r.FormValue("StatusCallback"))
 	numMedia := countMediaURLs(r.Form)
 
+	if user, pass, ok := r.BasicAuth(); ok {
+		a.recordCredential(r.Context(), adapterkit.ProjectID(r), user, pass)
+	}
+
 	if to == "" {
 		a.WriteError(w, core.NewValidationError("A 'To' phone number is required.", "to"))
 		return

@@ -17,7 +17,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 |---|---|---|---|
 | M1: Core, native API, SMTP, inbox | v0.1.0 | Done | 21 / 21 |
 | M2: Twilio, Termii, test API, inspector | v0.2.0 | In progress | 14 / 14 |
-| M3: Webhooks, failure simulation, inbound, batches | v0.3.0 | In progress | 1 / 12 |
+| M3: Webhooks, failure simulation, inbound, batches | v0.3.0 | In progress | 2 / 12 |
 | M4: Estimate, MCP, CI kit | v0.4.0 | Not started | 0 / 8 |
 
 ## Blockers and open items
@@ -33,13 +33,20 @@ Single source of truth for where the project stands. Update it in every PR that 
 
 Newest first. One entry per working session: what changed, decisions made, what's next.
 
-### 2026-10-09: Webhooks Worker (M3-01)
+### 2026-10-09: Webhooks Worker + Twilio StatusNotifier (M3-01, M3-02)
 
 - Completed M3-01 (`REQ-053`): new `webhooks` package (delivery worker, sender, config) wired into `cmd/mocksms` with bus wake-ups, graceful shutdown, `webhooks.timeout` / `webhooks.max_attempts` settings, and a `depguard` rule (core only).
   - Worker: persistent queue via `ListPendingWebhooks`, bus wake-up (no polling) plus clock-driven retry timers, 10 s send timeout, backoff 1 s / 5 s / 30 s / 2 m / 10 m (six sends max — the spec's five waits imply five retries), attempt records with response capture, `webhook.delivered` events on terminal outcomes, idempotent stop.
   - Tests caught two real bugs: a lost retry wake-up (drain only armed timers for skipped rows, never for just-scheduled retries) and a lossy `next_retry_at` round-trip (string-parsed timestamp dropped the zone — now scanned as `time.Time` like every other table). Timing races were eliminated with a parking sender plus `FakeClock.BlockUntilWaiters` instead of sleeps/polling.
   - `Store.ListPendingWebhooks` now takes the query time instead of `time.Now()`, so virtual clocks stay deterministic; storetest pins due-only filtering. `sqlite.GetCredential` miss already returns `not_found` (M2-12).
-- **Next:** M3-02 (Twilio `StatusNotifier`).
+- Completed M3-02 (`REQ-051`, `REQ-052`): Twilio `StatusNotifier` with `X-Twilio-Signature`.
+  - `adapters/adapterkit/webhook.go`: new `WebhookRequest`, `StatusNotifier`, `InboundNotifier`, `ReplyParser` interfaces for the webhook dispatcher.
+  - `adapters/twilio/signature.go`: HMAC-SHA1 over URL + sorted params, validated against Twilio's documented example and cross-checked with the official Python SDK.
+  - `adapters/twilio/notify.go`: `StatusWebhook` builds form-encoded status callbacks with explicit auth_token, observed AC token, or API secret fallback (spec §7.4). Credential recording from Basic Auth on Messages and Verify sends (AC and SK). `signingKey` resolves with SK fallback warning.
+  - `webhooks/dispatch.go`: `Formatters` registry (startup registration only) + `Dispatcher` that subscribes to `core.EventMessageStatus`, loads the message + project, calls the provider's `StatusNotifier`, and queues a `core.WebhookDelivery` row.
+  - Wired into `cmd/mocksms`: dispatcher starts after adapters register, stops on shutdown.
+  - Tests: Twilio signature ground-truth vector, status webhook payload + signature verification, credential recording on send, dispatcher queuing and skip paths.
+- **Next:** M3-03 (Termii delivery-report notifier).
 
 ### 2026-10-09: SMTP Delivery Fix (M3, unplanned)
 
