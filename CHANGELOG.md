@@ -8,6 +8,11 @@ Provider-compatible adapters follow the real providers' behavior. Fixes that mak
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-08
+
+Twilio + Termii adapters, test API, request inspector. See `docs/guides/`
+for the new provider and testing guides.
+
 ### Added
 
 - `adapterkit` package (`adapters/adapterkit`): shared provider adapter middleware and coordinators (REQ-090).
@@ -26,8 +31,13 @@ Provider-compatible adapters follow the real providers' behavior. Fixes that mak
 - Credential linking (REQ-091): `POST /projects/{id}/credentials` now actually maps the credential (previously resolved-and-discarded), YAML `projects[].credentials` applied at startup (creating missing projects), and a link action on the Settings page. Fixed SQLite `GetCredential` to return `not_found` like the other stores.
 - Dedicated adapter ports (REQ-036): `adapters.twilio.port` / `adapters.termii.port` (flags `--twilio-port`/`--termii-port`, env, YAML; 0 disables) serve the adapter handler at `/` on its own port for SDKs that accept only a hostname, with graceful shutdown and fail-fast port conflicts. Fixed env-var loading (the `MOCKSMS_` prefix was never stripped, so no env override worked).
 - Test API (REQ-040–REQ-043, REQ-023): `GET /otp/latest` (newest code for a recipient, `verification` source with linkage or `extracted`), `GET /emails/latest` (newest email with codes, links and primary link), `POST /verifications/{id}/expire`, long-poll `GET /messages/wait` (now behind read auth like other test endpoints), and project-scoped `DELETE /messages` (400 without an explicit project).
-- Request inspector UI (REQ-090): HTTP Requests tab lists adapter request logs live with a side-by-side raw request/response detail view; Webhooks Log tab lists deliveries; OTPs view adds extracted message codes beside Verify codes with live SSE refresh. The native API is now also served under the spec-canonical `/api/v1` prefix the UI uses (root paths retained, ADR-010).
+- Request inspector UI (REQ-090): HTTP Requests tab lists adapter request logs live with a side-by-side raw request/response detail view; Webhooks Log tab lists deliveries; OTPs view adds extracted message codes beside Verify codes with live SSE refresh.
+- Embedded web UI: the production bundle is served at `/` with an SPA fallback when built with `task build` (`-tags embed`); Playwright smoke spec (`web/e2e/smoke.spec.ts`) covers landing load and an API round-trip.
 - Guides (M2-14): `docs/guides/twilio.md` (SDK redirect, Messages, Verify v2, magic numbers, linking), `docs/guides/termii.md` (base-URL override, SMS/Token endpoints, allow-list), `docs/guides/test-api.md` (`messages/wait`, `otp/latest`, `emails/latest` with Playwright, Cypress and Jest examples); README links them and documents the new `adapters.*.port` and `projects` settings.
+
+### Changed
+
+- **Migration:** the native API is served only under `/api/v1` (as `openapi.yaml` declares); the temporary root-path alias from M2-13 is removed and `/` serves the embedded web UI instead (ADR-010). Update any root-path callers to the `/api/v1` prefix.
 
 ## [0.1.0] - 2026-10-07
 

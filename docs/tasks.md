@@ -381,8 +381,8 @@ func runMigrations(db *sql.DB) error {
 | [x] | M2-14 | Docs: Twilio and Termii guides, test-API guide with Playwright/Cypress/Jest examples | M2-06, M2-10 | — |
 
 **M2 milestone gate** (in order, once every task above is `[x]`):
-- [ ] Full suite passes on `milestone/m2`: `task test`, `task lint`, `task e2e`, `task build`
-- [ ] Final commit (changelog `v0.2.0` heading, progress update) pushed to `milestone/m2`
+- [x] Full suite passes on `milestone/m2`: `task test`, `task lint`, `task e2e`, `task build`
+- [x] Final commit (changelog `v0.2.0` heading, progress update) pushed to `milestone/m2`
 - [ ] PR `milestone/m2` → `main` merged with a merge commit
 - [ ] `v0.2.0` tagged on `main`; next milestone branch created from `main`
 
