@@ -28,6 +28,7 @@ import (
 	"github.com/Aeomar999/CommPit/smtpd"
 	"github.com/Aeomar999/CommPit/store/sqlite"
 	"github.com/Aeomar999/CommPit/web"
+	"github.com/Aeomar999/CommPit/webhooks"
 )
 
 var (
@@ -43,6 +44,8 @@ func main() {
 	flag.IntVar(&cfg.HTTP.Port, "port", cfg.HTTP.Port, "HTTP server port")
 	flag.IntVar(&cfg.Adapters.Twilio.Port, "twilio-port", cfg.Adapters.Twilio.Port, "Dedicated Twilio adapter port (0 disables)")
 	flag.IntVar(&cfg.Adapters.Termii.Port, "termii-port", cfg.Adapters.Termii.Port, "Dedicated Termii adapter port (0 disables)")
+	flag.DurationVar(&cfg.Webhooks.Timeout, "webhooks-timeout", cfg.Webhooks.Timeout, "Webhook send timeout (0 selects 10s)")
+	flag.IntVar(&cfg.Webhooks.MaxAttempts, "webhooks-max-attempts", cfg.Webhooks.MaxAttempts, "Webhook max sends per delivery (0 selects 6)")
 	flag.StringVar(&cfg.SMTP.Host, "smtp-host", cfg.SMTP.Host, "SMTP server host")
 	flag.IntVar(&cfg.SMTP.Port, "smtp-port", cfg.SMTP.Port, "SMTP server port")
 	flag.StringVar(&cfg.DataDir, "data-dir", cfg.DataDir, "Data directory")
@@ -131,6 +134,13 @@ func runWithContext(ctx context.Context, cfg *config.Config) error {
 
 	service.LifecycleRunner().ResumeQueuedAndSent(ctx)
 
+	// Webhook worker: persistent delivery queue woken by bus events.
+	webhookWorker := webhooks.NewWorker(store, eventBus, core.RealClock{}, webhooks.NewHTTPSender(), webhooks.Config{
+		Timeout:     cfg.Webhooks.Timeout,
+		MaxAttempts: cfg.Webhooks.MaxAttempts,
+	})
+	webhookWorker.Start(ctx)
+
 	// Start SMTP server
 	smtpServer := smtpd.NewServer(&smtpd.Config{
 		Host:           cfg.SMTP.Host,
@@ -169,6 +179,13 @@ func runWithContext(ctx context.Context, cfg *config.Config) error {
 	})
 	termiiKit := adapterkit.New(projectResolver, adapterkit.WithBus(eventBus), adapterkit.WithSink(termiiSink))
 	termiiHandler := termiiKit.Wrap(termiiAdapter, termii.Extractor(), adapterkit.WithRequired(true))
+
+	// Webhook dispatch: provider formatters turn domain events into queued
+	// deliveries for the worker above.
+	webhookFormatters := webhooks.NewFormatters()
+	webhookFormatters.RegisterStatus(twilioAdapter.Name(), twilioAdapter)
+	webhookDispatcher := webhooks.NewDispatcher(store, eventBus, core.RealClock{}, webhookFormatters)
+	webhookDispatcher.Start()
 
 	rootRouter := chi.NewRouter()
 	rootRouter.Mount("/twilio", middleware.SecurityMiddleware(&cfg.Security)(twilioHandler))
@@ -245,6 +262,11 @@ func runWithContext(ctx context.Context, cfg *config.Config) error {
 			fmt.Fprintf(os.Stderr, "%s shutdown error: %v\n", s.name, err)
 		}
 	}
+
+	// 1b. Stop the webhook worker and dispatcher so no new sends start
+	// during shutdown.
+	webhookWorker.Stop()
+	webhookDispatcher.Stop()
 
 	// 2. Stop SMTP server
 	if err := smtpServer.Shutdown(shutdownCtx); err != nil {

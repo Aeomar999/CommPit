@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Aeomar999/CommPit/core"
+	"github.com/emersion/go-sasl"
 	"github.com/emersion/go-smtp"
 	"github.com/jhillyerd/enmime"
 )
@@ -119,6 +120,23 @@ func (s *Session) AuthLogin(username, password string) error {
 	return s.AuthPlain(username, password)
 }
 
+// AuthMechanisms advertises the SASL mechanisms (go-smtp AuthSession).
+// PLAIN is the only server-side mechanism go-sasl implements.
+func (s *Session) AuthMechanisms() []string {
+	return []string{"PLAIN"}
+}
+
+// Auth returns the SASL server for a mechanism (go-smtp AuthSession).
+// Without this, the server never advertises AUTH and AuthPlain is dead code.
+func (s *Session) Auth(mech string) (sasl.Server, error) {
+	if mech == "PLAIN" {
+		return sasl.NewPlainServer(func(_, username, password string) error {
+			return s.AuthPlain(username, password)
+		}), nil
+	}
+	return nil, smtp.ErrAuthUnknownMechanism
+}
+
 func (s *Session) Mail(from string, opts *smtp.MailOptions) error {
 	if opts != nil && opts.Size > s.backend.maxSize {
 		return errors.New("message size exceeds limit")
@@ -140,7 +158,9 @@ func (s *Session) Data(r io.Reader) error {
 		return err
 	}
 	s.data = data
-	return nil
+	// go-smtp answers 250 once Data returns nil, so delivery happens here —
+	// a separate Submit step would never run and mail would be silently lost.
+	return s.submit()
 }
 
 func (s *Session) Reset() {}
@@ -149,7 +169,7 @@ func (s *Session) Logout() error {
 	return nil
 }
 
-func (s *Session) Submit() error {
+func (s *Session) submit() error {
 	if s.projectID == "" {
 		// Try to resolve project from auth user
 		if s.authUser != "" {
@@ -161,7 +181,14 @@ func (s *Session) Submit() error {
 	}
 
 	if s.projectID == "" {
-		return errors.New("no project ID available (authentication required)")
+		// No AUTH: deliver into the shared default project (spec §6.2), so
+		// unauthenticated mail shows up in the default inbox next to
+		// unauthenticated native API traffic.
+		projectID, err := s.backend.resolver.Resolve(context.Background(), "native", "default")
+		if err != nil {
+			return errors.New("no project ID available (authentication required)")
+		}
+		s.projectID = projectID
 	}
 
 	if len(s.to) == 0 {

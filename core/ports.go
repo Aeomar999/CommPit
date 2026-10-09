@@ -53,7 +53,7 @@ type Store interface {
 	CreateWebhookDelivery(ctx context.Context, whd *WebhookDelivery) error
 	GetWebhookDelivery(ctx context.Context, id string) (*WebhookDelivery, error)
 	UpdateWebhookDelivery(ctx context.Context, whd *WebhookDelivery) error
-	ListPendingWebhooks(ctx context.Context, limit int) ([]*WebhookDelivery, error)
+	ListPendingWebhooks(ctx context.Context, now time.Time, limit int) ([]*WebhookDelivery, error)
 
 	CreateRequestLog(ctx context.Context, log *RequestLog) error
 	GetRequestLog(ctx context.Context, id string) (*RequestLog, error)

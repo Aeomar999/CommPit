@@ -615,12 +615,49 @@ func RunStoreTests(t *testing.T, newStore func() (core.Store, func())) {
 		}
 
 		// ListPendingWebhooks
-		pending, err := store.ListPendingWebhooks(ctx, 10)
+		pending, err := store.ListPendingWebhooks(ctx, time.Now(), 10)
 		if err != nil {
 			t.Fatalf("ListPendingWebhooks: %v", err)
 		}
 		if len(pending) != 0 {
 			t.Errorf("expected 0 pending after success, got %d", len(pending))
+		}
+
+		// ListPendingWebhooks returns only due rows
+		due := &core.WebhookDelivery{
+			ID:        core.NewWebhookDeliveryID(),
+			ProjectID: prjID,
+			Kind:      "status",
+			URL:       "https://example.com/due",
+			Payload:   map[string]interface{}{"event": "test"},
+			Headers:   map[string]string{},
+			Status:    core.WebhookPending,
+			CreatedAt: time.Now(),
+		}
+		futureAt := time.Now().Add(time.Hour)
+		future := &core.WebhookDelivery{
+			ID:          core.NewWebhookDeliveryID(),
+			ProjectID:   prjID,
+			Kind:        "status",
+			URL:         "https://example.com/future",
+			Payload:     map[string]interface{}{"event": "test"},
+			Headers:     map[string]string{},
+			Status:      core.WebhookPending,
+			NextRetryAt: &futureAt,
+			CreatedAt:   time.Now(),
+		}
+		if err := store.CreateWebhookDelivery(ctx, due); err != nil {
+			t.Fatalf("CreateWebhookDelivery: %v", err)
+		}
+		if err := store.CreateWebhookDelivery(ctx, future); err != nil {
+			t.Fatalf("CreateWebhookDelivery: %v", err)
+		}
+		pending, err = store.ListPendingWebhooks(ctx, time.Now(), 10)
+		if err != nil {
+			t.Fatalf("ListPendingWebhooks: %v", err)
+		}
+		if len(pending) != 1 || pending[0].ID != due.ID {
+			t.Errorf("expected only the due delivery, got %v", pending)
 		}
 	})
 

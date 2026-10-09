@@ -645,16 +645,20 @@ func (s *memStore) UpdateWebhookDelivery(ctx context.Context, w *core.WebhookDel
 	return nil
 }
 
-func (s *memStore) ListPendingWebhooks(ctx context.Context, limit int) ([]*core.WebhookDelivery, error) {
+func (s *memStore) ListPendingWebhooks(ctx context.Context, now time.Time, limit int) ([]*core.WebhookDelivery, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	var result []*core.WebhookDelivery
 	for _, w := range s.webhookDeliveries {
-		if w.Status == core.WebhookPending {
-			result = append(result, w)
-			if len(result) >= limit {
-				break
-			}
+		if w.Status != core.WebhookPending {
+			continue
+		}
+		if w.NextRetryAt != nil && w.NextRetryAt.After(now) {
+			continue
+		}
+		result = append(result, w)
+		if len(result) >= limit {
+			break
 		}
 	}
 	return result, nil

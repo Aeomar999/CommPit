@@ -1252,7 +1252,7 @@ func (h *Handlers) ListWebhooks(w http.ResponseWriter, r *http.Request, params L
 		return
 	}
 
-	webhooks, err := h.Store().ListPendingWebhooks(r.Context(), 50)
+	webhooks, err := h.Store().ListPendingWebhooks(r.Context(), h.service.Clock().Now(), 50)
 	if err != nil {
 		h.writeError(w, r, err)
 		return

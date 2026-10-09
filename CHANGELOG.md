@@ -8,6 +8,14 @@ Provider-compatible adapters follow the real providers' behavior. Fixes that mak
 
 ## [Unreleased]
 
+### Added
+
+- Webhooks delivery worker (`webhooks`, REQ-053): persistent queue drained on bus wake-ups (no polling), 10 s send timeout, retries after 1 s, 5 s, 30 s, 2 min and 10 min (six sends max, configurable), per-attempt records and `webhook.delivered` events. `webhooks.timeout` / `webhooks.max_attempts` settings (flags, env, YAML).
+
+### Fixed
+
+- SMTP delivery: the server answered `250 OK: queued` without storing anything (its `Submit()` was never called by the SMTP library) and never advertised AUTH. Delivery now runs inside `Data()`, `AUTH PLAIN` works with the username selecting the project, and unauthenticated mail lands in the default project per the design spec.
+
 ## [0.2.0] - 2026-10-08
 
 Twilio + Termii adapters, test API, request inspector. See `docs/guides/`
