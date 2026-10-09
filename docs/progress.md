@@ -33,6 +33,11 @@ Single source of truth for where the project stands. Update it in every PR that 
 
 Newest first. One entry per working session: what changed, decisions made, what's next.
 
+### 2026-10-09: SMTP Delivery Fix (M3, unplanned)
+
+- The SMTP server replied `250 OK: queued` to every email but stored nothing: go-smtp only calls the `Session` interface methods (`Mail`/`Rcpt`/`Data`), so the hand-written `Submit()` holding all delivery logic never ran. AUTH was equally dead — the server advertises it only when the session implements `AuthSession`. Fixed by delivering inside `Data()`, implementing `AuthSession` (PLAIN), and routing unauthenticated mail to the default project per spec §6.2. Covered by new `smtpd` end-to-end tests (real server + `net/smtp` client); `go-sasl` promoted to a direct dependency. Lesson logged in the system design journal.
+- **Next:** M3-01 (`webhooks` worker).
+
 ### 2026-10-08 (Session 21): M2 Milestone Gate
 
 - All 14 M2 tasks `[x]`. Full gate green on `milestone/m2`: fresh `go test ./...`, `golangci-lint` (0 issues), `gofmt`, Biome (38 files), `tsc`, Vite production build, embed binary build, e2e snippet harness (Node/Python/Go pass; PHP/.NET skip without runtimes), Playwright smoke (2 passed against the embedded UI). `-race` and `pnpm` script execution remain unavailable in this sandbox (no C toolchain; pnpm runner hangs) — both are covered by CI (`-race` matrix, `bun` web jobs).
