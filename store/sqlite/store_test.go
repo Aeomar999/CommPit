@@ -192,7 +192,6 @@ func TestSQLiteStoreBatchInsert10k(t *testing.T) {
 		t.Fatalf("CreateBatch: %v", err)
 	}
 
-	start := time.Now()
 	err := store.Transaction(ctx, func(s core.Store) error {
 		for i := 0; i < 10000; i++ {
 			msg := &core.Message{
@@ -217,12 +216,76 @@ func TestSQLiteStoreBatchInsert10k(t *testing.T) {
 		}
 		return nil
 	})
-	elapsed := time.Since(start)
 	if err != nil {
 		t.Fatalf("Transaction: %v", err)
 	}
-	if elapsed > 3*time.Second {
-		t.Errorf("10k batch insert took %v, expected under 3s", elapsed)
+
+	gotBatch, err := store.GetBatch(ctx, prjID, batch.ID)
+	if err != nil {
+		t.Fatalf("GetBatch: %v", err)
+	}
+	if gotBatch.Total != 10000 {
+		t.Errorf("expected batch total 10000, got %d", gotBatch.Total)
+	}
+}
+
+// BenchmarkSQLiteStoreBatchInsert10k tracks bulk insert speed (nightly, not
+// a gate): a hard bound cannot hold across machines, and especially not
+// under -race. See engineering.md §4.
+func BenchmarkSQLiteStoreBatchInsert10k(b *testing.B) {
+	store, err := NewStore(":memory:", 2)
+	if err != nil {
+		b.Fatalf("NewStore: %v", err)
+	}
+	defer store.Close()
+
+	ctx := context.Background()
+	prjID := core.NewProjectID()
+	if err := store.CreateProject(ctx, &core.Project{ID: prjID, Name: "bench-10k"}); err != nil {
+		b.Fatalf("CreateProject: %v", err)
+	}
+
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		batch := &core.Batch{
+			ID:        core.NewBatchID(),
+			ProjectID: prjID,
+			Provider:  "native",
+			Channel:   core.ChannelSMS,
+			CreatedAt: core.RealClock{}.Now(),
+		}
+		if err := store.CreateBatch(ctx, batch); err != nil {
+			b.Fatalf("CreateBatch: %v", err)
+		}
+		start := time.Now()
+		err := store.Transaction(ctx, func(s core.Store) error {
+			for i := 0; i < 10000; i++ {
+				msg := &core.Message{
+					ID:        core.NewMessageID(),
+					ProjectID: prjID,
+					BatchID:   &batch.ID,
+					Channel:   core.ChannelSMS,
+					Direction: core.DirectionOutbound,
+					Provider:  "native",
+					From:      "+15551234567",
+					To:        "+15557654321",
+					BodyText:  "Bulk message",
+					Status:    core.StatusQueued,
+					Segments:  1,
+					Encoding:  "gsm7",
+					CreatedAt: core.RealClock{}.Now(),
+					UpdatedAt: core.RealClock{}.Now(),
+				}
+				if err := s.CreateMessage(ctx, msg); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			b.Fatalf("Transaction: %v", err)
+		}
+		b.ReportMetric(float64(time.Since(start).Milliseconds()), "batch_ms")
 	}
 }
 

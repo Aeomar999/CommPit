@@ -21,7 +21,7 @@ jobs:
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v8
         with:
-          version: v2.0
+          version: v2.14.0
       - name: Run Biome
         if: hashFiles('web/package.json') != ''
         uses: oven-sh/setup-bun@v1
@@ -58,7 +58,8 @@ jobs:
           bun-version: latest
       - run: bun install
         working-directory: web
-      - run: bun test
+      # Scoped to src/: web/e2e holds Playwright specs for the e2e job.
+      - run: bun test src
         working-directory: web
 
   build:
