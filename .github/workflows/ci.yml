@@ -136,7 +136,8 @@ jobs:
           bun-version: latest
       - run: bun install
         working-directory: web
-      - run: npx playwright install --with-deps chromium
+      # Scoped to src/: web/e2e holds Playwright specs for the e2e job below.
+      - run: bun test src
         working-directory: web
       - run: npx playwright test
         working-directory: web
