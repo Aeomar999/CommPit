@@ -185,6 +185,7 @@ func runWithContext(ctx context.Context, cfg *config.Config) error {
 	webhookFormatters := webhooks.NewFormatters()
 	webhookFormatters.RegisterStatus(twilioAdapter.Name(), twilioAdapter)
 	webhookFormatters.RegisterStatus(termiiAdapter.Name(), termiiAdapter)
+	webhookFormatters.RegisterStatus("native", api.NewNotifier(store))
 	webhookDispatcher := webhooks.NewDispatcher(store, eventBus, core.RealClock{}, webhookFormatters)
 	webhookDispatcher.Start()
 

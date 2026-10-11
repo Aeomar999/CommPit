@@ -145,6 +145,21 @@ Termii's dashboard). There is no per-request callback.
   without naming one) and the signing key (the request `api_key`
   assumed — Termii says "your secret key" without saying which).
 
+## Native webhooks (M3-04)
+
+Implemented: `message.status` transitions on `native`-provider messages
+with a `callback_url` POST `{"event": "message.status", "message": {…}}`
+(full stored message) as `application/json`.
+
+- Signed with `X-Mocksms-Signature: sha256=<hex HMAC-SHA256 of the raw
+  body>`, keyed with the project's oldest native API key (stable when
+  several keys exist). Projects without a key send unsigned webhooks,
+  per the design spec.
+- `verification.updated` has no destination: `Verification` carries no
+  callback URL and `StartVerificationRequest` accepts none, so no
+  verification webhook is queued. Wiring one needs a model addition
+  (callback on the verification), not just a formatter.
+
 ## Termii Token (M2-08)
 
 Implemented: `POST /api/sms/otp/send`, `POST /api/sms/otp/verify`,
