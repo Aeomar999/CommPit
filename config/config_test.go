@@ -200,6 +200,20 @@ func TestConfig_SimRulesFromYAML(t *testing.T) {
 	}
 }
 
+func TestConfig_SimFailStatus(t *testing.T) {
+	cfg := SimConfig{Rules: []SimRuleConfig{{
+		Match:  SimMatchConfig{To: "+1555"},
+		Effect: SimEffectConfig{FailAsync: &SimFailConfig{Code: "30007", Message: "filtered", Status: "failed"}},
+	}}}
+	rules, err := cfg.CoreRules()
+	if err != nil {
+		t.Fatalf("CoreRules: %v", err)
+	}
+	if rules[0].Effect.FailAsync.Status != "failed" {
+		t.Errorf("expected failed status, got %q", rules[0].Effect.FailAsync.Status)
+	}
+}
+
 func TestConfig_SimRulesValidation(t *testing.T) {
 	for _, tc := range []struct {
 		name string
@@ -211,6 +225,7 @@ func TestConfig_SimRulesValidation(t *testing.T) {
 		{"negative hang", SimRuleConfig{Effect: SimEffectConfig{HangMs: -5}}},
 		{"negative rate", SimRuleConfig{Effect: SimEffectConfig{RateLimitPerMin: -2}}},
 		{"no effect", SimRuleConfig{Match: SimMatchConfig{To: "+1555"}}},
+		{"bad fail status", SimRuleConfig{Effect: SimEffectConfig{FailAsync: &SimFailConfig{Code: "x", Message: "y", Status: "maybe"}}}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg := SimConfig{Rules: []SimRuleConfig{tc.rule}}

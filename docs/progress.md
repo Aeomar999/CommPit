@@ -17,7 +17,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 |---|---|---|---|
 | M1: Core, native API, SMTP, inbox | v0.1.0 | Done | 21 / 21 |
 | M2: Twilio, Termii, test API, inspector | v0.2.0 | In progress | 14 / 14 |
-| M3: Webhooks, failure simulation, inbound, batches | v0.3.0 | In progress | 6 / 12 |
+| M3: Webhooks, failure simulation, inbound, batches | v0.3.0 | In progress | 7 / 12 |
 | M4: Estimate, MCP, CI kit | v0.4.0 | Not started | 0 / 8 |
 
 ## Blockers and open items
@@ -65,7 +65,12 @@ Newest first. One entry per working session: what changed, decisions made, what'
   - SMTP maps `invalid_address` to 550 (at DATA time — RCPT-time phase is a documented gap in `docs/fidelity.md`).
   - Tests: email magic + phone-pattern guard + From matching, window allow/limit/slide/isolation, YAML load + validation table, service rate/hang (FakeClock + BlockUntilWaiters, no sleeps), SMTP 550 + bounce-to-undelivered driven by bus-event sync.
   - Observed (pre-existing, out of scope): `StepDelay: 0` means "default 300 ms", not "instant" as the spec claims — zero is defaulted in `NewService`.
-- **Next:** M3-07 (async failure codes).
+- Completed M3-07 (`REQ-060`): async failure codes.
+  - `core.AsyncFail` gains `Status` (empty = undelivered, back-compat); the lifecycle honors `failed`. Terminal mapping: 30005/30003 → undelivered, 30007 → failed, email `bounced` → failed.
+  - New magic `…999906` → `fail_async` 30003 "unreachable handset" (undelivered); the twilio guide line now lists 999901–999906.
+  - YAML `fail_async` accepts optional `status: failed|undelivered` (validated).
+  - Tests: status table (30003/30005/30007), lifecycle failed-path, YAML status valid + invalid, bounce e2e now asserts failed + `bounced` code.
+- **Next:** M3-08 (inbound).
 
 ### 2026-10-09: SMTP Delivery Fix (M3, unplanned)
 

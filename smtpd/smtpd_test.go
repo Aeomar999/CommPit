@@ -160,11 +160,11 @@ func TestSMTP_BounceAcceptedThenFails(t *testing.T) {
 	sendMail(t, addr, "test@app.local", "user@bounce.mocksms.test", "Bounce", "Hi bounce", nil)
 
 	// Lifecycle steps ride the fake clock: queued→sent, then the async
-	// failure applies at sent→undelivered. Bus events sync each step.
+	// failure applies at sent→failed (bounces are terminal).
 	clock.Advance(500 * time.Millisecond)
 	waitStatus(t, statuses, core.StatusSent)
 	clock.Advance(500 * time.Millisecond)
-	waitStatus(t, statuses, core.StatusUndelivered)
+	waitStatus(t, statuses, core.StatusFailed)
 
 	projectID, err := core.NewProjectResolver(store).Resolve(context.Background(), "native", "default")
 	if err != nil {
@@ -174,8 +174,8 @@ func TestSMTP_BounceAcceptedThenFails(t *testing.T) {
 	if len(msgs) != 1 {
 		t.Fatalf("expected 1 stored message, got %d", len(msgs))
 	}
-	if msgs[0].Status != core.StatusUndelivered {
-		t.Errorf("expected undelivered, got %s", msgs[0].Status)
+	if msgs[0].Status != core.StatusFailed {
+		t.Errorf("expected failed, got %s", msgs[0].Status)
 	}
 	if msgs[0].ErrorCode == nil || *msgs[0].ErrorCode != "bounced" {
 		t.Errorf("expected bounced error code, got %v", msgs[0].ErrorCode)

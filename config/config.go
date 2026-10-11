@@ -108,10 +108,12 @@ type SimRejectConfig struct {
 	Message string `koanf:"message"`
 }
 
-// SimFailConfig is an asynchronous delivery failure.
+// SimFailConfig is an asynchronous delivery failure. Status selects the
+// terminal state (failed or undelivered, default undelivered).
 type SimFailConfig struct {
 	Code    string `koanf:"code"`
 	Message string `koanf:"message"`
+	Status  string `koanf:"status"`
 }
 
 // SimEffectConfig mirrors core.SimEffect for YAML rules. Durations are
@@ -203,7 +205,16 @@ func (rc SimRuleConfig) toCore() (core.SimRule, error) {
 		rule.Effect.Reject = reject
 	}
 	if effect.FailAsync != nil {
-		rule.Effect.FailAsync = &core.AsyncFail{ErrorCode: effect.FailAsync.Code, ErrorMessage: effect.FailAsync.Message}
+		fail := &core.AsyncFail{ErrorCode: effect.FailAsync.Code, ErrorMessage: effect.FailAsync.Message}
+		switch strings.ToLower(strings.TrimSpace(effect.FailAsync.Status)) {
+		case "", "undelivered":
+			fail.Status = core.StatusUndelivered
+		case "failed":
+			fail.Status = core.StatusFailed
+		default:
+			return rule, fmt.Errorf("unknown fail_async status %q (want failed or undelivered)", effect.FailAsync.Status)
+		}
+		rule.Effect.FailAsync = fail
 	}
 	for name, ms := range map[string]int{"delay_ms": effect.DelayMs, "hang_ms": effect.HangMs} {
 		if ms < 0 {

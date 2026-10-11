@@ -73,8 +73,9 @@ func TestSimulator_MagicNumbersTable(t *testing.T) {
 			expectAsync: "30007",
 		},
 		{
-			name: "Non-magic suffix 999906 should not trigger pattern",
-			to:   "+1555999906",
+			name:        "Pattern 999906 - Unreachable handset",
+			to:          "+1555999906",
+			expectAsync: "30003",
 		},
 		{
 			name: "Non-magic suffix 999900 should not trigger pattern",
@@ -126,6 +127,41 @@ func TestSimulator_MagicNumbersTable(t *testing.T) {
 				}
 			} else if res.Hang > 0 {
 				t.Errorf("unexpected Hang: %v", res.Hang)
+			}
+		})
+	}
+}
+
+func TestSimulator_AsyncFailStatuses(t *testing.T) {
+	s := New()
+	ctx := context.Background()
+	for _, tc := range []struct {
+		to     string
+		code   string
+		status core.MessageStatus
+	}{
+		{"+1555999902", "30005", core.StatusUndelivered},
+		{"+1555999905", "30007", core.StatusFailed},
+		{"+1555999906", "30003", core.StatusUndelivered},
+	} {
+		t.Run(tc.code, func(t *testing.T) {
+			_, res := s.Evaluate(ctx, "prj_test", core.SendRequest{
+				Channel: core.ChannelSMS,
+				From:    "+15005550000",
+				To:      []string{tc.to},
+			})
+			if res == nil || res.AsyncFail == nil {
+				t.Fatalf("expected async fail, got %+v", res)
+			}
+			if res.AsyncFail.ErrorCode != tc.code {
+				t.Errorf("expected code %q, got %q", tc.code, res.AsyncFail.ErrorCode)
+			}
+			got := res.AsyncFail.Status
+			if got == "" {
+				got = core.StatusUndelivered
+			}
+			if got != tc.status {
+				t.Errorf("expected status %q, got %q", tc.status, got)
 			}
 		})
 	}

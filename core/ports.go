@@ -115,6 +115,9 @@ type SimResult struct {
 type AsyncFail struct {
 	ErrorCode    string
 	ErrorMessage string
+	// Status is the terminal state: failed or undelivered. Empty selects
+	// undelivered, preserving the pre-status behavior for older rules.
+	Status MessageStatus
 }
 
 type SimMatch struct {

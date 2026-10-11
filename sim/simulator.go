@@ -111,6 +111,7 @@ func DefaultRules() []core.SimRule {
 			Effect: core.SimEffect{FailAsync: &core.AsyncFail{
 				ErrorCode:    "bounced",
 				ErrorMessage: "mailbox unavailable",
+				Status:       core.StatusFailed,
 			}},
 		},
 	}
@@ -165,7 +166,7 @@ func (s *Simulator) Evaluate(_ context.Context, projectID string, req core.SendR
 		}
 	}
 
-	// 2. Evaluate pattern rules (only ...999901 to ...999905 are magic numbers)
+	// 2. Evaluate pattern rules (...999901 to ...999906 are magic numbers)
 	if s.matchPatternRules(req) {
 		err, patternRes := s.applyPatternEffect(req)
 		if err != nil {
@@ -245,7 +246,7 @@ func (s *Simulator) matchPatternRules(req core.SendRequest) bool {
 		return false
 	}
 	digit := suffix[5]
-	return digit >= '1' && digit <= '5'
+	return digit >= '1' && digit <= '6'
 }
 
 func (s *Simulator) applyPatternEffect(req core.SendRequest) (*core.Error, *core.SimResult) {
@@ -277,6 +278,14 @@ func (s *Simulator) applyPatternEffect(req core.SendRequest) (*core.Error, *core
 			AsyncFail: &core.AsyncFail{
 				ErrorCode:    "30007",
 				ErrorMessage: "carrier filtered",
+				Status:       core.StatusFailed,
+			},
+		}
+	case '6':
+		return nil, &core.SimResult{
+			AsyncFail: &core.AsyncFail{
+				ErrorCode:    "30003",
+				ErrorMessage: "unreachable handset",
 			},
 		}
 	}
