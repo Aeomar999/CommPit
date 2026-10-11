@@ -128,12 +128,23 @@ adapterkit: finish RequestLog → Bus.Publish(request.logged)
 lifecycle runner (Clock timer fires)
   → Store.AppendStatusEvent(sent) → Bus.Publish(message.status)
       ├─ SSE hub → browser updates the tick
-      └─ webhooks worker: message has callback_url?
-           → Formatters.For("twilio").StatusWebhook(msg, event, project)
-           → Store.CreateWebhookDelivery(pending) → POST with X-Twilio-Signature
+      └─ webhooks dispatcher: message has a webhook destination?
+           → Formatters.StatusFor(provider).StatusWebhook(msg, event, project)
+           → Store.CreateWebhookDelivery(pending) → Bus.Publish(webhook.queued)
+           → worker drain → POST (signatures per provider)
            → record attempt; on failure set next_retry_at (1s, 5s, 30s, 2m, 10m)
   → later: delivered (or failed/undelivered per Simulator decision)
 ```
+
+The `webhook.queued` event is published after the row exists, so the
+worker drain cannot miss it. Replay (`POST /webhooks/{id}/replay`) goes
+through `Dispatcher.Redispatch`: it re-runs the provider formatter to
+re-sign the payload and queues a fresh record (attempt reset); when the
+message context is gone it clones the original row verbatim. Inside
+Docker (detected via `/.dockerenv` or `MOCKSMS_IN_DOCKER=1`, off with
+`--no-docker-host-rewrite`), the worker rewrites loopback webhook hosts
+to `host.docker.internal` at send time and records a note on the
+delivery; the stored URL keeps the configured host.
 
 ### 5.3 Verification
 
@@ -232,3 +243,4 @@ The hosted product is a separate private Go module with its own `cmd/`. It reuse
 | ADR-008 | 2026-10-03 | Native webhooks are JSON signed with HMAC-SHA256 using the project's API key | The spec left the native webhook format undefined |
 | ADR-009 | 2026-10-08 | Adapterkit middleware layer with streaming body duplication and ingress credential redaction | Protects inspector memory with strict 64 KB caps while preserving complete downstream request bodies, redacting secrets before storage/bus publication |
 | ADR-010 | 2026-10-08 | Native API served only under spec-canonical `/api/v1`; `/` serves the embedded web UI (SPA fallback) | The UI, `openapi.yaml` servers and the vite proxy all use `/api/v1`, while M1 had mounted the handlers at root (every UI call 404'd). A both-prefixes alias was staged first, then replaced by the UI mount once the embed wiring landed; pre-1.0 root-path clients migrate to `/api/v1` |
+| ADR-011 | 2026-10-11 | Webhook queue wake-up via `webhook.queued` (published after the row exists); replay re-signs through `Dispatcher.Redispatch` behind an api-owned `WebhookRedispatcher` interface; Docker loopback rewrite at send time with a `note` column (migration 002) | Publishing after create closes the worker/dispatcher race; the interface keeps `api` free of adapter imports; send-time rewrite keeps stored URLs faithful to configuration |

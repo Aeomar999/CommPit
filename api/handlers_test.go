@@ -73,7 +73,7 @@ func setupTestRouter(t *testing.T, storeOverride core.Store, simOverride core.Si
 		Resolver:  resolver,
 	})
 
-	handlers := NewHandlers(svc, resolver, eventBus, "test", &config.SecurityConfig{
+	handlers := NewHandlers(svc, resolver, eventBus, nil, "test", &config.SecurityConfig{
 		AllowedHosts:    []string{}, // Empty = allow all for tests
 		RequireXMocksms: false,      // Disable for tests
 		UIAuth:          "",

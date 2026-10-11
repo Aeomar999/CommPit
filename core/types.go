@@ -213,7 +213,10 @@ type WebhookDelivery struct {
 	ResponseStatus *int                   `json:"response_status,omitempty"`
 	ResponseBody   *string                `json:"response_body,omitempty"`
 	NextRetryAt    *time.Time             `json:"next_retry_at,omitempty"`
-	CreatedAt      time.Time              `json:"created_at"`
+	// Note carries operator annotations on the record, e.g. the Docker
+	// host rewrite applied at send time. Never sent to the receiver.
+	Note      *string   `json:"note,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type RequestLog struct {

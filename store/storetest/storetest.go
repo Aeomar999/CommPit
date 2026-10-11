@@ -599,10 +599,15 @@ func RunStoreTests(t *testing.T, newStore func() (core.Store, func())) {
 		if got.URL != "https://example.com/webhook" {
 			t.Errorf("expected webhook URL, got %s", got.URL)
 		}
+		if got.Note != nil {
+			t.Errorf("expected nil note, got %q", *got.Note)
+		}
 
 		// UpdateWebhookDelivery
 		whd.Status = core.WebhookSucceeded
 		whd.ResponseStatus = ptrInt(200)
+		note := "docker host rewrite: http://localhost:8080/x → http://host.docker.internal:8080/x"
+		whd.Note = &note
 		if err := store.UpdateWebhookDelivery(ctx, whd); err != nil {
 			t.Fatalf("UpdateWebhookDelivery: %v", err)
 		}
@@ -612,6 +617,9 @@ func RunStoreTests(t *testing.T, newStore func() (core.Store, func())) {
 		}
 		if got.Status != core.WebhookSucceeded {
 			t.Errorf("expected succeeded, got %s", got.Status)
+		}
+		if got.Note == nil || *got.Note != note {
+			t.Errorf("expected note round-trip, got %v", got.Note)
 		}
 
 		// ListPendingWebhooks

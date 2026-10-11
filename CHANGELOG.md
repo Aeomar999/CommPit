@@ -14,6 +14,8 @@ Provider-compatible adapters follow the real providers' behavior. Fixes that mak
 - Twilio status webhooks (REQ-051, REQ-052): per-request `StatusCallback` URLs receive form-encoded `MessageSid`/`MessageStatus` callbacks on every transition, signed with `X-Twilio-Signature` (explicit `twilio.auth_token`, else the token seen with an `AC` username, else the API secret with a warning).
 - Termii delivery reports (REQ-051): every message transition posts the documented JSON delivery report to the account-level `termii.webhook_url` project setting, signed with `X-Termii-Signature` (HMAC-SHA512 over the body, keyed by the observed `api_key`).
 - Native status webhooks (REQ-051, REQ-052): `message.status` transitions on native messages with a `callback_url` POST `{"event": "message.status", "message": {...}}`, signed with `X-Mocksms-Signature: sha256=<hex HMAC-SHA256>` keyed by the project's oldest native API key (unsigned when the project has no key).
+- Webhook replay (REQ-054): `POST /webhooks/{id}/replay` re-signs the original payload through the provider formatter and queues a fresh delivery record (attempt reset); replays without message context resend verbatim. A new `webhook.queued` event wakes the worker after every queued row.
+- Docker host rewrite (REQ-055): inside a container (detected via `/.dockerenv` or `MOCKSMS_IN_DOCKER=1`), loopback webhook hosts are rewritten to `host.docker.internal` at send time with a note on the delivery record; off with `--no-docker-host-rewrite`.
 
 ### Fixed
 

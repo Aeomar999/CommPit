@@ -20,6 +20,11 @@ type sentCall struct {
 
 func setupWorkerTest(t *testing.T, send func() (int, []byte, error)) (*Worker, core.Store, *core.FakeClock, core.Bus, chan sentCall, chan core.Event) {
 	t.Helper()
+	return setupWorkerTestWithConfig(t, send, Config{})
+}
+
+func setupWorkerTestWithConfig(t *testing.T, send func() (int, []byte, error), cfg Config) (*Worker, core.Store, *core.FakeClock, core.Bus, chan sentCall, chan core.Event) {
+	t.Helper()
 	store, err := sqlite.NewStore(":memory:", 1)
 	if err != nil {
 		t.Fatalf("sqlite.NewStore: %v", err)
@@ -48,7 +53,7 @@ func setupWorkerTest(t *testing.T, send func() (int, []byte, error)) (*Worker, c
 	})
 	t.Cleanup(sub.Unsubscribe)
 
-	worker := NewWorker(store, eventBus, clock, sender, Config{})
+	worker := NewWorker(store, eventBus, clock, sender, cfg)
 	return worker, store, clock, eventBus, sent, events
 }
 
@@ -317,4 +322,52 @@ func TestWorker_StopIdempotent(t *testing.T) {
 	worker.Start(ctx)
 	worker.Stop()
 	worker.Stop()
+}
+
+func TestWorker_DockerRewrite(t *testing.T) {
+	ok := func() (int, []byte, error) { return http.StatusOK, []byte(`ok`), nil }
+	worker, store, clock, _, sent, _ := setupWorkerTestWithConfig(t, ok, Config{DockerRewrite: true})
+	prjID := projectOf(t, store)
+
+	delivery := seedDelivery(t, store, clock, prjID)
+	delivery.URL = "http://localhost:8080/app-hook?token=x"
+	if err := store.UpdateWebhookDelivery(context.Background(), delivery); err != nil {
+		t.Fatalf("UpdateWebhookDelivery: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	worker.Start(ctx)
+	defer worker.Stop()
+
+	call := waitSend(t, sent)
+	if call.url != "http://host.docker.internal:8080/app-hook?token=x" {
+		t.Errorf("expected rewritten send URL, got %q", call.url)
+	}
+	stored := storedDelivery(t, store, delivery.ID)
+	if stored.URL != "http://localhost:8080/app-hook?token=x" {
+		t.Errorf("stored URL must keep the configured host, got %q", stored.URL)
+	}
+	if stored.Note == nil || *stored.Note == "" {
+		t.Fatalf("expected rewrite note on the record, got %v", stored.Note)
+	}
+}
+
+func TestWorker_NoRewriteByDefault(t *testing.T) {
+	ok := func() (int, []byte, error) { return http.StatusOK, []byte(`ok`), nil }
+	worker, store, clock, _, sent, _ := setupWorkerTest(t, ok)
+	prjID := projectOf(t, store)
+
+	delivery := seedDelivery(t, store, clock, prjID)
+	delivery.URL = "http://localhost:8080/hook"
+	worker.deliver(context.Background(), delivery)
+
+	select {
+	case call := <-sent:
+		if call.url != "http://localhost:8080/hook" {
+			t.Errorf("expected untouched URL, got %q", call.url)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatalf("timed out waiting for webhook send")
+	}
 }

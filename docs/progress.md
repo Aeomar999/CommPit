@@ -17,7 +17,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 |---|---|---|---|
 | M1: Core, native API, SMTP, inbox | v0.1.0 | Done | 21 / 21 |
 | M2: Twilio, Termii, test API, inspector | v0.2.0 | In progress | 14 / 14 |
-| M3: Webhooks, failure simulation, inbound, batches | v0.3.0 | In progress | 4 / 12 |
+| M3: Webhooks, failure simulation, inbound, batches | v0.3.0 | In progress | 5 / 12 |
 | M4: Estimate, MCP, CI kit | v0.4.0 | Not started | 0 / 8 |
 
 ## Blockers and open items
@@ -54,7 +54,11 @@ Newest first. One entry per working session: what changed, decisions made, what'
   - `api/notify.go`: `Notifier` (holds the store, keeps the spec §7.3 method signature) builds `{"event": "message.status", "message": {…}}` for `native`-provider messages with a `callback_url`. `X-Mocksms-Signature: sha256=<hex HMAC-SHA256>` keyed by the project's oldest native API key (stable with several keys); unsigned with a warning when keyless. Registered in `cmd/mocksms`; no dispatcher change needed (it stays provider-agnostic; `api` was already allowed to import `adapterkit`).
   - Tests: Python-computed golden vector, event payload shape, oldest-key selection with several credentials, skip paths, unsigned fallback.
   - Gap noted in `docs/fidelity.md`: `verification.updated` has no destination (`Verification` carries no callback URL), so no verification webhook is queued — that needs a model addition, not a formatter.
-- **Next:** M3-05 (docker rewrite + replay).
+- Completed M3-05 (`REQ-054`, `REQ-055`): Docker rewrite + replay re-sign.
+  - Docker: `webhooks.InDocker` (`/.dockerenv` or `MOCKSMS_IN_DOCKER=1`) + `RewriteLoopback` (localhost/127.0.0.1/::1 → `host.docker.internal`, port/path/query preserved). The worker applies it at send time when `DockerRewrite` is set (`!cfg.NoDockerHostRewrite && InDocker()` from the pre-existing flag/config surface) and records a note on the delivery; the stored URL keeps the configured host. New `note` column via migration 002 (001 is merged and immutable) across sqlite + txstore, with a storetest round-trip.
+  - Replay: `Dispatcher.Redispatch` rebuilds the delivery as a fresh record (attempt reset), re-running the provider formatter to re-sign when the message context exists, else cloning verbatim. New `webhook.queued` core event, published after every create, wakes the worker — this also closes the dispatcher/worker race where a drain could run before the row existed. `POST /webhooks/{id}/replay` now goes through an api-owned `WebhookRedispatcher` interface (nil falls back to the old verbatim clone), so `api` imports no adapter code. Architecture §5.2 + ADR-011 updated.
+  - Tests: rewrite table (incl. suffix/IPv6/unparseable guards), worker send-time rewrite + note + stored-URL fidelity, queued-event publish, resign + both verbatim fallbacks, replay endpoint (redispatched/nil-fallback/404).
+- **Next:** M3-06 (sim engine rules).
 
 ### 2026-10-09: SMTP Delivery Fix (M3, unplanned)
 

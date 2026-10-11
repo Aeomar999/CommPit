@@ -142,8 +142,182 @@ func TestDispatcher_Skips(t *testing.T) {
 
 func TestDispatcher_BusSubscription(t *testing.T) {
 	store, clock, formatters, prjID := setupDispatchTest(t)
-	_ = prjID
-	_ = clock
-	_ = formatters
-	_ = store
+	formatters.RegisterStatus("twilio", &fakeStatusNotifier{
+		request: &adapterkit.WebhookRequest{
+			URL:     "https://example.com/twilio-status",
+			Body:    []byte(url.Values{"MessageSid": {"SMabc"}}.Encode()),
+			Headers: map[string]string{"Content-Type": "application/x-www-form-urlencoded"},
+		},
+		ok: true,
+	})
+	eventBus := bus.NewEventBus()
+	dispatcher := NewDispatcher(store, eventBus, clock, formatters)
+	dispatcher.Start()
+	defer dispatcher.Stop()
+
+	msg := seedStatusMessage(t, store, clock, prjID, "twilio", "https://example.com/twilio-status")
+	eventBus.Publish(context.Background(), core.Event{
+		Type:      core.EventMessageStatus,
+		Payload:   &core.StatusEvent{ID: core.NewStatusEventID(), MessageID: msg.ID, Status: core.StatusDelivered, At: clock.Now()},
+		ProjectID: prjID,
+		Timestamp: clock.Now(),
+	})
+
+	deliveries, err := store.ListPendingWebhooks(context.Background(), clock.Now(), 10)
+	if err != nil {
+		t.Fatalf("ListPendingWebhooks: %v", err)
+	}
+	if len(deliveries) != 1 {
+		t.Fatalf("expected bus event to queue 1 delivery, got %d", len(deliveries))
+	}
+}
+
+func TestDispatcher_PublishesQueued(t *testing.T) {
+	store, clock, formatters, prjID := setupDispatchTest(t)
+	formatters.RegisterStatus("twilio", &fakeStatusNotifier{
+		request: &adapterkit.WebhookRequest{
+			URL:     "https://example.com/twilio-status",
+			Body:    []byte("MessageSid=SMabc"),
+			Headers: map[string]string{"Content-Type": "application/x-www-form-urlencoded"},
+		},
+		ok: true,
+	})
+	eventBus := bus.NewEventBus()
+	queued := make(chan core.Event, 4)
+	sub := eventBus.Subscribe(string(core.EventWebhookQueued), func(e core.Event) { queued <- e })
+	defer sub.Unsubscribe()
+	dispatcher := NewDispatcher(store, eventBus, clock, formatters)
+
+	msg := seedStatusMessage(t, store, clock, prjID, "twilio", "https://example.com/twilio-status")
+	event := &core.StatusEvent{ID: core.NewStatusEventID(), MessageID: msg.ID, Status: core.StatusDelivered, At: clock.Now()}
+	if err := dispatcher.DispatchStatus(context.Background(), msg, event); err != nil {
+		t.Fatalf("DispatchStatus: %v", err)
+	}
+	select {
+	case got := <-queued:
+		if got.ProjectID != prjID {
+			t.Errorf("expected queued event for project, got %v", got.ProjectID)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatalf("timed out waiting for webhook.queued event")
+	}
+}
+
+func TestDispatcher_Redispatch(t *testing.T) {
+	t.Run("resigns with fresh record", func(t *testing.T) {
+		store, clock, formatters, prjID := setupDispatchTest(t)
+		formatters.RegisterStatus("twilio", &fakeStatusNotifier{
+			request: &adapterkit.WebhookRequest{
+				URL:     "https://example.com/twilio-status",
+				Body:    []byte(url.Values{"MessageSid": {"SMabc"}, "MessageStatus": {"delivered"}}.Encode()),
+				Headers: map[string]string{"Content-Type": "application/x-www-form-urlencoded", "X-Twilio-Signature": "fresh-sig"},
+			},
+			ok: true,
+		})
+		eventBus := bus.NewEventBus()
+		queued := make(chan core.Event, 4)
+		sub := eventBus.Subscribe(string(core.EventWebhookQueued), func(e core.Event) { queued <- e })
+		defer sub.Unsubscribe()
+		dispatcher := NewDispatcher(store, eventBus, clock, formatters)
+
+		msg := seedStatusMessage(t, store, clock, prjID, "twilio", "https://example.com/twilio-status")
+		stale := &core.WebhookDelivery{
+			ID:        core.NewWebhookDeliveryID(),
+			ProjectID: prjID,
+			MessageID: &msg.ID,
+			Kind:      "status",
+			URL:       "https://example.com/twilio-status",
+			Payload:   map[string]interface{}{"MessageSid": "SMabc"},
+			Headers:   map[string]string{"X-Twilio-Signature": "stale-sig"},
+			Attempt:   6,
+			Status:    core.WebhookFailed,
+			CreatedAt: clock.Now(),
+		}
+		if err := store.CreateWebhookDelivery(context.Background(), stale); err != nil {
+			t.Fatalf("CreateWebhookDelivery: %v", err)
+		}
+
+		fresh, err := dispatcher.Redispatch(context.Background(), stale)
+		if err != nil {
+			t.Fatalf("Redispatch: %v", err)
+		}
+		if fresh.ID == stale.ID {
+			t.Errorf("expected a new delivery record, got same ID")
+		}
+		if fresh.Attempt != 0 || fresh.Status != core.WebhookPending {
+			t.Errorf("expected fresh lifecycle, got attempt=%d status=%s", fresh.Attempt, fresh.Status)
+		}
+		if fresh.Headers["X-Twilio-Signature"] != "fresh-sig" {
+			t.Errorf("expected re-signed headers, got %v", fresh.Headers)
+		}
+		if fresh.Payload["MessageStatus"] != "delivered" {
+			t.Errorf("expected rebuilt payload, got %v", fresh.Payload)
+		}
+		select {
+		case <-queued:
+		case <-time.After(5 * time.Second):
+			t.Fatalf("timed out waiting for webhook.queued event")
+		}
+	})
+
+	t.Run("verbatim clone without message context", func(t *testing.T) {
+		store, clock, formatters, prjID := setupDispatchTest(t)
+		eventBus := bus.NewEventBus()
+		dispatcher := NewDispatcher(store, eventBus, clock, formatters)
+
+		original := &core.WebhookDelivery{
+			ID:        core.NewWebhookDeliveryID(),
+			ProjectID: prjID,
+			Kind:      "status",
+			URL:       "https://example.com/hook",
+			Payload:   map[string]interface{}{"a": "b"},
+			Headers:   map[string]string{"X-Sig": "old"},
+			Attempt:   3,
+			Status:    core.WebhookFailed,
+			CreatedAt: clock.Now(),
+		}
+		if err := store.CreateWebhookDelivery(context.Background(), original); err != nil {
+			t.Fatalf("CreateWebhookDelivery: %v", err)
+		}
+		fresh, err := dispatcher.Redispatch(context.Background(), original)
+		if err != nil {
+			t.Fatalf("Redispatch: %v", err)
+		}
+		if fresh.ID == original.ID || fresh.Attempt != 0 || fresh.Status != core.WebhookPending {
+			t.Errorf("expected fresh record, got %+v", fresh)
+		}
+		if fresh.Headers["X-Sig"] != "old" || fresh.Payload["a"] != "b" {
+			t.Errorf("expected verbatim clone, got %+v", fresh)
+		}
+	})
+
+	t.Run("verbatim clone for unknown provider", func(t *testing.T) {
+		store, clock, formatters, prjID := setupDispatchTest(t)
+		eventBus := bus.NewEventBus()
+		dispatcher := NewDispatcher(store, eventBus, clock, formatters)
+
+		msg := seedStatusMessage(t, store, clock, prjID, "termii", "https://example.com/x")
+		original := &core.WebhookDelivery{
+			ID:        core.NewWebhookDeliveryID(),
+			ProjectID: prjID,
+			MessageID: &msg.ID,
+			Kind:      "status",
+			URL:       "https://example.com/x",
+			Payload:   map[string]interface{}{"message_id": "1"},
+			Headers:   map[string]string{},
+			Attempt:   1,
+			Status:    core.WebhookSucceeded,
+			CreatedAt: clock.Now(),
+		}
+		if err := store.CreateWebhookDelivery(context.Background(), original); err != nil {
+			t.Fatalf("CreateWebhookDelivery: %v", err)
+		}
+		fresh, err := dispatcher.Redispatch(context.Background(), original)
+		if err != nil {
+			t.Fatalf("Redispatch: %v", err)
+		}
+		if fresh.Payload["message_id"] != "1" || fresh.Attempt != 0 {
+			t.Errorf("expected verbatim fresh clone, got %+v", fresh)
+		}
+	})
 }

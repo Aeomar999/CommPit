@@ -46,6 +46,7 @@ var wakeEventTypes = []core.EventType{
 	core.EventMessageStatus,
 	core.EventVerificationUpdated,
 	core.EventBatchUpdated,
+	core.EventWebhookQueued,
 }
 
 // Start subscribes to bus events, drains pre-existing rows, and runs the
@@ -148,9 +149,18 @@ func (w *Worker) deliver(ctx context.Context, delivery *core.WebhookDelivery) {
 		return
 	}
 
+	sendURL := delivery.URL
+	if w.cfg.DockerRewrite {
+		if rewritten, hit := RewriteLoopback(delivery.URL); hit {
+			sendURL = rewritten
+			note := "docker host rewrite: " + delivery.URL + " → " + rewritten
+			delivery.Note = &note
+		}
+	}
+
 	sendCtx, cancel := context.WithTimeout(ctx, w.cfg.Timeout)
 	defer cancel()
-	status, body, err := w.sender.Send(sendCtx, delivery.URL, payload, delivery.Headers)
+	status, body, err := w.sender.Send(sendCtx, sendURL, payload, delivery.Headers)
 	if err == nil && status >= 200 && status < 300 {
 		w.finish(ctx, delivery, status, body, true)
 		return

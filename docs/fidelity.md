@@ -160,6 +160,16 @@ with a `callback_url` POST `{"event": "message.status", "message": {…}}`
   verification webhook is queued. Wiring one needs a model addition
   (callback on the verification), not just a formatter.
 
+## Webhook replay and Docker (M3-05)
+
+- Replay re-signs: the payload is rebuilt through the provider formatter
+  with current keys, so rotated keys produce valid signatures.
+- Docker caveat: the rewrite changes only the delivery host. Provider
+  signatures (Twilio, Termii, native) still cover the configured
+  `localhost` URL, so SDK request validation against the received
+  `host.docker.internal` URL fails inside Docker — validate against the
+  configured URL instead.
+
 ## Termii Token (M2-08)
 
 Implemented: `POST /api/sms/otp/send`, `POST /api/sms/otp/verify`,

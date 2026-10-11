@@ -2,8 +2,10 @@ package webhooks
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 	"net/url"
+	"strings"
 	"sync"
 
 	"github.com/Aeomar999/CommPit/adapters/adapterkit"
@@ -115,7 +117,7 @@ func (d *Dispatcher) DispatchStatus(ctx context.Context, msg *core.Message, even
 	for key, value := range req.Headers {
 		headers[key] = value
 	}
-	return d.store.CreateWebhookDelivery(ctx, &core.WebhookDelivery{
+	delivery := &core.WebhookDelivery{
 		ID:        core.NewWebhookDeliveryID(),
 		ProjectID: msg.ProjectID,
 		MessageID: &msg.ID,
@@ -126,5 +128,101 @@ func (d *Dispatcher) DispatchStatus(ctx context.Context, msg *core.Message, even
 		Attempt:   0,
 		Status:    core.WebhookPending,
 		CreatedAt: d.clock.Now(),
+	}
+	if err := d.store.CreateWebhookDelivery(ctx, delivery); err != nil {
+		return err
+	}
+	// Wake the worker after the row exists, so the drain cannot miss it.
+	d.bus.Publish(ctx, core.Event{
+		Type:      core.EventWebhookQueued,
+		Payload:   delivery,
+		ProjectID: msg.ProjectID,
+		Timestamp: d.clock.Now(),
 	})
+	return nil
+}
+
+// Redispatch rebuilds a delivery as a fresh record, re-signing the payload
+// with the provider formatter when the message context still exists
+// (design spec §7.5: replay re-signs). When it doesn't — no linked
+// message, unknown provider, formatter declined — it clones the original
+// row verbatim so the replay still sends.
+func (d *Dispatcher) Redispatch(ctx context.Context, original *core.WebhookDelivery) (*core.WebhookDelivery, error) {
+	fresh := &core.WebhookDelivery{
+		ID:             core.NewWebhookDeliveryID(),
+		ProjectID:      original.ProjectID,
+		MessageID:      original.MessageID,
+		VerificationID: original.VerificationID,
+		Kind:           original.Kind,
+		URL:            original.URL,
+		Payload:        original.Payload,
+		Headers:        original.Headers,
+		Attempt:        0,
+		Status:         core.WebhookPending,
+		CreatedAt:      d.clock.Now(),
+	}
+	if original.MessageID != nil {
+		if rebuilt, ok := d.rebuild(ctx, original, fresh); ok {
+			fresh = rebuilt
+		}
+	}
+	if err := d.store.CreateWebhookDelivery(ctx, fresh); err != nil {
+		return nil, err
+	}
+	d.bus.Publish(ctx, core.Event{
+		Type:      core.EventWebhookQueued,
+		Payload:   fresh,
+		ProjectID: fresh.ProjectID,
+		Timestamp: d.clock.Now(),
+	})
+	return fresh, nil
+}
+
+// rebuild re-runs the provider formatter for the delivery's message. It
+// reports false when re-signing is impossible, leaving the verbatim clone.
+func (d *Dispatcher) rebuild(ctx context.Context, original, fresh *core.WebhookDelivery) (*core.WebhookDelivery, bool) {
+	msg, err := d.store.GetMessage(ctx, original.ProjectID, *original.MessageID)
+	if err != nil {
+		slog.Warn("webhooks: replay: load message, cloning verbatim", "delivery", original.ID, "err", err)
+		return nil, false
+	}
+	notifier, ok := d.formatters.StatusFor(msg.Provider)
+	if !ok {
+		return nil, false
+	}
+	project, err := d.store.GetProject(ctx, msg.ProjectID)
+	if err != nil {
+		slog.Warn("webhooks: replay: load project, cloning verbatim", "delivery", original.ID, "err", err)
+		return nil, false
+	}
+	event := &core.StatusEvent{ID: core.NewStatusEventID(), MessageID: msg.ID, Status: msg.Status, At: d.clock.Now()}
+	req, ok := notifier.StatusWebhook(*msg, *event, *project)
+	if !ok {
+		return nil, false
+	}
+	fresh.URL = req.URL
+	fresh.Payload = decodeBody(req.Body, req.Headers["Content-Type"])
+	fresh.Headers = map[string]string{}
+	for key, value := range req.Headers {
+		fresh.Headers[key] = value
+	}
+	return fresh, true
+}
+
+// decodeBody restores a notifier body to the payload map: JSON bodies parse
+// as JSON, anything else as a form (Twilio's status callbacks).
+func decodeBody(body []byte, contentType string) map[string]interface{} {
+	payload := map[string]interface{}{}
+	if strings.Contains(contentType, "json") {
+		if err := json.Unmarshal(body, &payload); err != nil {
+			slog.Warn("webhooks: replay: decode JSON body", "err", err)
+		}
+		return payload
+	}
+	if values, err := url.ParseQuery(string(body)); err == nil {
+		for key := range values {
+			payload[key] = values.Get(key)
+		}
+	}
+	return payload
 }

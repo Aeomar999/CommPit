@@ -130,16 +130,26 @@ func runWithContext(ctx context.Context, cfg *config.Config) error {
 		PhoneMode:    phoneMode,
 	})
 
-	handlers := api.NewHandlers(service, projectResolver, eventBus, version, &cfg.Security)
+	// Webhook dispatch: provider formatters turn domain events into queued
+	// deliveries for the worker below. Adapters register after creation;
+	// the replay endpoint receives the dispatcher with the handlers.
+	webhookFormatters := webhooks.NewFormatters()
+	webhookDispatcher := webhooks.NewDispatcher(store, eventBus, core.RealClock{}, webhookFormatters)
+	webhookDispatcher.Start()
+
+	handlers := api.NewHandlers(service, projectResolver, eventBus, webhookDispatcher, version, &cfg.Security)
 
 	service.LifecycleRunner().ResumeQueuedAndSent(ctx)
 
 	// Webhook worker: persistent delivery queue woken by bus events.
 	webhookWorker := webhooks.NewWorker(store, eventBus, core.RealClock{}, webhooks.NewHTTPSender(), webhooks.Config{
-		Timeout:     cfg.Webhooks.Timeout,
-		MaxAttempts: cfg.Webhooks.MaxAttempts,
+		Timeout:       cfg.Webhooks.Timeout,
+		MaxAttempts:   cfg.Webhooks.MaxAttempts,
+		DockerRewrite: !cfg.NoDockerHostRewrite && webhooks.InDocker(),
 	})
 	webhookWorker.Start(ctx)
+
+	// (Provider formatters register with the adapters below.)
 
 	// Start SMTP server
 	smtpServer := smtpd.NewServer(&smtpd.Config{
@@ -182,12 +192,9 @@ func runWithContext(ctx context.Context, cfg *config.Config) error {
 
 	// Webhook dispatch: provider formatters turn domain events into queued
 	// deliveries for the worker above.
-	webhookFormatters := webhooks.NewFormatters()
 	webhookFormatters.RegisterStatus(twilioAdapter.Name(), twilioAdapter)
 	webhookFormatters.RegisterStatus(termiiAdapter.Name(), termiiAdapter)
 	webhookFormatters.RegisterStatus("native", api.NewNotifier(store))
-	webhookDispatcher := webhooks.NewDispatcher(store, eventBus, core.RealClock{}, webhookFormatters)
-	webhookDispatcher.Start()
 
 	rootRouter := chi.NewRouter()
 	rootRouter.Mount("/twilio", middleware.SecurityMiddleware(&cfg.Security)(twilioHandler))

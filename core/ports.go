@@ -89,6 +89,7 @@ const (
 	EventBatchUpdated        EventType = "batch.updated"
 	EventRequestLogged       EventType = "request.logged"
 	EventWebhookDelivered    EventType = "webhook.delivered"
+	EventWebhookQueued       EventType = "webhook.queued"
 )
 
 type Event struct {

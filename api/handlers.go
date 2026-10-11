@@ -21,19 +21,28 @@ import (
 
 type projectKey struct{}
 
+// WebhookRedispatcher rebuilds a delivery as a fresh record (re-signing
+// when possible) and queues it. Implemented by the webhooks dispatcher;
+// defined here so api depends only on core types.
+type WebhookRedispatcher interface {
+	Redispatch(ctx context.Context, original *core.WebhookDelivery) (*core.WebhookDelivery, error)
+}
+
 type Handlers struct {
 	service         *core.Service
 	projectResolver core.ProjectResolver
 	sseHub          *SSEHub
+	redispatch      WebhookRedispatcher
 	version         string
 	securityCfg     *config.SecurityConfig
 }
 
-func NewHandlers(service *core.Service, resolver core.ProjectResolver, eventBus core.Bus, version string, securityCfg *config.SecurityConfig) *Handlers {
+func NewHandlers(service *core.Service, resolver core.ProjectResolver, eventBus core.Bus, redispatch WebhookRedispatcher, version string, securityCfg *config.SecurityConfig) *Handlers {
 	return &Handlers{
 		service:         service,
 		projectResolver: resolver,
 		sseHub:          NewSSEHub(eventBus),
+		redispatch:      redispatch,
 		version:         version,
 		securityCfg:     securityCfg,
 	}
@@ -1274,6 +1283,7 @@ func (h *Handlers) ListWebhooks(w http.ResponseWriter, r *http.Request, params L
 			"response_status": w.ResponseStatus,
 			"response_body":   w.ResponseBody,
 			"next_retry_at":   w.NextRetryAt,
+			"note":            w.Note,
 			"created_at":      w.CreatedAt,
 		}
 	}
@@ -1308,23 +1318,34 @@ func (h *Handlers) ReplayWebhook(w http.ResponseWriter, r *http.Request, id stri
 		return
 	}
 
-	newDelivery := &core.WebhookDelivery{
-		ID:             core.NewWebhookDeliveryID(),
-		ProjectID:      webhook.ProjectID,
-		MessageID:      webhook.MessageID,
-		VerificationID: webhook.VerificationID,
-		Kind:           webhook.Kind,
-		URL:            webhook.URL,
-		Payload:        webhook.Payload,
-		Headers:        webhook.Headers,
-		Attempt:        webhook.Attempt + 1,
-		Status:         core.WebhookPending,
-		CreatedAt:      h.service.Clock().Now(),
-	}
+	var newDelivery *core.WebhookDelivery
+	if h.redispatch != nil {
+		// Replay re-signs the original payload and queues a fresh record.
+		redone, err := h.redispatch.Redispatch(r.Context(), webhook)
+		if err != nil {
+			h.writeError(w, r, err)
+			return
+		}
+		newDelivery = redone
+	} else {
+		newDelivery = &core.WebhookDelivery{
+			ID:             core.NewWebhookDeliveryID(),
+			ProjectID:      webhook.ProjectID,
+			MessageID:      webhook.MessageID,
+			VerificationID: webhook.VerificationID,
+			Kind:           webhook.Kind,
+			URL:            webhook.URL,
+			Payload:        webhook.Payload,
+			Headers:        webhook.Headers,
+			Attempt:        0,
+			Status:         core.WebhookPending,
+			CreatedAt:      h.service.Clock().Now(),
+		}
 
-	if err := h.Store().CreateWebhookDelivery(r.Context(), newDelivery); err != nil {
-		h.writeError(w, r, err)
-		return
+		if err := h.Store().CreateWebhookDelivery(r.Context(), newDelivery); err != nil {
+			h.writeError(w, r, err)
+			return
+		}
 	}
 
 	render.JSON(w, r, map[string]interface{}{
@@ -1341,6 +1362,7 @@ func (h *Handlers) ReplayWebhook(w http.ResponseWriter, r *http.Request, id stri
 		"response_status": newDelivery.ResponseStatus,
 		"response_body":   newDelivery.ResponseBody,
 		"next_retry_at":   newDelivery.NextRetryAt,
+		"note":            newDelivery.Note,
 		"created_at":      newDelivery.CreatedAt,
 	})
 }
