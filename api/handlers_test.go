@@ -622,6 +622,60 @@ func TestHandlers_SimulateInboundCarries201AndContentTypeJSON(t *testing.T) {
 	}
 }
 
+func postJSON(t *testing.T, router http.Handler, target string, body map[string]any) *httptest.ResponseRecorder {
+	t.Helper()
+	payload, _ := json.Marshal(body)
+	req := httptest.NewRequest(http.MethodPost, target, bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	return rec
+}
+
+func TestHandlers_InboundStopSuppressesSends(t *testing.T) {
+	router, _, _ := setupTestRouter(t, nil, nil)
+	handset, appNumber := "+15005550006", "+15555550100"
+
+	send := func() *httptest.ResponseRecorder {
+		return postJSON(t, router, "/sms", map[string]any{
+			"from": appNumber,
+			"to":   handset,
+			"body": "Hello test",
+		})
+	}
+	inbound := func(body string) *httptest.ResponseRecorder {
+		return postJSON(t, router, "/inbound", map[string]any{
+			"from": handset,
+			"to":   appNumber,
+			"body": body,
+		})
+	}
+
+	if rec := send(); rec.Code != http.StatusCreated {
+		t.Fatalf("initial send: expected 201, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if rec := inbound("  stop "); rec.Code != http.StatusCreated {
+		t.Fatalf("STOP inbound: expected 201, got %d: %s", rec.Code, rec.Body.String())
+	}
+	rec := send()
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("send after STOP: expected 400, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var resp map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if errObj, ok := resp["error"].(map[string]any); !ok || errObj["code"] != "unsubscribed" {
+		t.Fatalf("expected unsubscribed error, got %v", resp)
+	}
+	if rec := inbound("START"); rec.Code != http.StatusCreated {
+		t.Fatalf("START inbound: expected 201, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if rec := send(); rec.Code != http.StatusCreated {
+		t.Fatalf("send after START: expected 201, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestHandlers_ValidationErrorReturns400(t *testing.T) {
 	router, _, _ := setupTestRouter(t, nil, nil)
 

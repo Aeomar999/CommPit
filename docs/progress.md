@@ -8,7 +8,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 |---|---|
 | **Phase** | Milestone 3 in progress |
 | **Current milestone** | M3 |
-| **Next action** | M3-09: STOP/START audit (largely exists, verify) |
+| **Next action** | M3-10: UI (batches, reply, webhooks log, sim settings) |
 | **Last updated** | 2026-10-08 |
 
 ## Milestones
@@ -17,7 +17,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 |---|---|---|---|
 | M1: Core, native API, SMTP, inbox | v0.1.0 | Done | 21 / 21 |
 | M2: Twilio, Termii, test API, inspector | v0.2.0 | In progress | 14 / 14 |
-| M3: Webhooks, failure simulation, inbound, batches | v0.3.0 | In progress | 8 / 12 |
+| M3: Webhooks, failure simulation, inbound, batches | v0.3.0 | In progress | 9 / 12 |
 | M4: Estimate, MCP, CI kit | v0.4.0 | Not started | 0 / 8 |
 
 ## Blockers and open items
@@ -76,7 +76,10 @@ Newest first. One entry per working session: what changed, decisions made, what'
   - Native `InboundNotifier` (`{"event": "message.inbound", …}` to `native.inbound_url`, signed with the API-key logic).
   - Dispatcher subscribes `message.created` for inbound direction → `kind: inbound` rows; worker parses replies at send time via a `WithReplies` option and re-enters through an `OnReply` service callback (addressing defaulted from the inbound message). New `provider` column via migration 003 for parser routing (also in the API JSON). Architecture §5.4 + ADR-012 updated.
   - Tests: inbound payloads + skip paths, TwiML table (explicit/missing `to`, distinct refs, empty, malformed), dispatch queuing + outbound silence, worker reply addressing + skip cases, provider round-trip. Full suite run serially (`-p 1`) after parallel linking OOM'd the box.
-- **Next:** M3-09 (STOP/START audit — largely exists, verify).
+- Completed M3-09 (`REQ-072`): STOP/START audit.
+  - Verified complete against the spec: all six STOP and three START keywords (trimmed, case-insensitive), idempotent storage (`INSERT OR REPLACE`, delete-missing is a no-op), suppression on single + batch + verification sends, Twilio 21610 and Termii `unsubscribed` mappings — all pre-existing with tests.
+  - Added the missing coverage: full HTTP-path test (`POST /inbound` STOP → send 400 `unsubscribed` → START → send 201), all nine keyword variants, and double-STOP/double-START idempotency.
+- **Next:** M3-10 (UI).
 
 ### 2026-10-09: SMTP Delivery Fix (M3, unplanned)
 

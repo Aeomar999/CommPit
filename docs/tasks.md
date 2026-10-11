@@ -400,7 +400,7 @@ func runMigrations(db *sql.DB) error {
 | [x] | M3-06 | `sim` engine: rule matching, effects (reject, fail_async, delay, hang, rate_limit), built-in magic values, YAML rules | M2 | REQ-060, REQ-061 |
 | [x] | M3-07 | Async failures with provider delivery error codes (Twilio 30003/30005/30007; email `bounced`) | M3-06 | REQ-060 |
 | [x] | M3-08 | Inbound: `POST /api/v1/inbound`, `core.ReceiveInbound`, Twilio `InboundNotifier`, TwiML `ReplyParser` | M3-01 | REQ-070, REQ-071 |
-| [ ] | M3-09 | STOP/START keyword handling and `unsubscribed` errors | M3-08 | REQ-072 |
+| [x] | M3-09 | STOP/START keyword handling and `unsubscribed` errors | M3-08 | REQ-072 |
 | [ ] | M3-10 | UI: Batches view, reply box, webhook log tab with replay, sim settings (latency, failure %) | M3-01–M3-09 | REQ-062, REQ-081 |
 | [ ] | M3-11 | Playwright smoke tests: live arrival, reply → webhook, inspector, batch progress | M3-10 | — |
 | [ ] | M3-12 | Docs: webhooks guide, magic-values table, sim rule reference | M3-06 | — |

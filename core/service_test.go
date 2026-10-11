@@ -307,6 +307,63 @@ func TestRecipient_StopThenStartReenablesSending(t *testing.T) {
 	}
 }
 
+func TestRecipient_KeywordVariants(t *testing.T) {
+	for _, body := range []string{"STOP", "stopall", "  UnSuBsCrIbE  ", "CANCEL", "end", "Quit"} {
+		t.Run("stop/"+body, func(t *testing.T) {
+			svc, _, _ := setupTestService()
+			ctx := context.Background()
+			projectID := "prj_kw"
+			to := "+15005550006"
+			if _, err := svc.ReceiveInbound(ctx, projectID, InboundRequest{From: to, To: "+15005550000", Body: body}); err != nil {
+				t.Fatalf("ReceiveInbound: %v", err)
+			}
+			if _, err := svc.SendMessage(ctx, projectID, smsReq(to)); err == nil || !IsError(err, ErrCodeUnsubscribed) {
+				t.Fatalf("expected unsubscribed, got %v", err)
+			}
+		})
+	}
+	for _, body := range []string{"START", "yes", "UnStOp"} {
+		t.Run("start/"+body, func(t *testing.T) {
+			svc, _, _ := setupTestService()
+			ctx := context.Background()
+			projectID := "prj_kw"
+			to := "+15005550006"
+			if _, err := svc.ReceiveInbound(ctx, projectID, InboundRequest{From: to, To: "+15005550000", Body: "STOP"}); err != nil {
+				t.Fatalf("ReceiveInbound STOP: %v", err)
+			}
+			if _, err := svc.ReceiveInbound(ctx, projectID, InboundRequest{From: to, To: "+15005550000", Body: body}); err != nil {
+				t.Fatalf("ReceiveInbound %q: %v", body, err)
+			}
+			if _, err := svc.SendMessage(ctx, projectID, smsReq(to)); err != nil {
+				t.Fatalf("expected send after %q, got %v", body, err)
+			}
+		})
+	}
+}
+
+func TestRecipient_StopStartIdempotent(t *testing.T) {
+	svc, _, _ := setupTestService()
+	ctx := context.Background()
+	projectID := "prj_idem"
+	inbound := func(body string) {
+		t.Helper()
+		if _, err := svc.ReceiveInbound(ctx, projectID, InboundRequest{From: "+15005550006", To: "+15005550000", Body: body}); err != nil {
+			t.Fatalf("ReceiveInbound %q: %v", body, err)
+		}
+	}
+
+	inbound("STOP")
+	inbound("STOP")
+	if _, err := svc.SendMessage(ctx, projectID, smsReq("+15005550006")); err == nil || !IsError(err, ErrCodeUnsubscribed) {
+		t.Fatalf("expected unsubscribed after double STOP, got %v", err)
+	}
+	inbound("START")
+	inbound("START")
+	if _, err := svc.SendMessage(ctx, projectID, smsReq("+15005550006")); err != nil {
+		t.Fatalf("expected send after double START, got %v", err)
+	}
+}
+
 func TestRecipient_CallbackURLOnlyStoredWhenProvided(t *testing.T) {
 	svc, _, _ := setupTestService()
 	ctx := context.Background()
