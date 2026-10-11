@@ -184,6 +184,7 @@ func runWithContext(ctx context.Context, cfg *config.Config) error {
 	// deliveries for the worker above.
 	webhookFormatters := webhooks.NewFormatters()
 	webhookFormatters.RegisterStatus(twilioAdapter.Name(), twilioAdapter)
+	webhookFormatters.RegisterStatus(termiiAdapter.Name(), termiiAdapter)
 	webhookDispatcher := webhooks.NewDispatcher(store, eventBus, core.RealClock{}, webhookFormatters)
 	webhookDispatcher.Start()
 

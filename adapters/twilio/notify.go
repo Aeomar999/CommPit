@@ -20,6 +20,9 @@ const (
 	settingObservedSK = "twilio.observed_api_secret"
 )
 
+// Compile-time check that Adapter satisfies the dispatcher contract.
+var _ adapterkit.StatusNotifier = (*Adapter)(nil)
+
 // recordCredential remembers the Basic-auth credential of a send in project
 // settings so status webhooks can be signed later. AC usernames refresh the
 // account SID and token; SK usernames refresh only the API secret fallback.

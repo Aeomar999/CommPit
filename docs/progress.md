@@ -17,7 +17,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 |---|---|---|---|
 | M1: Core, native API, SMTP, inbox | v0.1.0 | Done | 21 / 21 |
 | M2: Twilio, Termii, test API, inspector | v0.2.0 | In progress | 14 / 14 |
-| M3: Webhooks, failure simulation, inbound, batches | v0.3.0 | In progress | 2 / 12 |
+| M3: Webhooks, failure simulation, inbound, batches | v0.3.0 | In progress | 3 / 12 |
 | M4: Estimate, MCP, CI kit | v0.4.0 | Not started | 0 / 8 |
 
 ## Blockers and open items
@@ -46,7 +46,11 @@ Newest first. One entry per working session: what changed, decisions made, what'
   - `webhooks/dispatch.go`: `Formatters` registry (startup registration only) + `Dispatcher` that subscribes to `core.EventMessageStatus`, loads the message + project, calls the provider's `StatusNotifier`, and queues a `core.WebhookDelivery` row.
   - Wired into `cmd/mocksms`: dispatcher starts after adapters register, stops on shutdown.
   - Tests: Twilio signature ground-truth vector, status webhook payload + signature verification, credential recording on send, dispatcher queuing and skip paths.
-- **Next:** M3-03 (Termii delivery-report notifier).
+- Completed M3-03 (`REQ-051`): Termii delivery-report notifier.
+  - `adapters/termii/dlr.go`: `StatusWebhook` posts Termii's documented JSON delivery report (`type`, `id`, `message_id`, `receiver`, `sender`, `message`, `sent_at`, `cost: null`, `status`, `channel`) to the account-level `termii.webhook_url` setting — Termii has no per-request callback. Status vocabulary (`Message Sent` / `Delivered` / `Message Failed`), microsecond UTC `sent_at`, `X-Termii-Signature` (hex HMAC-SHA512 over the exact bytes, keyed by the observed `api_key`; unsigned with a warning when unseen). Payload shape confirmed against Termii's public Events and Reports docs; `type` value, `id` semantics, signature encoding and key choice marked **unverified** in `docs/fidelity.md` (X-01).
+  - `api_key` recorded from sends via the shared `sendHandler`. Registered in `cmd/mocksms` alongside Twilio.
+  - Tests: Python-computed golden signature vector, payload shape, status table, skip paths, key recording on send.
+- **Next:** M3-04 (native webhooks).
 
 ### 2026-10-09: SMTP Delivery Fix (M3, unplanned)
 

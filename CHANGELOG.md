@@ -11,6 +11,8 @@ Provider-compatible adapters follow the real providers' behavior. Fixes that mak
 ### Added
 
 - Webhooks delivery worker (`webhooks`, REQ-053): persistent queue drained on bus wake-ups (no polling), 10 s send timeout, retries after 1 s, 5 s, 30 s, 2 min and 10 min (six sends max, configurable), per-attempt records and `webhook.delivered` events. `webhooks.timeout` / `webhooks.max_attempts` settings (flags, env, YAML).
+- Twilio status webhooks (REQ-051, REQ-052): per-request `StatusCallback` URLs receive form-encoded `MessageSid`/`MessageStatus` callbacks on every transition, signed with `X-Twilio-Signature` (explicit `twilio.auth_token`, else the token seen with an `AC` username, else the API secret with a warning).
+- Termii delivery reports (REQ-051): every message transition posts the documented JSON delivery report to the account-level `termii.webhook_url` project setting, signed with `X-Termii-Signature` (HMAC-SHA512 over the body, keyed by the observed `api_key`).
 
 ### Fixed
 

@@ -115,9 +115,35 @@ Implemented: `POST /api/sms/send`, `POST /api/sms/send/bulk`,
 - Batch-level `message_id` is generated, not stored (core batches carry no
   provider ref); per-message numeric refs apply to single sends only.
 - Credential extraction reads up to 1 MB bodies (bulk batches are ~200 KB).
-- No per-request delivery callback (Termii reports are account-level;
-  M3-03); `from` is required on every send.
+- `from` is required on every send.
 - Strict E.164 validation — Termii may accept looser number formats.
+
+## Termii delivery reports (M3-03)
+
+Implemented: the adapter builds a `StatusNotifier` delivery report for
+every message transition and the dispatcher queues it to the
+account-level URL in project settings (`termii.webhook_url`, as in
+Termii's dashboard). There is no per-request callback.
+
+- Payload shape confirmed against Termii's public Events and Reports
+  docs (`{type, id, message_id, receiver, sender, message, sent_at,
+  cost, status, channel}`, POST, `application/json`); `cost` is always
+  null (the sandbox has no billing). `sent_at` uses the docs' microsecond
+  UTC format.
+- Status vocabulary: `Message Sent` (Termii's first state; also used for
+  queued), `Delivered`, `Message Failed` (failed and undelivered).
+- Signed with `X-Termii-Signature`: HMAC-SHA512 over the exact JSON
+  bytes, keyed by the `api_key` seen on sends. Unsigned (with a server
+  warning) when no key has been seen yet.
+
+**Unverified** (correct against a real account in X-01):
+
+- The `type` value for outbound reports (`"outbound"` assumed, mirroring
+  the documented `"inbound"` value) and the `id` semantics for single
+  sends (assumed equal to `message_id`).
+- The signature encoding (hex assumed — Termii documents "HMAC SHA512"
+  without naming one) and the signing key (the request `api_key`
+  assumed — Termii says "your secret key" without saying which).
 
 ## Termii Token (M2-08)
 
