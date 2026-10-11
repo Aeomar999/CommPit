@@ -397,7 +397,7 @@ func runMigrations(db *sql.DB) error {
 | [x] | M3-03 | Termii delivery-report notifier (account-level URL) | M3-01 | REQ-051 |
 | [x] | M3-04 | Native webhooks: JSON payloads, `X-Mocksms-Signature` HMAC-SHA256 (architecture §5.6) | M3-01 | REQ-051, REQ-052 |
 | [x] | M3-05 | Docker `localhost` → `host.docker.internal` rewrite; webhook replay endpoint | M3-01 | REQ-054, REQ-055 |
-| [ ] | M3-06 | `sim` engine: rule matching, effects (reject, fail_async, delay, hang, rate_limit), built-in magic values, YAML rules | M2 | REQ-060, REQ-061 |
+| [x] | M3-06 | `sim` engine: rule matching, effects (reject, fail_async, delay, hang, rate_limit), built-in magic values, YAML rules | M2 | REQ-060, REQ-061 |
 | [ ] | M3-07 | Async failures with provider delivery error codes (Twilio 30003/30005/30007; email `bounced`) | M3-06 | REQ-060 |
 | [ ] | M3-08 | Inbound: `POST /api/v1/inbound`, `core.ReceiveInbound`, Twilio `InboundNotifier`, TwiML `ReplyParser` | M3-01 | REQ-070, REQ-071 |
 | [ ] | M3-09 | STOP/START keyword handling and `unsubscribed` errors | M3-08 | REQ-072 |

@@ -103,6 +103,9 @@ func (s *Service) SendMessage(ctx context.Context, projectID string, req SendReq
 	if simErr != nil {
 		return nil, simErr
 	}
+	if simResult.RateLimited {
+		return nil, NewRateLimited("rate limited", "to")
+	}
 
 	var callbackURL *string
 	if cb := strings.TrimSpace(req.CallbackURL); cb != "" {
@@ -160,6 +163,10 @@ func (s *Service) SendMessage(ctx context.Context, projectID string, req SendReq
 	})
 
 	s.lifecycle.Schedule(msg.ProjectID, msg.ID, simResult)
+
+	if err := s.waitHang(ctx, simResult.Hang); err != nil {
+		return nil, err
+	}
 
 	return &SendResponse{Message: msg}, nil
 }
@@ -247,6 +254,14 @@ func (s *Service) sendBatch(ctx context.Context, projectID string, req SendReque
 			})
 			continue
 		}
+		if simResult.RateLimited {
+			rejected = append(rejected, BatchRejectedRecipient{
+				To:      rawTo,
+				Code:    string(ErrCodeRateLimited),
+				Message: "rate limited",
+			})
+			continue
+		}
 
 		msg := &Message{
 			ID:          NewMessageID(),
@@ -329,11 +344,35 @@ func (s *Service) sendBatch(ctx context.Context, projectID string, req SendReque
 		Timestamp: s.clock.Now(),
 	})
 
+	var maxHang time.Duration
+	for _, res := range simResults {
+		if res.Hang > maxHang {
+			maxHang = res.Hang
+		}
+	}
+	if err := s.waitHang(ctx, maxHang); err != nil {
+		return nil, err
+	}
+
 	return &SendResponse{Batch: batch}, nil
 }
 
 func (s *Service) SendBatch(ctx context.Context, projectID string, req SendRequest) (*SendResponse, error) {
 	return s.sendBatch(ctx, projectID, req)
+}
+
+// waitHang holds the caller for a simulated provider hang. It honors
+// context cancellation so a disconnected client never blocks the server.
+func (s *Service) waitHang(ctx context.Context, hang time.Duration) error {
+	if hang <= 0 {
+		return nil
+	}
+	select {
+	case <-s.clock.After(hang):
+		return nil
+	case <-ctx.Done():
+		return NewInternal("simulated hang interrupted: " + ctx.Err().Error())
+	}
 }
 
 func (s *Service) StartVerification(ctx context.Context, projectID string, req VerificationRequest) (*VerificationResponse, error) {

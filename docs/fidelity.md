@@ -170,6 +170,12 @@ with a `callback_url` POST `{"event": "message.status", "message": {…}}`
   `host.docker.internal` URL fails inside Docker — validate against the
   configured URL instead.
 
+## Failure simulation (M3-06)
+
+- SMTP 550 for `invalid_address` fires at DATA time, not per-recipient
+  at RCPT TO: multi-recipient mail gets one 550 for the whole message
+  instead of per-recipient 550s with the rest accepted.
+
 ## Termii Token (M2-08)
 
 Implemented: `POST /api/sms/otp/send`, `POST /api/sms/otp/verify`,

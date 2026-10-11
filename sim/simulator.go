@@ -30,6 +30,8 @@ type Simulator struct {
 	rules       []core.SimRule
 	latency     time.Duration
 	failureRate float64
+	clock       core.Clock
+	windows     map[string][]time.Time
 	randMu      sync.Mutex
 	randFloat   func() float64
 }
@@ -44,10 +46,20 @@ func WithRandFloat(fn func() float64) Option {
 	}
 }
 
+// WithClock overrides the clock used for rate-limit windows (e.g. the fake
+// clock in tests). Defaults to the real clock.
+func WithClock(clock core.Clock) Option {
+	return func(s *Simulator) {
+		s.clock = clock
+	}
+}
+
 // New creates a new Simulator with default rules.
 func New(opts ...Option) *Simulator {
 	s := &Simulator{
 		rules:     DefaultRules(),
+		clock:     core.RealClock{},
+		windows:   map[string][]time.Time{},
 		randFloat: rand.Float64,
 	}
 	for _, opt := range opts {
@@ -90,6 +102,17 @@ func DefaultRules() []core.SimRule {
 			Match:  core.SimMatch{To: "+15005550009"},
 			Effect: core.SimEffect{Reject: core.NewNotSMSCapable("not sms capable", "to")},
 		},
+		{
+			Match:  core.SimMatch{To: "*@invalid.mocksms.test"},
+			Effect: core.SimEffect{Reject: core.NewInvalidAddress("invalid address", "to")},
+		},
+		{
+			Match: core.SimMatch{To: "*@bounce.mocksms.test"},
+			Effect: core.SimEffect{FailAsync: &core.AsyncFail{
+				ErrorCode:    "bounced",
+				ErrorMessage: "mailbox unavailable",
+			}},
+		},
 	}
 }
 
@@ -129,6 +152,10 @@ func (s *Simulator) Evaluate(_ context.Context, projectID string, req core.SendR
 		if s.matchRule(rule.Match, projectID, req) {
 			if rule.Effect.Reject != nil {
 				return rule.Effect.Reject, res
+			}
+			if rule.Effect.RateLimit > 0 && !s.checkRateLimit(projectID, req.Provider, rule.Effect.RateLimit) {
+				res.RateLimited = true
+				return nil, res
 			}
 			s.applyEffectToResult(rule.Effect, res)
 			if latency > 0 {
@@ -179,16 +206,15 @@ func (s *Simulator) Evaluate(_ context.Context, projectID string, req core.SendR
 
 func (s *Simulator) matchRule(match core.SimMatch, projectID string, req core.SendRequest) bool {
 	if match.To != "" {
-		matchTo := cleanPhone(match.To)
 		reqTo := ""
 		if len(req.To) > 0 {
-			reqTo = cleanPhone(req.To[0])
+			reqTo = req.To[0]
 		}
-		if !matchString(matchTo, reqTo) {
+		if !matchRecipient(match.To, reqTo) {
 			return false
 		}
 	}
-	if match.From != "" && !matchString(cleanPhone(match.From), cleanPhone(req.From)) {
+	if match.From != "" && !matchRecipient(match.From, req.From) {
 		return false
 	}
 	if match.Provider != "" && match.Provider != req.Provider {
@@ -205,6 +231,9 @@ func (s *Simulator) matchRule(match core.SimMatch, projectID string, req core.Se
 
 func (s *Simulator) matchPatternRules(req core.SendRequest) bool {
 	if len(req.To) == 0 {
+		return false
+	}
+	if strings.Contains(req.To[0], "@") {
 		return false
 	}
 	to := cleanPhone(req.To[0])
@@ -264,9 +293,57 @@ func (s *Simulator) applyEffectToResult(effect core.SimEffect, res *core.SimResu
 	if effect.Hang > 0 {
 		res.Hang = effect.Hang
 	}
-	if effect.RateLimit > 0 {
-		res.RateLimited = true
+}
+
+// checkRateLimit enforces N sends per minute per project per provider with
+// a sliding window. Allowed sends consume quota; rejected ones do not, so
+// a burst cannot lock a sender out beyond one window.
+func (s *Simulator) checkRateLimit(projectID, provider string, perMinute int) bool {
+	if perMinute <= 0 {
+		return true
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	now := s.clock.Now()
+	cutoff := now.Add(-time.Minute)
+	key := projectID + "\x00" + provider
+	kept := make([]time.Time, 0, len(s.windows[key]))
+	for _, at := range s.windows[key] {
+		if at.After(cutoff) {
+			kept = append(kept, at)
+		}
+	}
+	if len(kept) >= perMinute {
+		s.windows[key] = kept
+		return false
+	}
+	s.windows[key] = append(kept, now)
+	return true
+}
+
+// matchRecipient compares a rule's To against a request recipient. Either
+// side containing '@' switches to case-insensitive email matching (phone
+// normalization would mangle addresses); otherwise both sides are phone
+// cleaned first.
+func matchRecipient(pattern, value string) bool {
+	if strings.Contains(pattern, "@") || strings.Contains(value, "@") {
+		return matchEmail(pattern, value)
+	}
+	return matchString(cleanPhone(pattern), cleanPhone(value))
+}
+
+// matchEmail compares addresses case-insensitively, with leading-'*'
+// suffix wildcards (`*@invalid.mocksms.test`).
+func matchEmail(pattern, value string) bool {
+	pattern = strings.ToLower(pattern)
+	value = strings.ToLower(value)
+	if pattern == value {
+		return true
+	}
+	if len(pattern) > 0 && pattern[0] == '*' {
+		return len(value) >= len(pattern)-1 && value[len(value)-len(pattern)+1:] == pattern[1:]
+	}
+	return false
 }
 
 func matchString(pattern, value string) bool {

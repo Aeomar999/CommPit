@@ -542,3 +542,121 @@ func TestService_VerificationText(t *testing.T) {
 		})
 	}
 }
+
+// scriptedSimulator returns a fixed result for every evaluation.
+type scriptedSimulator struct {
+	result *SimResult
+	err    *Error
+}
+
+func (s *scriptedSimulator) Evaluate(ctx context.Context, projectID string, req SendRequest) (*Error, *SimResult) {
+	return s.err, s.result
+}
+
+func (s *scriptedSimulator) SetRules(_ []SimRule)       {}
+func (s *scriptedSimulator) SetLatency(_ time.Duration) {}
+func (s *scriptedSimulator) SetFailureRate(_ float64)   {}
+
+func setupScriptedService(result *SimResult) (*Service, *FakeClock) {
+	store := newTestServiceStore()
+	clock := NewFakeClock()
+	clock.Set(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))
+	svc := NewService(ServiceConfig{
+		Store:     store,
+		Bus:       &mockBus{},
+		Simulator: &scriptedSimulator{result: result},
+		Clock:     clock,
+		StepDelay: 0,
+		PhoneMode: phone.ModeValid,
+	})
+	return svc, clock
+}
+
+func smsReq(to string) SendRequest {
+	return SendRequest{
+		Channel:  ChannelSMS,
+		From:     "+15005550000",
+		To:       []string{to},
+		BodyText: "Hello",
+		Provider: "native",
+	}
+}
+
+func TestService_RateLimitedSingle(t *testing.T) {
+	svc, _ := setupScriptedService(&SimResult{RateLimited: true})
+	_, err := svc.SendMessage(context.Background(), "prj_test1", smsReq("+15005550006"))
+	if err == nil || !IsError(err, ErrCodeRateLimited) {
+		t.Fatalf("expected rate_limited, got %v", err)
+	}
+}
+
+func TestService_RateLimitedBatch(t *testing.T) {
+	svc, _ := setupScriptedService(&SimResult{RateLimited: true})
+	resp, err := svc.SendBatch(context.Background(), "prj_test1", SendRequest{
+		Channel:  ChannelSMS,
+		From:     "+15005550000",
+		To:       []string{"+15005550006", "+15005550007"},
+		BodyText: "Hello",
+		Provider: "native",
+	})
+	if err != nil {
+		t.Fatalf("expected batch acceptance, got %v", err)
+	}
+	if len(resp.Batch.Rejected) != 2 {
+		t.Fatalf("expected 2 rejections, got %+v", resp.Batch.Rejected)
+	}
+	for _, rej := range resp.Batch.Rejected {
+		if rej.Code != string(ErrCodeRateLimited) {
+			t.Errorf("expected rate_limited, got %+v", rej)
+		}
+	}
+}
+
+func TestService_HangHoldsResponse(t *testing.T) {
+	svc, clock := setupScriptedService(&SimResult{Hang: 30 * time.Second})
+	type outcome struct {
+		resp *SendResponse
+		err  error
+	}
+	done := make(chan outcome, 1)
+	go func() {
+		resp, err := svc.SendMessage(context.Background(), "prj_test1", smsReq("+15005550006"))
+		done <- outcome{resp, err}
+	}()
+
+	clock.BlockUntilWaiters(1)
+	select {
+	case <-done:
+		t.Fatalf("SendMessage returned before the hang elapsed")
+	default:
+	}
+	clock.Advance(30 * time.Second)
+	select {
+	case out := <-done:
+		if out.err != nil || out.resp == nil || out.resp.Message == nil {
+			t.Fatalf("expected success after hang, got %+v %v", out.resp, out.err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatalf("timed out waiting for SendMessage after hang")
+	}
+}
+
+func TestService_HangCancelled(t *testing.T) {
+	svc, clock := setupScriptedService(&SimResult{Hang: time.Hour})
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() {
+		_, err := svc.SendMessage(ctx, "prj_test1", smsReq("+15005550006"))
+		done <- err
+	}()
+	clock.BlockUntilWaiters(1)
+	cancel()
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Fatalf("expected cancellation error, got nil")
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatalf("timed out waiting for cancellation")
+	}
+}

@@ -159,3 +159,64 @@ func TestConfig_Webhooks(t *testing.T) {
 		}
 	})
 }
+
+func TestConfig_SimRulesFromYAML(t *testing.T) {
+	dir := t.TempDir()
+	yaml := `sim:
+  latency: 50ms
+  failure_rate: 0.01
+  rules:
+    - match: {to: "+15551234567"}
+      effect: {reject: {code: invalid_number, message: "blocked"}}
+    - match: {provider: twilio, channel: sms}
+      effect: {delay_ms: 250, rate_limit_per_min: 60}
+    - match: {to: "*@example.test"}
+      effect: {fail_async: {code: bounced, message: "gone"}, hang_ms: 1000}
+`
+	if err := os.WriteFile(filepath.Join(dir, "mocksms.yaml"), []byte(yaml), 0644); err != nil {
+		t.Fatalf("write yaml: %v", err)
+	}
+	t.Chdir(dir)
+
+	cfg := Load()
+	if len(cfg.Sim.Rules) != 3 {
+		t.Fatalf("expected 3 rules, got %+v", cfg.Sim.Rules)
+	}
+	rules, err := cfg.Sim.CoreRules()
+	if err != nil {
+		t.Fatalf("CoreRules: %v", err)
+	}
+	if rules[0].Match.To != "+15551234567" || rules[0].Effect.Reject == nil || string(rules[0].Effect.Reject.Code) != "invalid_number" {
+		t.Errorf("rule 0 mismatch: %+v", rules[0])
+	}
+	if rules[1].Match.Provider != "twilio" || string(rules[1].Match.Channel) != "sms" || rules[1].Effect.RateLimit != 60 {
+		t.Errorf("rule 1 mismatch: %+v", rules[1])
+	}
+	if rules[1].Effect.Delay != 250*time.Millisecond {
+		t.Errorf("rule 1 delay mismatch: %v", rules[1].Effect.Delay)
+	}
+	if rules[2].Effect.FailAsync == nil || rules[2].Effect.FailAsync.ErrorCode != "bounced" || rules[2].Effect.Hang != time.Second {
+		t.Errorf("rule 2 mismatch: %+v", rules[2])
+	}
+}
+
+func TestConfig_SimRulesValidation(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		rule SimRuleConfig
+	}{
+		{"unknown reject code", SimRuleConfig{Effect: SimEffectConfig{Reject: &SimRejectConfig{Code: "nope", Message: "x"}}}},
+		{"unknown channel", SimRuleConfig{Match: SimMatchConfig{Channel: "push"}, Effect: SimEffectConfig{DelayMs: 1}}},
+		{"negative delay", SimRuleConfig{Effect: SimEffectConfig{DelayMs: -1}}},
+		{"negative hang", SimRuleConfig{Effect: SimEffectConfig{HangMs: -5}}},
+		{"negative rate", SimRuleConfig{Effect: SimEffectConfig{RateLimitPerMin: -2}}},
+		{"no effect", SimRuleConfig{Match: SimMatchConfig{To: "+1555"}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := SimConfig{Rules: []SimRuleConfig{tc.rule}}
+			if _, err := cfg.CoreRules(); err == nil {
+				t.Errorf("expected error, got nil")
+			}
+		})
+	}
+}

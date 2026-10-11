@@ -96,6 +96,11 @@ func runWithContext(ctx context.Context, cfg *config.Config) error {
 	simulator := sim.NewSimulator()
 	simulator.SetLatency(cfg.Sim.Latency)
 	simulator.SetFailureRate(cfg.Sim.FailureRate)
+	customRules, err := cfg.Sim.CoreRules()
+	if err != nil {
+		return fmt.Errorf("sim rules: %w", err)
+	}
+	simulator.SetRules(append(customRules, sim.DefaultRules()...))
 
 	var phoneMode phone.Mode
 	switch cfg.Validation.Phone {

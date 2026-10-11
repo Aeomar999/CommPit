@@ -17,7 +17,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 |---|---|---|---|
 | M1: Core, native API, SMTP, inbox | v0.1.0 | Done | 21 / 21 |
 | M2: Twilio, Termii, test API, inspector | v0.2.0 | In progress | 14 / 14 |
-| M3: Webhooks, failure simulation, inbound, batches | v0.3.0 | In progress | 5 / 12 |
+| M3: Webhooks, failure simulation, inbound, batches | v0.3.0 | In progress | 6 / 12 |
 | M4: Estimate, MCP, CI kit | v0.4.0 | Not started | 0 / 8 |
 
 ## Blockers and open items
@@ -58,7 +58,14 @@ Newest first. One entry per working session: what changed, decisions made, what'
   - Docker: `webhooks.InDocker` (`/.dockerenv` or `MOCKSMS_IN_DOCKER=1`) + `RewriteLoopback` (localhost/127.0.0.1/::1 → `host.docker.internal`, port/path/query preserved). The worker applies it at send time when `DockerRewrite` is set (`!cfg.NoDockerHostRewrite && InDocker()` from the pre-existing flag/config surface) and records a note on the delivery; the stored URL keeps the configured host. New `note` column via migration 002 (001 is merged and immutable) across sqlite + txstore, with a storetest round-trip.
   - Replay: `Dispatcher.Redispatch` rebuilds the delivery as a fresh record (attempt reset), re-running the provider formatter to re-sign when the message context exists, else cloning verbatim. New `webhook.queued` core event, published after every create, wakes the worker — this also closes the dispatcher/worker race where a drain could run before the row existed. `POST /webhooks/{id}/replay` now goes through an api-owned `WebhookRedispatcher` interface (nil falls back to the old verbatim clone), so `api` imports no adapter code. Architecture §5.2 + ADR-011 updated.
   - Tests: rewrite table (incl. suffix/IPv6/unparseable guards), worker send-time rewrite + note + stored-URL fidelity, queued-event publish, resign + both verbatim fallbacks, replay endpoint (redispatched/nil-fallback/404).
-- **Next:** M3-06 (sim engine rules).
+- Completed M3-06 (`REQ-060`, `REQ-061`): sim rule engine.
+  - Engine (`sim`): email-aware matching (phone normalization mangled `@` addresses — `@` on either side now switches to case-insensitive match, so `*@invalid.mocksms.test` / `*@bounce.mocksms.test` defaults work and phone patterns can't false-match emails); sliding-window `rate_limit` (N/min per project per provider, allowed sends consume quota, injectable clock); all five effects producible.
+  - Core consumption: `RateLimited` → `rate_limited` sync error (single) / rejected entry (batch); `Hang` → clock-aware blocking wait after scheduling (covers HTTP + SMTP + verify uniformly, honors ctx cancel). Delay/fail_async/reject already flowed.
+  - YAML (`sim.rules`, `koanf:` tags — koanf v2 ignores `mapstructure` tags, found by a failing test): match + reject/fail_async/delay_ms/hang_ms/rate_limit_per_min with fail-fast validation; `cmd` prepends custom rules before built-ins so they win.
+  - SMTP maps `invalid_address` to 550 (at DATA time — RCPT-time phase is a documented gap in `docs/fidelity.md`).
+  - Tests: email magic + phone-pattern guard + From matching, window allow/limit/slide/isolation, YAML load + validation table, service rate/hang (FakeClock + BlockUntilWaiters, no sleeps), SMTP 550 + bounce-to-undelivered driven by bus-event sync.
+  - Observed (pre-existing, out of scope): `StepDelay: 0` means "default 300 ms", not "instant" as the spec claims — zero is defaulted in `NewService`.
+- **Next:** M3-07 (async failure codes).
 
 ### 2026-10-09: SMTP Delivery Fix (M3, unplanned)
 
