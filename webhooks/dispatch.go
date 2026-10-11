@@ -15,13 +15,17 @@ import (
 // Formatters looks up provider webhook formatters by provider name.
 // Adapters register their optional capabilities here at startup.
 type Formatters struct {
-	mu     sync.RWMutex
-	status map[string]adapterkit.StatusNotifier
+	mu      sync.RWMutex
+	status  map[string]adapterkit.StatusNotifier
+	inbound map[string]adapterkit.InboundNotifier
 }
 
 // NewFormatters builds an empty formatter registry.
 func NewFormatters() *Formatters {
-	return &Formatters{status: map[string]adapterkit.StatusNotifier{}}
+	return &Formatters{
+		status:  map[string]adapterkit.StatusNotifier{},
+		inbound: map[string]adapterkit.InboundNotifier{},
+	}
 }
 
 // RegisterStatus registers a status-callback formatter for a provider.
@@ -36,6 +40,21 @@ func (f *Formatters) StatusFor(provider string) (adapterkit.StatusNotifier, bool
 	f.mu.RLock()
 	defer f.mu.RUnlock()
 	notifier, ok := f.status[provider]
+	return notifier, ok
+}
+
+// RegisterInbound registers an inbound-message formatter for a provider.
+func (f *Formatters) RegisterInbound(provider string, notifier adapterkit.InboundNotifier) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.inbound[provider] = notifier
+}
+
+// InboundFor returns the inbound formatter for a provider, if any.
+func (f *Formatters) InboundFor(provider string) (adapterkit.InboundNotifier, bool) {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	notifier, ok := f.inbound[provider]
 	return notifier, ok
 }
 
@@ -63,7 +82,7 @@ func NewDispatcher(store core.Store, bus core.Bus, clock core.Clock, formatters 
 	}
 }
 
-// Start subscribes to status transitions. Idempotent enough for one call;
+// Start subscribes to status transitions and inbound arrivals.
 // Stop unsubscribes.
 func (d *Dispatcher) Start() {
 	d.subs = append(d.subs, d.bus.Subscribe(string(core.EventMessageStatus), func(event core.Event) {
@@ -78,6 +97,15 @@ func (d *Dispatcher) Start() {
 		}
 		if err := d.DispatchStatus(context.Background(), msg, statusEvent); err != nil {
 			slog.Warn("webhooks: dispatch status", "message", msg.ID, "err", err)
+		}
+	}))
+	d.subs = append(d.subs, d.bus.Subscribe(string(core.EventMessageCreated), func(event core.Event) {
+		msg, ok := event.Payload.(*core.Message)
+		if !ok || msg.Direction != core.DirectionInbound {
+			return
+		}
+		if err := d.DispatchInbound(context.Background(), msg); err != nil {
+			slog.Warn("webhooks: dispatch inbound", "message", msg.ID, "err", err)
 		}
 	}))
 }
@@ -107,24 +135,15 @@ func (d *Dispatcher) DispatchStatus(ctx context.Context, msg *core.Message, even
 	if !ok {
 		return nil
 	}
-	payload := map[string]interface{}{}
-	if values, err := url.ParseQuery(string(req.Body)); err == nil {
-		for key := range values {
-			payload[key] = values.Get(key)
-		}
-	}
-	headers := map[string]string{}
-	for key, value := range req.Headers {
-		headers[key] = value
-	}
 	delivery := &core.WebhookDelivery{
 		ID:        core.NewWebhookDeliveryID(),
 		ProjectID: msg.ProjectID,
 		MessageID: &msg.ID,
 		Kind:      "status",
 		URL:       req.URL,
-		Payload:   payload,
-		Headers:   headers,
+		Payload:   decodeBody(req.Body, contentType(req.Headers)),
+		Headers:   copyHeaders(req.Headers),
+		Provider:  msg.Provider,
 		Attempt:   0,
 		Status:    core.WebhookPending,
 		CreatedAt: d.clock.Now(),
@@ -142,6 +161,63 @@ func (d *Dispatcher) DispatchStatus(ctx context.Context, msg *core.Message, even
 	return nil
 }
 
+// DispatchInbound builds the provider inbound webhook for a received
+// message and queues it. A nil error with no row means no webhook applies.
+func (d *Dispatcher) DispatchInbound(ctx context.Context, msg *core.Message) error {
+	notifier, ok := d.formatters.InboundFor(msg.Provider)
+	if !ok {
+		return nil
+	}
+	project, err := d.store.GetProject(ctx, msg.ProjectID)
+	if err != nil {
+		return err
+	}
+	req, ok := notifier.InboundWebhook(*msg, *project)
+	if !ok {
+		return nil
+	}
+	delivery := &core.WebhookDelivery{
+		ID:        core.NewWebhookDeliveryID(),
+		ProjectID: msg.ProjectID,
+		MessageID: &msg.ID,
+		Kind:      "inbound",
+		URL:       req.URL,
+		Payload:   decodeBody(req.Body, contentType(req.Headers)),
+		Headers:   copyHeaders(req.Headers),
+		Provider:  msg.Provider,
+		Attempt:   0,
+		Status:    core.WebhookPending,
+		CreatedAt: d.clock.Now(),
+	}
+	if err := d.store.CreateWebhookDelivery(ctx, delivery); err != nil {
+		return err
+	}
+	d.bus.Publish(ctx, core.Event{
+		Type:      core.EventWebhookQueued,
+		Payload:   delivery,
+		ProjectID: msg.ProjectID,
+		Timestamp: d.clock.Now(),
+	})
+	return nil
+}
+
+func contentType(headers map[string]string) string {
+	for key, value := range headers {
+		if strings.EqualFold(key, "Content-Type") {
+			return value
+		}
+	}
+	return ""
+}
+
+func copyHeaders(headers map[string]string) map[string]string {
+	out := make(map[string]string, len(headers))
+	for key, value := range headers {
+		out[key] = value
+	}
+	return out
+}
+
 // Redispatch rebuilds a delivery as a fresh record, re-signing the payload
 // with the provider formatter when the message context still exists
 // (design spec §7.5: replay re-signs). When it doesn't — no linked
@@ -157,6 +233,7 @@ func (d *Dispatcher) Redispatch(ctx context.Context, original *core.WebhookDeliv
 		URL:            original.URL,
 		Payload:        original.Payload,
 		Headers:        original.Headers,
+		Provider:       original.Provider,
 		Attempt:        0,
 		Status:         core.WebhookPending,
 		CreatedAt:      d.clock.Now(),

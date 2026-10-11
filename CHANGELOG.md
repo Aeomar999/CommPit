@@ -18,6 +18,7 @@ Provider-compatible adapters follow the real providers' behavior. Fixes that mak
 - Docker host rewrite (REQ-055): inside a container (detected via `/.dockerenv` or `MOCKSMS_IN_DOCKER=1`), loopback webhook hosts are rewritten to `host.docker.internal` at send time with a note on the delivery record; off with `--no-docker-host-rewrite`.
 - Failure simulation engine (REQ-060, REQ-061): custom `sim.rules` in `mocksms.yaml` (match on to/from/provider/project/channel; reject/fail_async/delay_ms/hang_ms/rate_limit_per_min effects, validated at startup, custom rules win over built-ins); email magic addresses (`*@invalid.mocksms.test` rejects, `*@bounce.mocksms.test` fails async with `bounced`); sliding-window `rate_limit` (N per minute per project per provider); `hang` holds the request (cancellable); SMTP answers 550 for invalid addresses.
 - Async failure codes (REQ-060): new `…999906` magic fails async with Twilio 30003 "unreachable handset"; 30007 carrier-filtered and email `bounced` now end `failed` while 30003/30005 end `undelivered` (via `AsyncFail.Status`, also settable as YAML `fail_async.status`).
+- Inbound webhooks and replies (REQ-070, REQ-071): inbound messages queue `kind: inbound` deliveries — Twilio form (`MessageSid`/`AccountSid`/`From`/`To`/`Body`/`NumMedia`) to `twilio.inbound_url`, native JSON to `native.inbound_url`, both signed. App-server TwiML `<Response><Message>` replies are parsed at send time and sent back through the core service (new `provider` column on deliveries for routing).
 
 ### Fixed
 

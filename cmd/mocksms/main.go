@@ -147,11 +147,23 @@ func runWithContext(ctx context.Context, cfg *config.Config) error {
 	service.LifecycleRunner().ResumeQueuedAndSent(ctx)
 
 	// Webhook worker: persistent delivery queue woken by bus events.
+	// Inbound replies parsed from app-server responses are sent back
+	// through the core service.
 	webhookWorker := webhooks.NewWorker(store, eventBus, core.RealClock{}, webhooks.NewHTTPSender(), webhooks.Config{
 		Timeout:       cfg.Webhooks.Timeout,
 		MaxAttempts:   cfg.Webhooks.MaxAttempts,
 		DockerRewrite: !cfg.NoDockerHostRewrite && webhooks.InDocker(),
-	})
+	}, webhooks.WithReplies(webhookFormatters, func(ctx context.Context, projectID string, reply core.OutboundReply) error {
+		_, err := service.SendMessage(ctx, projectID, core.SendRequest{
+			Channel:     core.ChannelSMS,
+			From:        reply.From,
+			To:          []string{reply.To},
+			BodyText:    reply.Body,
+			Provider:    reply.Provider,
+			ProviderRef: reply.ProviderRef,
+		})
+		return err
+	}))
 	webhookWorker.Start(ctx)
 
 	// (Provider formatters register with the adapters below.)
@@ -195,11 +207,14 @@ func runWithContext(ctx context.Context, cfg *config.Config) error {
 	termiiKit := adapterkit.New(projectResolver, adapterkit.WithBus(eventBus), adapterkit.WithSink(termiiSink))
 	termiiHandler := termiiKit.Wrap(termiiAdapter, termii.Extractor(), adapterkit.WithRequired(true))
 
-	// Webhook dispatch: provider formatters turn domain events into queued
-	// deliveries for the worker above.
+	// Provider formatters: status callbacks and inbound webhooks per
+	// provider, feeding the dispatcher and the worker's reply parsing.
+	nativeNotifier := api.NewNotifier(store)
 	webhookFormatters.RegisterStatus(twilioAdapter.Name(), twilioAdapter)
 	webhookFormatters.RegisterStatus(termiiAdapter.Name(), termiiAdapter)
-	webhookFormatters.RegisterStatus("native", api.NewNotifier(store))
+	webhookFormatters.RegisterStatus("native", nativeNotifier)
+	webhookFormatters.RegisterInbound(twilioAdapter.Name(), twilioAdapter)
+	webhookFormatters.RegisterInbound("native", nativeNotifier)
 
 	rootRouter := chi.NewRouter()
 	rootRouter.Mount("/twilio", middleware.SecurityMiddleware(&cfg.Security)(twilioHandler))

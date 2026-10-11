@@ -159,11 +159,13 @@ CheckVerification → expired? → status expired → verification_not_found
 ### 5.4 Inbound with TwiML reply
 
 ```
-UI reply box → POST /api/v1/inbound → core.ReceiveInbound
-  → STOP/START keyword? → Store.Unsubscribe / Resubscribe
+UI reply box → POST /api/v1/inbound → core.ReceiveInbound (STOP/START branch)
   → Message{direction: inbound, status: received}
-  → webhooks: Formatters.For(provider).InboundWebhook → POST to project inbound URL
-  → response body → ReplyParser (TwiML) → []OutboundReply → core.SendMessage for each
+  → webhooks dispatcher: Formatters.InboundFor(provider).InboundWebhook
+    → Store.CreateWebhookDelivery(kind: inbound, provider) → worker POST
+    → 2xx with a ReplyParser (Twilio TwiML)? → parse <Response><Message>
+    → worker fills addressing from the inbound message (To defaults to its
+      sender) → OnReply callback → core.SendMessage for each
 ```
 
 ### 5.5 SMTP
@@ -244,3 +246,4 @@ The hosted product is a separate private Go module with its own `cmd/`. It reuse
 | ADR-009 | 2026-10-08 | Adapterkit middleware layer with streaming body duplication and ingress credential redaction | Protects inspector memory with strict 64 KB caps while preserving complete downstream request bodies, redacting secrets before storage/bus publication |
 | ADR-010 | 2026-10-08 | Native API served only under spec-canonical `/api/v1`; `/` serves the embedded web UI (SPA fallback) | The UI, `openapi.yaml` servers and the vite proxy all use `/api/v1`, while M1 had mounted the handlers at root (every UI call 404'd). A both-prefixes alias was staged first, then replaced by the UI mount once the embed wiring landed; pre-1.0 root-path clients migrate to `/api/v1` |
 | ADR-011 | 2026-10-11 | Webhook queue wake-up via `webhook.queued` (published after the row exists); replay re-signs through `Dispatcher.Redispatch` behind an api-owned `WebhookRedispatcher` interface; Docker loopback rewrite at send time with a `note` column (migration 002) | Publishing after create closes the worker/dispatcher race; the interface keeps `api` free of adapter imports; send-time rewrite keeps stored URLs faithful to configuration |
+| ADR-012 | 2026-10-11 | Inbound replies parsed in the worker at send time; delivery rows carry a `provider` column (migration 003) for parser routing; replies re-enter through an `OnReply` service callback | The TwiML response only exists at send time, so parsing lives in the worker; the callback keeps `webhooks` free of service construction in tests |

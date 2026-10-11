@@ -44,8 +44,11 @@ func NewNotifier(store core.Store) *Notifier {
 	return &Notifier{store: store}
 }
 
-// Compile-time check that Notifier satisfies the dispatcher contract.
-var _ adapterkit.StatusNotifier = (*Notifier)(nil)
+// Compile-time checks that Notifier satisfies the dispatcher contracts.
+var (
+	_ adapterkit.StatusNotifier  = (*Notifier)(nil)
+	_ adapterkit.InboundNotifier = (*Notifier)(nil)
+)
 
 // signingKey returns the project's oldest native API key — the stable
 // choice when several keys exist. Empty when the project has no key, in
@@ -69,6 +72,45 @@ func (n *Notifier) signingKey(projectID string) string {
 		}
 	}
 	return oldest
+}
+
+// inboundPayload is the native inbound body (design spec §7).
+type inboundPayload struct {
+	Event   string       `json:"event"`
+	Message core.Message `json:"message"`
+}
+
+// InboundWebhook builds the signed JSON inbound notification for a native
+// inbound message (design spec §7). It returns false for other providers
+// or directions, and when native.inbound_url is not configured.
+func (n *Notifier) InboundWebhook(msg core.Message, project core.Project) (*adapterkit.WebhookRequest, bool) {
+	if msg.Provider != "native" {
+		return nil, false
+	}
+	if msg.Direction != core.DirectionInbound {
+		return nil, false
+	}
+	var webhookURL string
+	if project.Settings != nil {
+		webhookURL, _ = project.Settings["native.inbound_url"].(string)
+	}
+	if webhookURL == "" {
+		return nil, false
+	}
+
+	body, err := json.Marshal(inboundPayload{Event: "message.inbound", Message: msg})
+	if err != nil {
+		slog.Warn("native: encode inbound webhook", "message", msg.ID, "err", err)
+		return nil, false
+	}
+
+	headers := map[string]string{"Content-Type": "application/json"}
+	if key := n.signingKey(msg.ProjectID); key != "" {
+		headers[signatureHeader] = SignNativePayload(body, key)
+	} else {
+		slog.Warn("native: project has no API key; sending unsigned inbound webhook", "project", project.ID)
+	}
+	return &adapterkit.WebhookRequest{URL: webhookURL, Body: body, Headers: headers}, true
 }
 
 // StatusWebhook builds the signed JSON status callback for a native

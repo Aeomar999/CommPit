@@ -582,6 +582,7 @@ func RunStoreTests(t *testing.T, newStore func() (core.Store, func())) {
 			URL:         "https://example.com/webhook",
 			Payload:     map[string]interface{}{"event": "test"},
 			Headers:     map[string]string{"Content-Type": "application/json"},
+			Provider:    "twilio",
 			Attempt:     1,
 			Status:      core.WebhookPending,
 			NextRetryAt: ptrTime(time.Now().Add(1 * time.Minute)),
@@ -598,6 +599,9 @@ func RunStoreTests(t *testing.T, newStore func() (core.Store, func())) {
 		}
 		if got.URL != "https://example.com/webhook" {
 			t.Errorf("expected webhook URL, got %s", got.URL)
+		}
+		if got.Provider != "twilio" {
+			t.Errorf("expected provider round-trip, got %q", got.Provider)
 		}
 		if got.Note != nil {
 			t.Errorf("expected nil note, got %q", *got.Note)

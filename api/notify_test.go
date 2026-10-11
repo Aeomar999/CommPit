@@ -78,6 +78,81 @@ func decodeNative(t *testing.T, body []byte) map[string]interface{} {
 	return decoded
 }
 
+func TestNotifier_InboundWebhook(t *testing.T) {
+	newInbound := func() core.Message {
+		msg := notifyMessage("prj_notify")
+		msg.Direction = core.DirectionInbound
+		msg.Status = core.StatusReceived
+		return msg
+	}
+
+	t.Run("builds signed event payload", func(t *testing.T) {
+		store, project := setupNotifyTest(t)
+		base := time.Date(2026, 10, 9, 12, 0, 0, 0, time.UTC)
+		seedCredential(t, store, project.ID, "native", "hook-key", base)
+
+		notifier := NewNotifier(store)
+		msg := newInbound()
+		req, ok := notifier.InboundWebhook(msg, dlrProjectShim(project, "https://example.com/native-inbound"))
+		if !ok {
+			t.Fatalf("expected a webhook request")
+		}
+		if req.URL != "https://example.com/native-inbound" {
+			t.Errorf("expected inbound URL, got %q", req.URL)
+		}
+		decoded := decodeNative(t, req.Body)
+		if decoded["event"] != "message.inbound" {
+			t.Errorf("expected message.inbound event, got %v", decoded["event"])
+		}
+		if want := SignNativePayload(req.Body, "hook-key"); want != req.Headers["X-Mocksms-Signature"] {
+			t.Errorf("signature mismatch: header %q recomputed %q", req.Headers["X-Mocksms-Signature"], want)
+		}
+	})
+
+	t.Run("outbound messages ignored", func(t *testing.T) {
+		store, project := setupNotifyTest(t)
+		notifier := NewNotifier(store)
+		msg := notifyMessage(project.ID)
+		if _, ok := notifier.InboundWebhook(msg, projectWithInboundURL(project)); ok {
+			t.Errorf("expected no webhook for outbound message")
+		}
+	})
+
+	t.Run("no inbound URL means no webhook", func(t *testing.T) {
+		store, project := setupNotifyTest(t)
+		notifier := NewNotifier(store)
+		if _, ok := notifier.InboundWebhook(newInbound(), project); ok {
+			t.Errorf("expected no webhook without inbound URL")
+		}
+	})
+
+	t.Run("other providers ignored", func(t *testing.T) {
+		store, project := setupNotifyTest(t)
+		notifier := NewNotifier(store)
+		msg := newInbound()
+		msg.Provider = "twilio"
+		if _, ok := notifier.InboundWebhook(msg, projectWithInboundURL(project)); ok {
+			t.Errorf("expected no webhook for twilio message")
+		}
+	})
+}
+
+func projectWithInboundURL(project core.Project) core.Project {
+	if project.Settings == nil {
+		project.Settings = map[string]interface{}{}
+	}
+	project.Settings["native.inbound_url"] = "https://example.com/native-inbound"
+	return project
+}
+
+func dlrProjectShim(project core.Project, url string) core.Project {
+	if project.Settings == nil {
+		project.Settings = map[string]interface{}{}
+	}
+	project.Settings["native.inbound_url"] = url
+	return project
+}
+
 func TestNotifier_StatusWebhook(t *testing.T) {
 	t.Run("builds signed event payload with oldest key", func(t *testing.T) {
 		store, project := setupNotifyTest(t)

@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Aeomar999/CommPit/adapters/adapterkit"
 	"github.com/Aeomar999/CommPit/bus"
 	"github.com/Aeomar999/CommPit/core"
 	"github.com/Aeomar999/CommPit/store/sqlite"
@@ -369,5 +370,123 @@ func TestWorker_NoRewriteByDefault(t *testing.T) {
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatalf("timed out waiting for webhook send")
+	}
+}
+
+// replyParserStub is an InboundNotifier that also parses replies.
+type replyParserStub struct {
+	replies []core.OutboundReply
+	err     error
+}
+
+func (f *replyParserStub) InboundWebhook(msg core.Message, project core.Project) (*adapterkit.WebhookRequest, bool) {
+	return nil, false
+}
+
+func (f *replyParserStub) ParseReply(resp *http.Response) ([]core.OutboundReply, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	return f.replies, nil
+}
+
+func waitReply(t *testing.T, ch chan core.OutboundReply) core.OutboundReply {
+	t.Helper()
+	select {
+	case reply := <-ch:
+		return reply
+	case <-time.After(5 * time.Second):
+		t.Fatalf("timed out waiting for inbound reply")
+		return core.OutboundReply{}
+	}
+}
+
+func TestWorker_InboundReplies(t *testing.T) {
+	okTwiml := func() (int, []byte, error) {
+		return http.StatusOK, []byte(`<Response/>`), nil
+	}
+	worker, store, clock, _, sent, events := setupWorkerTest(t, okTwiml)
+	prjID := projectOf(t, store)
+
+	formatters := NewFormatters()
+	formatters.RegisterInbound("twilio", &replyParserStub{replies: []core.OutboundReply{
+		{Body: "No to here"},
+		{To: "+15005550009", From: "+15555550100", Body: "Explicit", Provider: "twilio", ProviderRef: "SMx"},
+	}})
+	replied := make(chan core.OutboundReply, 4)
+	worker.replyFormatters = formatters
+	worker.onReply = func(ctx context.Context, projectID string, reply core.OutboundReply) error {
+		replied <- reply
+		return nil
+	}
+
+	inbound := seedInboundMessage(t, store, clock, prjID, "twilio")
+	delivery := seedDelivery(t, store, clock, prjID)
+	delivery.Kind = "inbound"
+	delivery.Provider = "twilio"
+	delivery.MessageID = &inbound.ID
+	if err := store.UpdateWebhookDelivery(context.Background(), delivery); err != nil {
+		t.Fatalf("UpdateWebhookDelivery: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	worker.Start(ctx)
+	defer worker.Stop()
+
+	waitSend(t, sent)
+	first := waitReply(t, replied)
+	if first.To != inbound.From || first.From != inbound.To || first.Body != "No to here" || first.Provider != "twilio" {
+		t.Errorf("defaulted reply mismatch: %+v (inbound %+v)", first, inbound)
+	}
+	second := waitReply(t, replied)
+	if second.To != "+15005550009" || second.ProviderRef != "SMx" {
+		t.Errorf("explicit reply mismatch: %+v", second)
+	}
+	waitEvent(t, events)
+}
+
+func TestWorker_RepliesSkipped(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		kind     string
+		provider string
+	}{
+		{"non-inbound kind", "status", "twilio"},
+		{"unknown provider", "inbound", "pigeon"},
+		{"empty provider", "inbound", ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ok := func() (int, []byte, error) { return http.StatusOK, []byte(`<Response/>`), nil }
+			worker, store, clock, _, _, events := setupWorkerTest(t, ok)
+			prjID := projectOf(t, store)
+			formatters := NewFormatters()
+			formatters.RegisterInbound("twilio", &replyParserStub{replies: []core.OutboundReply{{Body: "x"}}})
+			replied := make(chan core.OutboundReply, 4)
+			worker.replyFormatters = formatters
+			worker.onReply = func(ctx context.Context, projectID string, reply core.OutboundReply) error {
+				replied <- reply
+				return nil
+			}
+
+			delivery := seedDelivery(t, store, clock, prjID)
+			delivery.Kind = tc.kind
+			delivery.Provider = tc.provider
+			if err := store.UpdateWebhookDelivery(context.Background(), delivery); err != nil {
+				t.Fatalf("UpdateWebhookDelivery: %v", err)
+			}
+
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			worker.Start(ctx)
+			defer worker.Stop()
+
+			waitEvent(t, events)
+			select {
+			case reply := <-replied:
+				t.Errorf("expected no reply, got %+v", reply)
+			default:
+			}
+		})
 	}
 }
