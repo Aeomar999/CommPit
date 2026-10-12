@@ -17,7 +17,9 @@ export function ReplyBox({ from, to }: { from: string; to: string }) {
       queryClient.invalidateQueries({ queryKey: ["messages"] });
     },
     onError: (err) => {
-      setError(err instanceof Error ? err.message : "Reply failed. Check the server and try again.");
+      setError(
+        err instanceof Error ? err.message : "Reply failed. Check the server and try again."
+      );
     },
   });
 

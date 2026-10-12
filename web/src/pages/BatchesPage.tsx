@@ -14,10 +14,7 @@ function statusBar(batch: Batch) {
     { status: "failed", count: batch.counts?.failed || 0, tone: "bg-red-500" },
   ];
   return (
-    <div
-      className="h-1.5 w-full overflow-hidden rounded-full bg-muted flex"
-      aria-hidden="true"
-    >
+    <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted flex" aria-hidden="true">
       {segments
         .filter((segment) => segment.count > 0)
         .map((segment) => (
@@ -110,13 +107,7 @@ function BatchDetail({ batch, onBack }: { batch: Batch; onBack: () => void }) {
 export function BatchesPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  const {
-    data,
-    isLoading,
-    isError,
-    refetch,
-    isRefetching,
-  } = useQuery({
+  const { data, isLoading, isError, refetch, isRefetching } = useQuery({
     queryKey: ["batches"],
     queryFn: () => batchesApi.list({ limit: 50 }),
     enabled: selectedId === null,
@@ -188,9 +179,7 @@ export function BatchesPage() {
                   className="w-full px-4 py-3 text-left hover:bg-muted/60 transition-colors space-y-2"
                 >
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-mono text-xs text-foreground break-all">
-                      {batch.id}
-                    </span>
+                    <span className="font-mono text-xs text-foreground break-all">{batch.id}</span>
                     <span className="px-2 py-0.5 rounded-full text-[11px] font-medium font-mono bg-muted text-muted-foreground">
                       {batch.provider}
                     </span>

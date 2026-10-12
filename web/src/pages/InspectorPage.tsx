@@ -143,9 +143,7 @@ function WebhookRow({ delivery }: { delivery: WebhookDelivery }) {
         {delivery.response_status != null ? ` · HTTP ${delivery.response_status}` : ""} ·{" "}
         {new Date(delivery.created_at).toLocaleString()}
       </p>
-      {delivery.note && (
-        <p className="text-[11px] text-muted-foreground italic">{delivery.note}</p>
-      )}
+      {delivery.note && <p className="text-[11px] text-muted-foreground italic">{delivery.note}</p>}
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"

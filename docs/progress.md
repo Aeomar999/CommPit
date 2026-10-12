@@ -8,7 +8,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 |---|---|
 | **Phase** | Milestone 3 in progress |
 | **Current milestone** | M3 |
-| **Next action** | M3-12: docs (webhooks guide, magic values, sim rules) |
+| **Next action** | M3 gate: full suite → final commit → PR → merge → tag v0.3.0 → branch m4 |
 | **Last updated** | 2026-10-08 |
 
 ## Milestones
@@ -17,7 +17,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 |---|---|---|---|
 | M1: Core, native API, SMTP, inbox | v0.1.0 | Done | 21 / 21 |
 | M2: Twilio, Termii, test API, inspector | v0.2.0 | In progress | 14 / 14 |
-| M3: Webhooks, failure simulation, inbound, batches | v0.3.0 | In progress | 11 / 12 |
+| M3: Webhooks, failure simulation, inbound, batches | v0.3.0 | In progress | 12 / 12 |
 | M4: Estimate, MCP, CI kit | v0.4.0 | Not started | 0 / 8 |
 
 ## Blockers and open items
@@ -87,7 +87,10 @@ Newest first. One entry per working session: what changed, decisions made, what'
 - Completed M3-11 (`REQ-062`, `REQ-081`): Playwright suite, 7 tests green.
   - New specs: inbox live arrival, reply-box round trip, batches progress + detail, inspector adapter-request log, and the full webhook loop (Node catcher receives signed `message.inbound`, UI replay re-queues and redelivers). Unique bodies/numbers per run; batch row located by id from the 202 response.
   - Fixed a stale-server trap mid-session (background jobs die with the shell; rebuilt with `-tags embed` and verified the PID before trusting results).
-- **Next:** M3-12 (docs).
+- Completed M3-12: docs.
+  - New `docs/guides/webhooks.md` (per-provider callbacks + signature snippets, inbound + TwiML, retries/replay, Docker) and `docs/guides/simulation.md` (magic-values table, `sim.rules` reference, runtime settings). README links both; twilio/termii guides point at webhooks.
+  - Every curl verified live against the binary (native callback, inbound STOP, sim GET/PUT, Twilio StatusCallback queued + signed, replay re-signs) — including a live STOP-suppression recovery and backoff retries against a dead port.
+- **Next:** M3 gate (full suite, final commit, PR, tag, m4).
 
 ### 2026-10-09: SMTP Delivery Fix (M3, unplanned)
 

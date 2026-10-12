@@ -403,7 +403,7 @@ func runMigrations(db *sql.DB) error {
 | [x] | M3-09 | STOP/START keyword handling and `unsubscribed` errors | M3-08 | REQ-072 |
 | [x] | M3-10 | UI: Batches view, reply box, webhook log tab with replay, sim settings (latency, failure %) | M3-01–M3-09 | REQ-062, REQ-081 |
 | [x] | M3-11 | Playwright smoke tests: live arrival, reply → webhook, inspector, batch progress | M3-10 | — |
-| [ ] | M3-12 | Docs: webhooks guide, magic-values table, sim rule reference | M3-06 | — |
+| [x] | M3-12 | Docs: webhooks guide, magic-values table, sim rule reference | M3-06 | — |
 
 **M3 milestone gate** (in order, once every task above is `[x]`):
 - [ ] Full suite passes on `milestone/m3`: `task test`, `task lint`, `task e2e`, `task build`

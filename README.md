@@ -85,6 +85,8 @@ go build -o mocksms ./cmd/mocksms
 - [Twilio guide](docs/guides/twilio.md) — redirecting the SDKs, Messages, Verify v2, magic numbers, credential linking
 - [Termii guide](docs/guides/termii.md) — base-URL override, SMS/bulk/Token endpoints, sender allow-list
 - [Test API guide](docs/guides/test-api.md) — `messages/wait`, `otp/latest`, `emails/latest` with Playwright, Cypress and Jest examples
+- [Webhooks guide](docs/guides/webhooks.md) — status callbacks and signatures per provider, inbound webhooks, TwiML replies, retries, replay, Docker
+- [Failure simulation guide](docs/guides/simulation.md) — magic values table, `sim.rules` reference, runtime settings
 
 ## SMTP Setup Guides
 

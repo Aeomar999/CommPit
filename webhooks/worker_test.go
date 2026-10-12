@@ -327,7 +327,7 @@ func TestWorker_StopIdempotent(t *testing.T) {
 
 func TestWorker_DockerRewrite(t *testing.T) {
 	ok := func() (int, []byte, error) { return http.StatusOK, []byte(`ok`), nil }
-	worker, store, clock, _, sent, _ := setupWorkerTestWithConfig(t, ok, Config{DockerRewrite: true})
+	worker, store, clock, _, sent, events := setupWorkerTestWithConfig(t, ok, Config{DockerRewrite: true})
 	prjID := projectOf(t, store)
 
 	delivery := seedDelivery(t, store, clock, prjID)
@@ -345,6 +345,9 @@ func TestWorker_DockerRewrite(t *testing.T) {
 	if call.url != "http://host.docker.internal:8080/app-hook?token=x" {
 		t.Errorf("expected rewritten send URL, got %q", call.url)
 	}
+	// The note is persisted by finish after the send; wait for the
+	// terminal event before reading the row back.
+	waitEvent(t, events)
 	stored := storedDelivery(t, store, delivery.ID)
 	if stored.URL != "http://localhost:8080/app-hook?token=x" {
 		t.Errorf("stored URL must keep the configured host, got %q", stored.URL)

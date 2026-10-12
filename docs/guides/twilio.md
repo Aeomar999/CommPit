@@ -62,7 +62,8 @@ curl -u ACXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX:test-token \
 ```
 
 `StatusCallback` is accepted and stored; delivery starts with the M3
-webhooks worker.
+webhooks worker. Callback payloads, signature checks and inbound SMS are
+covered in the [webhooks guide](webhooks.md).
 
 ## Verify v2
 

@@ -87,4 +87,5 @@ Failures are HTTP-sized with `{message, code}` where `code` is the
 canonical code (`invalid_number`, `unsubscribed`, `validation_error`, …).
 See `docs/fidelity.md` for behaviors still unverified against a real Termii
 account (response wordings, caps, channel semantics) — they will be
-confirmed in X-01.
+confirmed in X-01. Delivery reports and webhook signatures are covered
+in the [webhooks guide](webhooks.md).
