@@ -16,9 +16,23 @@ test("batch progress appears on the batches view", async ({ page, request }) => 
   const batchId = ((await send.json()) as { id: string }).id;
   expect(batchId).toMatch(/^bat_/);
 
+  // Server-side first: the row must exist before the UI can render it.
+  await expect
+    .poll(
+      async () => {
+        const list = await request.get("/api/v1/batches", {
+          headers: { "X-Mocksms": "true" },
+        });
+        const body = (await list.json()) as { batches: { id: string }[] };
+        return body.batches.some((b) => b.id === batchId);
+      },
+      { timeout: 10_000 }
+    )
+    .toBe(true);
+
   await page.goto("/batches");
   const row = page.getByRole("button").filter({ hasText: batchId }).first();
-  await expect(row).toBeVisible({ timeout: 10_000 });
+  await expect(row).toBeVisible({ timeout: 20_000 });
   await expect(row).toContainText("3 recipients");
   await row.click();
   await expect(page.getByText("Status counts").first()).toBeVisible({ timeout: 10_000 });

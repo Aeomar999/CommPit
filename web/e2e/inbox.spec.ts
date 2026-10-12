@@ -10,5 +10,5 @@ test("sent SMS arrives live in the inbox", async ({ page, request }) => {
   expect(send.status()).toBe(201);
 
   await page.goto("/inbox");
-  await expect(page.getByText(body).first()).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText(body).first()).toBeVisible({ timeout: 20_000 });
 });

@@ -160,9 +160,12 @@ func TestSMTP_BounceAcceptedThenFails(t *testing.T) {
 	sendMail(t, addr, "test@app.local", "user@bounce.mocksms.test", "Bounce", "Hi bounce", nil)
 
 	// Lifecycle steps ride the fake clock: queued→sent, then the async
-	// failure applies at sent→failed (bounces are terminal).
+	// failure applies at sent→failed (bounces are terminal). The second
+	// advance must wait for the re-armed timer, or it can run before the
+	// lifecycle goroutine re-registers and the step never fires.
 	clock.Advance(500 * time.Millisecond)
 	waitStatus(t, statuses, core.StatusSent)
+	clock.BlockUntilWaiters(1)
 	clock.Advance(500 * time.Millisecond)
 	waitStatus(t, statuses, core.StatusFailed)
 
