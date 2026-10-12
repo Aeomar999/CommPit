@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
-export function useSSE(project = "default") {
+export function useSSE(project = "") {
   const queryClient = useQueryClient();
   const [isConnected, setIsConnected] = useState(false);
   const [lastEventTime, setLastEventTime] = useState<Date | null>(null);

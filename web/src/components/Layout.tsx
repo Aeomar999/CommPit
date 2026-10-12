@@ -23,8 +23,10 @@ export function Layout() {
   const [searchQuery, setSearchQuery] = useState("");
   const location = useLocation();
 
-  // Connect to live SSE stream for real-time updates
-  const { isConnected } = useSSE("default");
+  // Connect to live SSE stream for real-time updates. No project means
+  // "all": the server broadcasts every event there, while per-project
+  // channels use real prj_ IDs (never the literal "default").
+  const { isConnected } = useSSE();
 
   // Fetch messages and verifications counts for header stats
   const { data: messagesData, refetch: refetchMessages } = useQuery({
