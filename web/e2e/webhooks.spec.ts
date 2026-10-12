@@ -1,5 +1,5 @@
-import http from "http";
-import { expect, test, type AddressInfo } from "@playwright/test";
+import http from "node:http";
+import { type AddressInfo, expect, test } from "@playwright/test";
 
 interface CaughtWebhook {
   url: string;
@@ -9,10 +9,7 @@ interface CaughtWebhook {
 
 // An inbound message reaches the project's inbound webhook, and the
 // inspector's replay button re-queues the delivery.
-test("reply reaches the inbound webhook and replay re-queues", async ({
-  page,
-  request,
-}) => {
+test("reply reaches the inbound webhook and replay re-queues", async ({ page, request }) => {
   const received: CaughtWebhook[] = [];
   const server = http.createServer((req, res) => {
     let body = "";
@@ -65,9 +62,7 @@ test("reply reaches the inbound webhook and replay re-queues", async ({
     });
     expect(inbound.status()).toBe(201);
 
-    await expect
-      .poll(() => received.length, { timeout: 15_000 })
-      .toBeGreaterThan(0);
+    await expect.poll(() => received.length, { timeout: 15_000 }).toBeGreaterThan(0);
     const first = JSON.parse(received[0].body) as { event: string };
     expect(first.event).toBe("message.inbound");
     expect(received[0].headers["x-mocksms-signature"]).toMatch(/^sha256=/);
@@ -81,9 +76,7 @@ test("reply reaches the inbound webhook and replay re-queues", async ({
     await expect(page.getByText("Re-queued as a fresh delivery.").first()).toBeVisible({
       timeout: 10_000,
     });
-    await expect
-      .poll(() => received.length, { timeout: 15_000 })
-      .toBeGreaterThan(before);
+    await expect.poll(() => received.length, { timeout: 15_000 }).toBeGreaterThan(before);
   } finally {
     server.close();
   }

@@ -26,16 +26,13 @@ test("twilio adapter request is logged in the inspector", async ({ page, request
     From: "+15555550100",
     Body: `inspector check ${stamp}`,
   });
-  const send = await request.post(
-    `/twilio/2010-04-01/Accounts/${accountSid}/Messages.json`,
-    {
-      headers: {
-        Authorization: `Basic ${Buffer.from(`${accountSid}:token`).toString("base64")}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      data: form.toString(),
-    }
-  );
+  const send = await request.post(`/twilio/2010-04-01/Accounts/${accountSid}/Messages.json`, {
+    headers: {
+      Authorization: `Basic ${Buffer.from(`${accountSid}:token`).toString("base64")}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    data: form.toString(),
+  });
   expect(send.status()).toBe(201);
 
   await page.goto("/inspector");

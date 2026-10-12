@@ -12,11 +12,7 @@ test("reply box sends an inbound reply", async ({ page, request }) => {
   expect(send.status()).toBe(201);
 
   await page.goto("/inbox");
-  await page
-    .getByRole("button")
-    .filter({ hasText: outbound })
-    .first()
-    .click();
+  await page.getByRole("button").filter({ hasText: outbound }).first().click();
 
   const replyBody = `reply back ${stamp}`;
   await page.getByLabel("Reply text").fill(replyBody);
