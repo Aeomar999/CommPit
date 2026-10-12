@@ -113,6 +113,9 @@ func (h *Handlers) Routes() http.Handler {
 			// Inbound
 			r.Post("/inbound", h.SimulateInbound)
 
+			// Simulation settings
+			r.Put("/sim/config", h.UpdateSimConfig)
+
 			// Projects write
 			r.Patch("/projects/{id}", h.UpdateProject)
 			r.Post("/projects/{id}/credentials", h.LinkCredential)
@@ -221,8 +224,28 @@ func (h *Handlers) Routes() http.Handler {
 			})
 
 			// Batches
+			r.Get("/batches", func(w http.ResponseWriter, r *http.Request) {
+				var limit *int
+				if l := r.URL.Query().Get("limit"); l != "" {
+					if v, err := strconv.Atoi(l); err == nil {
+						limit = &v
+					}
+				}
+				h.ListBatches(w, r, ListBatchesParams{
+					Limit:   limit,
+					Cursor:  strPtr(r.URL.Query().Get("cursor")),
+					Project: strPtr(r.URL.Query().Get("project")),
+				})
+			})
 			r.Get("/batches/{id}", func(w http.ResponseWriter, r *http.Request) {
 				h.GetBatch(w, r, chi.URLParam(r, "id"), GetBatchParams{
+					Project: strPtr(r.URL.Query().Get("project")),
+				})
+			})
+
+			// Simulation settings
+			r.Get("/sim/config", func(w http.ResponseWriter, r *http.Request) {
+				h.GetSimConfig(w, r, GetSimConfigParams{
 					Project: strPtr(r.URL.Query().Get("project")),
 				})
 			})
@@ -1192,6 +1215,100 @@ func (h *Handlers) GetBatch(w http.ResponseWriter, r *http.Request, id string, p
 	})
 }
 
+func convertBatch(b *core.Batch) Batch {
+	channel := BatchChannel(b.Channel)
+	return Batch{
+		Id:        &b.ID,
+		ProjectId: &b.ProjectID,
+		Provider:  &b.Provider,
+		Channel:   &channel,
+		Total:     &b.Total,
+		Counts:    &b.Counts,
+		CreatedAt: &b.CreatedAt,
+	}
+}
+
+func (h *Handlers) ListBatches(w http.ResponseWriter, r *http.Request, params ListBatchesParams) {
+	projectID, err := h.getProjectID(r)
+	if err != nil {
+		h.writeError(w, r, core.NewUnauthorized("authentication required"))
+		return
+	}
+
+	limit := 50
+	if params.Limit != nil && *params.Limit > 0 {
+		limit = *params.Limit
+	}
+	if limit > 200 {
+		limit = 200
+	}
+	cursor := ""
+	if params.Cursor != nil {
+		cursor = *params.Cursor
+	}
+
+	batches, nextCursor, err := h.Store().ListBatches(r.Context(), projectID, limit, cursor)
+	if err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+
+	converted := make([]Batch, len(batches))
+	for i, b := range batches {
+		converted[i] = convertBatch(b)
+	}
+
+	render.JSON(w, r, map[string]interface{}{
+		"batches":     converted,
+		"next_cursor": nextCursor,
+	})
+}
+
+func (h *Handlers) simConfigResponse() SimConfig {
+	sim := h.service.Simulator()
+	latencyMs := int(sim.Latency() / time.Millisecond)
+	failureRate := float32(sim.FailureRate())
+	return SimConfig{LatencyMs: &latencyMs, FailureRate: &failureRate}
+}
+
+func (h *Handlers) GetSimConfig(w http.ResponseWriter, r *http.Request, params GetSimConfigParams) {
+	if _, err := h.getProjectID(r); err != nil {
+		h.writeError(w, r, core.NewUnauthorized("authentication required"))
+		return
+	}
+	render.JSON(w, r, h.simConfigResponse())
+}
+
+func (h *Handlers) UpdateSimConfig(w http.ResponseWriter, r *http.Request) {
+	if _, err := h.getProjectID(r); err != nil {
+		h.writeError(w, r, core.NewUnauthorized("authentication required"))
+		return
+	}
+
+	var req UpdateSimConfigRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.writeError(w, r, core.NewValidationError("invalid JSON", ""))
+		return
+	}
+
+	sim := h.service.Simulator()
+	if req.LatencyMs != nil {
+		if *req.LatencyMs < 0 {
+			h.writeError(w, r, core.NewValidationError("latency_ms must not be negative", "latency_ms"))
+			return
+		}
+		sim.SetLatency(time.Duration(*req.LatencyMs) * time.Millisecond)
+	}
+	if req.FailureRate != nil {
+		if *req.FailureRate < 0 || *req.FailureRate > 1 {
+			h.writeError(w, r, core.NewValidationError("failure_rate must be between 0 and 1", "failure_rate"))
+			return
+		}
+		sim.SetFailureRate(float64(*req.FailureRate))
+	}
+	render.JSON(w, r, h.simConfigResponse())
+}
+
 func (h *Handlers) ListRequestLogs(w http.ResponseWriter, r *http.Request, params ListRequestLogsParams) {
 	projectID, err := h.getProjectID(r)
 	if err != nil {
@@ -1255,13 +1372,13 @@ func (h *Handlers) GetRequestLog(w http.ResponseWriter, r *http.Request, id stri
 }
 
 func (h *Handlers) ListWebhooks(w http.ResponseWriter, r *http.Request, params ListWebhooksParams) {
-	_, err := h.getProjectID(r)
+	projectID, err := h.getProjectID(r)
 	if err != nil {
 		h.writeError(w, r, core.NewUnauthorized("authentication required"))
 		return
 	}
 
-	webhooks, err := h.Store().ListPendingWebhooks(r.Context(), h.service.Clock().Now(), 50)
+	webhooks, err := h.Store().ListWebhookDeliveries(r.Context(), projectID, 50)
 	if err != nil {
 		h.writeError(w, r, err)
 		return

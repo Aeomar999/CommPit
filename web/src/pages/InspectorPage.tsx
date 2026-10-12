@@ -1,10 +1,10 @@
-import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, RefreshCw, Send, Terminal } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, RefreshCw, RotateCcw, Send, Terminal } from "lucide-react";
 import { useState } from "react";
 import { EmptyState } from "../components/EmptyState";
 import { inspectorApi } from "../lib/api";
 import { cn } from "../lib/utils";
-import type { RequestLog } from "../types";
+import type { RequestLog, WebhookDelivery } from "../types";
 
 function statusTone(status: number): string {
   if (status >= 500) {
@@ -96,6 +96,78 @@ function RequestDetail({ log, onBack }: { log: RequestLog; onBack: () => void })
         </div>
       </div>
     </div>
+  );
+}
+
+function deliveryTone(status: WebhookDelivery["status"]): string {
+  if (status === "succeeded") {
+    return "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300";
+  }
+  if (status === "failed") {
+    return "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300";
+  }
+  return "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300";
+}
+
+function WebhookRow({ delivery }: { delivery: WebhookDelivery }) {
+  const queryClient = useQueryClient();
+  const [replayError, setReplayError] = useState<string | null>(null);
+
+  const replay = useMutation({
+    mutationFn: () => inspectorApi.replayWebhook(delivery.id),
+    onSuccess: () => {
+      setReplayError(null);
+      queryClient.invalidateQueries({ queryKey: ["webhook-deliveries"] });
+    },
+    onError: (err) => {
+      setReplayError(err instanceof Error ? err.message : "Replay failed. Try again.");
+    },
+  });
+
+  return (
+    <li className="px-4 py-3 space-y-1.5">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-mono text-xs text-foreground break-all">{delivery.url}</span>
+        <span
+          className={cn(
+            "ml-auto px-2 py-0.5 rounded-full text-[11px] font-medium font-mono",
+            deliveryTone(delivery.status)
+          )}
+        >
+          {delivery.status}
+        </span>
+      </div>
+      <p className="text-[11px] text-muted-foreground font-mono">
+        {delivery.kind}
+        {delivery.provider ? ` · ${delivery.provider}` : ""} · attempt {delivery.attempt}
+        {delivery.response_status != null ? ` · HTTP ${delivery.response_status}` : ""} ·{" "}
+        {new Date(delivery.created_at).toLocaleString()}
+      </p>
+      {delivery.note && (
+        <p className="text-[11px] text-muted-foreground italic">{delivery.note}</p>
+      )}
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => replay.mutate()}
+          disabled={replay.isPending}
+          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-border bg-card text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50"
+        >
+          <RotateCcw className={cn("w-3 h-3", replay.isPending && "animate-spin")} />
+          <span>{replay.isPending ? "Replaying…" : "Replay"}</span>
+        </button>
+        {replay.isSuccess && (
+          <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+            Re-queued as a fresh delivery.
+          </span>
+        )}
+        {replayError && (
+          <span role="alert" className="text-[11px] text-red-600 dark:text-red-400 font-medium">
+            {replayError}
+          </span>
+        )}
+      </div>
+    </li>
   );
 }
 
@@ -269,20 +341,7 @@ export function InspectorPage() {
         <div className="rounded-xl bg-card border border-border shadow-xs overflow-hidden">
           <ul className="divide-y divide-border">
             {deliveries.map((delivery) => (
-              <li key={delivery.id} className="px-4 py-3 space-y-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-mono text-xs text-foreground break-all">
-                    {delivery.url}
-                  </span>
-                  <span className="ml-auto px-2 py-0.5 rounded-full text-[11px] font-medium font-mono bg-muted text-muted-foreground">
-                    {delivery.status}
-                  </span>
-                </div>
-                <p className="text-[11px] text-muted-foreground font-mono">
-                  {delivery.kind} · attempt {delivery.attempt} ·{" "}
-                  {new Date(delivery.created_at).toLocaleString()}
-                </p>
-              </li>
+              <WebhookRow key={delivery.id} delivery={delivery} />
             ))}
           </ul>
         </div>

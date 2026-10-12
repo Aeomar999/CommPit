@@ -138,6 +138,20 @@ func (s *Simulator) SetFailureRate(rate float64) {
 	s.failureRate = rate
 }
 
+// Latency returns the global simulated latency.
+func (s *Simulator) Latency() time.Duration {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.latency
+}
+
+// FailureRate returns the global simulated random failure rate.
+func (s *Simulator) FailureRate() float64 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.failureRate
+}
+
 // Evaluate evaluates a request against rules, pattern numbers, latency, and failure rates.
 func (s *Simulator) Evaluate(_ context.Context, projectID string, req core.SendRequest) (*core.Error, *core.SimResult) {
 	s.mu.RLock()

@@ -456,6 +456,10 @@ func (t *txStore) ListPendingWebhooks(ctx context.Context, now time.Time, limit 
 	return t.base.ListPendingWebhooks(ctx, now, limit)
 }
 
+func (t *txStore) ListWebhookDeliveries(ctx context.Context, projectID string, limit int) ([]*core.WebhookDelivery, error) {
+	return t.base.ListWebhookDeliveries(ctx, projectID, limit)
+}
+
 func (t *txStore) CreateRequestLog(ctx context.Context, l *core.RequestLog) error {
 	headers, _ := json.Marshal(l.RequestHeaders)
 	_, err := t.tx.ExecContext(ctx,

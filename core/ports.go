@@ -54,6 +54,7 @@ type Store interface {
 	GetWebhookDelivery(ctx context.Context, id string) (*WebhookDelivery, error)
 	UpdateWebhookDelivery(ctx context.Context, whd *WebhookDelivery) error
 	ListPendingWebhooks(ctx context.Context, now time.Time, limit int) ([]*WebhookDelivery, error)
+	ListWebhookDeliveries(ctx context.Context, projectID string, limit int) ([]*WebhookDelivery, error)
 
 	CreateRequestLog(ctx context.Context, log *RequestLog) error
 	GetRequestLog(ctx context.Context, id string) (*RequestLog, error)
@@ -146,6 +147,8 @@ type Simulator interface {
 	SetRules(rules []SimRule)
 	SetLatency(latency time.Duration)
 	SetFailureRate(rate float64)
+	Latency() time.Duration
+	FailureRate() float64
 }
 
 // NoopSimulator is a no-op implementation of Simulator.
@@ -164,6 +167,12 @@ func (NoopSimulator) SetLatency(_ time.Duration) {}
 
 // SetFailureRate implements Simulator.
 func (NoopSimulator) SetFailureRate(_ float64) {}
+
+// Latency implements Simulator.
+func (NoopSimulator) Latency() time.Duration { return 0 }
+
+// FailureRate implements Simulator.
+func (NoopSimulator) FailureRate() float64 { return 0 }
 
 type Clock interface {
 	Now() time.Time

@@ -2,6 +2,7 @@ package storetest
 
 import (
 	"context"
+	"sort"
 	"sync"
 	"time"
 
@@ -660,6 +661,28 @@ func (s *memStore) ListPendingWebhooks(ctx context.Context, now time.Time, limit
 		if len(result) >= limit {
 			break
 		}
+	}
+	return result, nil
+}
+
+func (s *memStore) ListWebhookDeliveries(ctx context.Context, projectID string, limit int) ([]*core.WebhookDelivery, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var result []*core.WebhookDelivery
+	for _, w := range s.webhookDeliveries {
+		if w.ProjectID != projectID {
+			continue
+		}
+		result = append(result, w)
+	}
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].CreatedAt.Equal(result[j].CreatedAt) {
+			return result[i].ID > result[j].ID
+		}
+		return result[i].CreatedAt.After(result[j].CreatedAt)
+	})
+	if len(result) > limit {
+		result = result[:limit]
 	}
 	return result, nil
 }

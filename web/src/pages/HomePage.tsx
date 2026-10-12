@@ -7,6 +7,7 @@ import { EmailPlate } from "../components/EmailPlate";
 import { EmptyState } from "../components/EmptyState";
 import { LayoutContext } from "../components/Layout";
 import { OnboardingChecklist } from "../components/OnboardingChecklist";
+import { ReplyBox } from "../components/ReplyBox";
 import { StatusChip } from "../components/StatusChip";
 import { messagesApi } from "../lib/api";
 import { cn } from "../lib/utils";
@@ -439,6 +440,23 @@ export function HomePage() {
                         </div>
                       ) : (
                         <EmailPlate message={selectedMessage} />
+                      )}
+
+                      {/* Reply box (SMS threads simulate the handset side) */}
+                      {selectedMessage.channel === "sms" && (
+                        <ReplyBox
+                          key={selectedMessage.id}
+                          from={
+                            selectedMessage.direction === "outbound"
+                              ? selectedMessage.to
+                              : selectedMessage.from
+                          }
+                          to={
+                            selectedMessage.direction === "outbound"
+                              ? selectedMessage.from
+                              : selectedMessage.to
+                          }
+                        />
                       )}
                     </>
                   )}

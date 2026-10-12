@@ -308,6 +308,29 @@ func (s *Store) ListPendingWebhooks(ctx context.Context, now time.Time, limit in
 	return deliveries, nil
 }
 
+// ListWebhookDeliveries returns a project's deliveries newest first, for
+// the webhook log. Unlike ListPendingWebhooks it includes terminal rows.
+func (s *Store) ListWebhookDeliveries(ctx context.Context, projectID string, limit int) ([]*core.WebhookDelivery, error) {
+	rows, err := s.queryContext(ctx,
+		`SELECT id, project_id, message_id, verification_id, kind, url, payload, headers, attempt, status, response_status, response_body, next_retry_at, note, provider, created_at
+		 FROM webhook_deliveries WHERE project_id = ? ORDER BY created_at DESC, id DESC LIMIT ?`,
+		projectID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var deliveries []*core.WebhookDelivery
+	for rows.Next() {
+		w, err := scanWebhookDelivery(rows)
+		if err != nil {
+			return nil, err
+		}
+		deliveries = append(deliveries, w)
+	}
+	return deliveries, nil
+}
+
 func (s *Store) CreateRequestLog(ctx context.Context, l *core.RequestLog) error {
 	headers, _ := json.Marshal(l.RequestHeaders)
 	err := s.execContext(ctx,

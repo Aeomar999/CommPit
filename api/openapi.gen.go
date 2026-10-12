@@ -500,6 +500,12 @@ type Batch struct {
 // BatchChannel defines model for Batch.Channel.
 type BatchChannel string
 
+// BatchListResponse defines model for BatchListResponse.
+type BatchListResponse struct {
+	Batches    *[]Batch `json:"batches,omitempty"`
+	NextCursor *string  `json:"next_cursor,omitempty"`
+}
+
 // BatchRejectedRecipient defines model for BatchRejectedRecipient.
 type BatchRejectedRecipient struct {
 	Code    string `json:"code"`
@@ -720,6 +726,12 @@ type SendSMSRequest_To struct {
 	union json.RawMessage
 }
 
+// SimConfig defines model for SimConfig.
+type SimConfig struct {
+	FailureRate *float32 `json:"failure_rate,omitempty"`
+	LatencyMs   *int     `json:"latency_ms,omitempty"`
+}
+
 // StartVerificationRequest defines model for StartVerificationRequest.
 type StartVerificationRequest struct {
 	Channel     StartVerificationRequestChannel `json:"channel"`
@@ -750,6 +762,12 @@ type StatusEventStatus string
 type UpdateProjectRequest struct {
 	Name     *string                 `json:"name,omitempty"`
 	Settings *map[string]interface{} `json:"settings,omitempty"`
+}
+
+// UpdateSimConfigRequest defines model for UpdateSimConfigRequest.
+type UpdateSimConfigRequest struct {
+	FailureRate *float32 `json:"failure_rate,omitempty"`
+	LatencyMs   *int     `json:"latency_ms,omitempty"`
 }
 
 // Verification defines model for Verification.
@@ -820,6 +838,13 @@ type WebhookDeliveryListResponse struct {
 
 // GetAttachmentParams defines parameters for GetAttachment.
 type GetAttachmentParams struct {
+	Project *string `form:"project,omitempty" json:"project,omitempty"`
+}
+
+// ListBatchesParams defines parameters for ListBatches.
+type ListBatchesParams struct {
+	Limit   *int    `form:"limit,omitempty" json:"limit,omitempty"`
+	Cursor  *string `form:"cursor,omitempty" json:"cursor,omitempty"`
 	Project *string `form:"project,omitempty" json:"project,omitempty"`
 }
 
@@ -918,6 +943,11 @@ type GetRequestLogParams struct {
 	Project *string `form:"project,omitempty" json:"project,omitempty"`
 }
 
+// GetSimConfigParams defines parameters for GetSimConfig.
+type GetSimConfigParams struct {
+	Project *string `form:"project,omitempty" json:"project,omitempty"`
+}
+
 // ListVerificationsParams defines parameters for ListVerifications.
 type ListVerificationsParams struct {
 	Limit   *int    `form:"limit,omitempty" json:"limit,omitempty"`
@@ -953,6 +983,9 @@ type UpdateProjectJSONRequestBody = UpdateProjectRequest
 
 // LinkCredentialJSONRequestBody defines body for LinkCredential for application/json ContentType.
 type LinkCredentialJSONRequestBody = LinkCredentialRequest
+
+// UpdateSimConfigJSONRequestBody defines body for UpdateSimConfig for application/json ContentType.
+type UpdateSimConfigJSONRequestBody = UpdateSimConfigRequest
 
 // SendSMSJSONRequestBody defines body for SendSMS for application/json ContentType.
 type SendSMSJSONRequestBody = SendSMSRequest
@@ -1030,6 +1063,9 @@ type ServerInterface interface {
 	// GetAttachment Get attachment by ID
 	// (GET /attachments/{id})
 	GetAttachment(w http.ResponseWriter, r *http.Request, id string, params GetAttachmentParams)
+	// ListBatches List batches
+	// (GET /batches)
+	ListBatches(w http.ResponseWriter, r *http.Request, params ListBatchesParams)
 	// GetBatch Get batch by ID
 	// (GET /batches/{id})
 	GetBatch(w http.ResponseWriter, r *http.Request, id string, params GetBatchParams)
@@ -1084,6 +1120,12 @@ type ServerInterface interface {
 	// GetRequestLog Get request log by ID
 	// (GET /requests/{id})
 	GetRequestLog(w http.ResponseWriter, r *http.Request, id string, params GetRequestLogParams)
+	// GetSimConfig Get failure-simulation settings
+	// (GET /sim/config)
+	GetSimConfig(w http.ResponseWriter, r *http.Request, params GetSimConfigParams)
+	// UpdateSimConfig Update failure-simulation settings
+	// (PUT /sim/config)
+	UpdateSimConfig(w http.ResponseWriter, r *http.Request)
 	// SendSMS Send SMS
 	// (POST /sms)
 	SendSMS(w http.ResponseWriter, r *http.Request)
@@ -1117,6 +1159,12 @@ type Unimplemented struct{}
 // GetAttachment Get attachment by ID
 // (GET /attachments/{id})
 func (_ Unimplemented) GetAttachment(w http.ResponseWriter, r *http.Request, id string, params GetAttachmentParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListBatches List batches
+// (GET /batches)
+func (_ Unimplemented) ListBatches(w http.ResponseWriter, r *http.Request, params ListBatchesParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1228,6 +1276,18 @@ func (_ Unimplemented) GetRequestLog(w http.ResponseWriter, r *http.Request, id 
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// GetSimConfig Get failure-simulation settings
+// (GET /sim/config)
+func (_ Unimplemented) GetSimConfig(w http.ResponseWriter, r *http.Request, params GetSimConfigParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// UpdateSimConfig Update failure-simulation settings
+// (PUT /sim/config)
+func (_ Unimplemented) UpdateSimConfig(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // SendSMS Send SMS
 // (POST /sms)
 func (_ Unimplemented) SendSMS(w http.ResponseWriter, r *http.Request) {
@@ -1318,6 +1378,65 @@ func (siw *ServerInterfaceWrapper) GetAttachment(w http.ResponseWriter, r *http.
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetAttachment(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListBatches operation middleware
+func (siw *ServerInterfaceWrapper) ListBatches(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListBatchesParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "project" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "project", r.URL.Query(), &params.Project, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "project"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListBatches(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2139,6 +2258,53 @@ func (siw *ServerInterfaceWrapper) GetRequestLog(w http.ResponseWriter, r *http.
 	handler.ServeHTTP(w, r)
 }
 
+// GetSimConfig operation middleware
+func (siw *ServerInterfaceWrapper) GetSimConfig(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetSimConfigParams
+
+	// ------------- Optional query parameter "project" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "project", r.URL.Query(), &params.Project, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "project"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetSimConfig(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateSimConfig operation middleware
+func (siw *ServerInterfaceWrapper) UpdateSimConfig(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateSimConfig(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // SendSMS operation middleware
 func (siw *ServerInterfaceWrapper) SendSMS(w http.ResponseWriter, r *http.Request) {
 
@@ -2586,6 +2752,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/attachments/{id}", wrapper.GetAttachment)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/batches", wrapper.ListBatches)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/batches/{id}", wrapper.GetBatch)
 	})
 	r.Group(func(r chi.Router) {
@@ -2611,6 +2780,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/projects/{id}/credentials", wrapper.LinkCredential)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/sim/config", wrapper.GetSimConfig)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/sim/config", wrapper.UpdateSimConfig)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/events", wrapper.SseEvents)

@@ -1,7 +1,9 @@
 import type {
+  Batch,
   Message,
   Project,
   RequestLog,
+  SimConfig,
   StatusEvent,
   Verification,
   WebhookDelivery,
@@ -213,6 +215,33 @@ export const inspectorApi = {
     request<{ deliveries: WebhookDelivery[]; next_cursor: string | null }>("/webhooks", {
       method: "GET",
       params,
+    }),
+
+  replayWebhook: (id: string) =>
+    request<WebhookDelivery>(`/webhooks/${id}/replay`, {
+      method: "POST",
+    }),
+};
+
+// Batches API
+export const batchesApi = {
+  list: (params?: { limit?: number; cursor?: string }) =>
+    request<{ batches: Batch[]; next_cursor: string | null }>("/batches", {
+      method: "GET",
+      params,
+    }),
+
+  get: (id: string) => request<Batch>(`/batches/${id}`),
+};
+
+// Failure-simulation settings API
+export const simApi = {
+  get: () => request<SimConfig>("/sim/config"),
+
+  update: (body: { latency_ms?: number; failure_rate?: number }) =>
+    request<SimConfig>("/sim/config", {
+      method: "PUT",
+      body: JSON.stringify(body),
     }),
 };
 

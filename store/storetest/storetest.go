@@ -671,6 +671,51 @@ func RunStoreTests(t *testing.T, newStore func() (core.Store, func())) {
 		if len(pending) != 1 || pending[0].ID != due.ID {
 			t.Errorf("expected only the due delivery, got %v", pending)
 		}
+
+		// ListWebhookDeliveries returns all of a project's rows newest first
+		all, err := store.ListWebhookDeliveries(ctx, prjID, 10)
+		if err != nil {
+			t.Fatalf("ListWebhookDeliveries: %v", err)
+		}
+		if len(all) != 3 {
+			t.Fatalf("expected 3 deliveries, got %d", len(all))
+		}
+		for i := 1; i < len(all); i++ {
+			if all[i-1].CreatedAt.Before(all[i].CreatedAt) {
+				t.Errorf("expected newest-first order, got %v before %v", all[i-1].ID, all[i].ID)
+			}
+		}
+		otherID := core.NewProjectID()
+		if err := store.CreateProject(ctx, &core.Project{ID: otherID, Name: "other"}); err != nil {
+			t.Fatalf("CreateProject: %v", err)
+		}
+		foreign := &core.WebhookDelivery{
+			ID:        core.NewWebhookDeliveryID(),
+			ProjectID: otherID,
+			Kind:      "status",
+			URL:       "https://example.com/foreign",
+			Payload:   map[string]interface{}{},
+			Headers:   map[string]string{},
+			Status:    core.WebhookPending,
+			CreatedAt: time.Now(),
+		}
+		if err := store.CreateWebhookDelivery(ctx, foreign); err != nil {
+			t.Fatalf("CreateWebhookDelivery: %v", err)
+		}
+		scoped, err := store.ListWebhookDeliveries(ctx, prjID, 10)
+		if err != nil {
+			t.Fatalf("ListWebhookDeliveries: %v", err)
+		}
+		if len(scoped) != 3 {
+			t.Errorf("expected project scoping (3 rows), got %d", len(scoped))
+		}
+		limited, err := store.ListWebhookDeliveries(ctx, prjID, 2)
+		if err != nil {
+			t.Fatalf("ListWebhookDeliveries: %v", err)
+		}
+		if len(limited) != 2 {
+			t.Errorf("expected limit 2, got %d", len(limited))
+		}
 	})
 
 	t.Run("RequestLog", func(t *testing.T) {

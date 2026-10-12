@@ -672,6 +672,42 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /batches:
+    get:
+      operationId: listBatches
+      summary: List batches
+      security:
+        - BearerAuth: []
+        - ProjectQuery: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+        - name: cursor
+          in: query
+          schema:
+            type: string
+        - name: project
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of batches
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchListResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /batches/{id}:
     get:
       operationId: getBatch
@@ -999,6 +1035,62 @@ paths:
                     type: string
         '404':
           description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /sim/config:
+    get:
+      operationId: getSimConfig
+      summary: Get failure-simulation settings
+      security:
+        - BearerAuth: []
+        - ProjectQuery: []
+      parameters:
+        - name: project
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Simulation settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimConfig'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      operationId: updateSimConfig
+      summary: Update failure-simulation settings
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSimConfigRequest'
+      responses:
+        '200':
+          description: Updated simulation settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimConfig'
+        '400':
+          description: Validation error
           content:
             application/json:
               schema:
@@ -1568,6 +1660,38 @@ components:
             $ref: '#/components/schemas/RequestLog'
         next_cursor:
           type: string
+
+    BatchListResponse:
+      type: object
+      properties:
+        batches:
+          type: array
+          items:
+            $ref: '#/components/schemas/Batch'
+        next_cursor:
+          type: string
+
+    SimConfig:
+      type: object
+      properties:
+        latency_ms:
+          type: integer
+          minimum: 0
+        failure_rate:
+          type: number
+          minimum: 0
+          maximum: 1
+
+    UpdateSimConfigRequest:
+      type: object
+      properties:
+        latency_ms:
+          type: integer
+          minimum: 0
+        failure_rate:
+          type: number
+          minimum: 0
+          maximum: 1
 
     WebhookDeliveryListResponse:
       type: object

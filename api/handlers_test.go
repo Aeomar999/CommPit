@@ -1481,3 +1481,132 @@ func TestHandlers_LinkCredential(t *testing.T) {
 		}
 	})
 }
+
+func TestHandlers_ListBatches(t *testing.T) {
+	router, _, store := setupTestRouter(t, nil, nil)
+
+	projectID := core.NewProjectID()
+	if err := store.CreateProject(context.Background(), &core.Project{ID: projectID, Name: "batches"}); err != nil {
+		t.Fatalf("CreateProject: %v", err)
+	}
+	for i := 0; i < 3; i++ {
+		if err := store.CreateBatch(context.Background(), &core.Batch{
+			ID:        core.NewBatchID(),
+			ProjectID: projectID,
+			Provider:  "native",
+			Channel:   core.ChannelSMS,
+			Total:     1,
+			Counts:    map[string]int{"queued": 1},
+			CreatedAt: time.Now(),
+		}); err != nil {
+			t.Fatalf("CreateBatch: %v", err)
+		}
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/batches?project="+projectID, nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var resp map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	batches, _ := resp["batches"].([]any)
+	if len(batches) != 3 {
+		t.Fatalf("expected 3 batches, got %v", resp)
+	}
+	if batches[0].(map[string]any)["provider"] != "native" {
+		t.Errorf("expected batch fields, got %v", batches[0])
+	}
+}
+
+func TestHandlers_SimConfig(t *testing.T) {
+	router, _, _ := setupTestRouter(t, nil, nil)
+
+	get := func() map[string]any {
+		t.Helper()
+		req := httptest.NewRequest(http.MethodGet, "/sim/config", nil)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("GET sim config: %d %s", rec.Code, rec.Body.String())
+		}
+		var resp map[string]any
+		if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		return resp
+	}
+	put := func(body map[string]any) *httptest.ResponseRecorder {
+		t.Helper()
+		raw, _ := json.Marshal(body)
+		req := httptest.NewRequest(http.MethodPut, "/sim/config", bytes.NewReader(raw))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		return rec
+	}
+
+	if got := get(); got["latency_ms"] != float64(0) || got["failure_rate"] != float64(0) {
+		t.Fatalf("expected zero defaults, got %v", got)
+	}
+	rec := put(map[string]any{"latency_ms": 250, "failure_rate": 0.5})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("PUT sim config: %d %s", rec.Code, rec.Body.String())
+	}
+	if got := get(); got["latency_ms"] != float64(250) || got["failure_rate"] != float64(0.5) {
+		t.Fatalf("expected updated values, got %v", got)
+	}
+	if rec := put(map[string]any{"latency_ms": -1}); rec.Code != http.StatusBadRequest {
+		t.Errorf("negative latency: expected 400, got %d", rec.Code)
+	}
+	if rec := put(map[string]any{"failure_rate": 1.5}); rec.Code != http.StatusBadRequest {
+		t.Errorf("rate > 1: expected 400, got %d", rec.Code)
+	}
+}
+
+func TestHandlers_ListWebhooksScoped(t *testing.T) {
+	router, _, store := setupTestRouter(t, nil, nil)
+	ctx := context.Background()
+
+	mkProject := func(name string) string {
+		t.Helper()
+		id := core.NewProjectID()
+		if err := store.CreateProject(ctx, &core.Project{ID: id, Name: name}); err != nil {
+			t.Fatalf("CreateProject: %v", err)
+		}
+		return id
+	}
+	prjA, prjB := mkProject("a"), mkProject("b")
+	for _, prj := range []string{prjA, prjA, prjB} {
+		if err := store.CreateWebhookDelivery(ctx, &core.WebhookDelivery{
+			ID:        core.NewWebhookDeliveryID(),
+			ProjectID: prj,
+			Kind:      "status",
+			URL:       "https://example.com/x",
+			Payload:   map[string]interface{}{},
+			Headers:   map[string]string{},
+			Status:    core.WebhookSucceeded,
+			CreatedAt: time.Now(),
+		}); err != nil {
+			t.Fatalf("CreateWebhookDelivery: %v", err)
+		}
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/webhooks?project="+prjA, nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var resp map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	deliveries, _ := resp["deliveries"].([]any)
+	if len(deliveries) != 2 {
+		t.Fatalf("expected project-scoped rows (2), got %v", resp)
+	}
+}

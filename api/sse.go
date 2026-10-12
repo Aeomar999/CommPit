@@ -41,6 +41,7 @@ func (h *SSEHub) subscribe() {
 		core.EventVerificationUpdated,
 		core.EventBatchUpdated,
 		core.EventRequestLogged,
+		core.EventWebhookQueued,
 		core.EventWebhookDelivered,
 	}
 

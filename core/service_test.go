@@ -186,6 +186,8 @@ func (m *mockSimulator) Evaluate(ctx context.Context, projectID string, req Send
 func (m *mockSimulator) SetRules(_ []SimRule)       {}
 func (m *mockSimulator) SetLatency(_ time.Duration) {}
 func (m *mockSimulator) SetFailureRate(_ float64)   {}
+func (m *mockSimulator) Latency() time.Duration     { return 0 }
+func (m *mockSimulator) FailureRate() float64       { return 0 }
 
 func setupTestService() (*Service, *testServiceStore, *FakeClock) {
 	store := newTestServiceStore()
@@ -613,6 +615,8 @@ func (s *scriptedSimulator) Evaluate(ctx context.Context, projectID string, req 
 func (s *scriptedSimulator) SetRules(_ []SimRule)       {}
 func (s *scriptedSimulator) SetLatency(_ time.Duration) {}
 func (s *scriptedSimulator) SetFailureRate(_ float64)   {}
+func (s *scriptedSimulator) Latency() time.Duration     { return 0 }
+func (s *scriptedSimulator) FailureRate() float64       { return 0 }
 
 func setupScriptedService(result *SimResult) (*Service, *FakeClock) {
 	store := newTestServiceStore()

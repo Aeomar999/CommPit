@@ -71,6 +71,11 @@ func (s *Service) Clock() Clock {
 	return s.clock
 }
 
+// Simulator exposes the failure-simulation engine for runtime settings.
+func (s *Service) Simulator() Simulator {
+	return s.simulator
+}
+
 func (s *Service) SendMessage(ctx context.Context, projectID string, req SendRequest) (*SendResponse, error) {
 	if len(req.To) > 1 {
 		return s.sendBatch(ctx, projectID, req)

@@ -98,12 +98,19 @@ export interface WebhookDelivery {
   url: string;
   payload: Record<string, unknown>;
   headers: Record<string, string>;
+  provider?: string;
   attempt: number;
   status: "pending" | "succeeded" | "failed";
   response_status?: number;
   response_body?: string;
   next_retry_at?: string;
+  note?: string;
   created_at: string;
+}
+
+export interface SimConfig {
+  latency_ms?: number;
+  failure_rate?: number;
 }
 
 export interface Project {
