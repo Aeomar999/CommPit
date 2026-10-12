@@ -1,12 +1,16 @@
 package webhooks
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"log/slog"
+	"net/http"
 	"sync"
 	"time"
 
+	"github.com/Aeomar999/CommPit/adapters/adapterkit"
 	"github.com/Aeomar999/CommPit/core"
 )
 
@@ -20,6 +24,9 @@ type Worker struct {
 	sender Sender
 	cfg    Config
 
+	replyFormatters *Formatters
+	onReply         ReplySender
+
 	subs     []core.Subscription
 	notifyCh chan struct{}
 	stopCh   chan struct{}
@@ -27,9 +34,26 @@ type Worker struct {
 	wg       sync.WaitGroup
 }
 
+// ReplySender sends one parsed inbound reply. Wired by the composition
+// root to the core service.
+type ReplySender func(ctx context.Context, projectID string, reply core.OutboundReply) error
+
+// Option configures a Worker.
+type Option func(*Worker)
+
+// WithReplies enables inbound-reply parsing: after a kind=inbound delivery
+// succeeds, the provider's ReplyParser (looked up in formatters) parses
+// the response and each reply goes to send.
+func WithReplies(formatters *Formatters, send ReplySender) Option {
+	return func(w *Worker) {
+		w.replyFormatters = formatters
+		w.onReply = send
+	}
+}
+
 // NewWorker wires a delivery worker. Zero Config values take defaults.
-func NewWorker(store core.Store, bus core.Bus, clock core.Clock, sender Sender, cfg Config) *Worker {
-	return &Worker{
+func NewWorker(store core.Store, bus core.Bus, clock core.Clock, sender Sender, cfg Config, opts ...Option) *Worker {
+	w := &Worker{
 		store:    store,
 		bus:      bus,
 		clock:    clock,
@@ -38,6 +62,10 @@ func NewWorker(store core.Store, bus core.Bus, clock core.Clock, sender Sender, 
 		notifyCh: make(chan struct{}, 1),
 		stopCh:   make(chan struct{}),
 	}
+	for _, opt := range opts {
+		opt(w)
+	}
+	return w
 }
 
 // wakeEventTypes are the domain events that may have produced work.
@@ -46,6 +74,7 @@ var wakeEventTypes = []core.EventType{
 	core.EventMessageStatus,
 	core.EventVerificationUpdated,
 	core.EventBatchUpdated,
+	core.EventWebhookQueued,
 }
 
 // Start subscribes to bus events, drains pre-existing rows, and runs the
@@ -148,17 +177,86 @@ func (w *Worker) deliver(ctx context.Context, delivery *core.WebhookDelivery) {
 		return
 	}
 
+	sendURL := delivery.URL
+	if w.cfg.DockerRewrite {
+		if rewritten, hit := RewriteLoopback(delivery.URL); hit {
+			sendURL = rewritten
+			note := "docker host rewrite: " + delivery.URL + " → " + rewritten
+			delivery.Note = &note
+		}
+	}
+
 	sendCtx, cancel := context.WithTimeout(ctx, w.cfg.Timeout)
 	defer cancel()
-	status, body, err := w.sender.Send(sendCtx, delivery.URL, payload, delivery.Headers)
+	status, body, err := w.sender.Send(sendCtx, sendURL, payload, delivery.Headers)
 	if err == nil && status >= 200 && status < 300 {
 		w.finish(ctx, delivery, status, body, true)
+		w.handleReplies(ctx, delivery, status, body)
 		return
 	}
 	if err != nil {
 		slog.Warn("webhooks: send failed", "id", delivery.ID, "attempt", delivery.Attempt, "err", err)
 	}
 	w.finish(ctx, delivery, status, body, false)
+}
+
+// handleReplies parses app-server replies to an inbound webhook and sends
+// each one. Addressing defaults come from the inbound message: replies
+// without To go back to its sender, without From come from its recipient.
+func (w *Worker) handleReplies(ctx context.Context, delivery *core.WebhookDelivery, status int, body []byte) {
+	if delivery.Kind != "inbound" || delivery.Provider == "" {
+		return
+	}
+	if w.replyFormatters == nil || w.onReply == nil {
+		return
+	}
+	notifier, ok := w.replyFormatters.InboundFor(delivery.Provider)
+	if !ok {
+		return
+	}
+	parser, ok := notifier.(adapterkit.ReplyParser)
+	if !ok {
+		return
+	}
+	resp := &http.Response{
+		StatusCode:    status,
+		Body:          io.NopCloser(bytes.NewReader(body)),
+		ContentLength: int64(len(body)),
+	}
+	replies, err := parser.ParseReply(resp)
+	if err != nil {
+		slog.Warn("webhooks: parse replies", "delivery", delivery.ID, "err", err)
+		return
+	}
+	if len(replies) == 0 {
+		return
+	}
+	var inbound *core.Message
+	if delivery.MessageID != nil {
+		if msg, err := w.store.GetMessage(ctx, delivery.ProjectID, *delivery.MessageID); err == nil {
+			inbound = msg
+		} else {
+			slog.Warn("webhooks: replies: load inbound message", "delivery", delivery.ID, "err", err)
+		}
+	}
+	for _, reply := range replies {
+		if reply.To == "" && inbound != nil {
+			reply.To = inbound.From
+		}
+		if reply.From == "" && inbound != nil {
+			reply.From = inbound.To
+		}
+		if reply.Provider == "" {
+			reply.Provider = delivery.Provider
+		}
+		if reply.To == "" {
+			slog.Warn("webhooks: replies: no destination, dropping", "delivery", delivery.ID)
+			continue
+		}
+		if err := w.onReply(ctx, delivery.ProjectID, reply); err != nil {
+			slog.Warn("webhooks: replies: send failed", "delivery", delivery.ID, "to", reply.To, "err", err)
+		}
+	}
 }
 
 // finish persists the attempt outcome: success, another retry, or terminal

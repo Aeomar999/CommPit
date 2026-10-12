@@ -115,9 +115,66 @@ Implemented: `POST /api/sms/send`, `POST /api/sms/send/bulk`,
 - Batch-level `message_id` is generated, not stored (core batches carry no
   provider ref); per-message numeric refs apply to single sends only.
 - Credential extraction reads up to 1 MB bodies (bulk batches are ~200 KB).
-- No per-request delivery callback (Termii reports are account-level;
-  M3-03); `from` is required on every send.
+- `from` is required on every send.
 - Strict E.164 validation — Termii may accept looser number formats.
+
+## Termii delivery reports (M3-03)
+
+Implemented: the adapter builds a `StatusNotifier` delivery report for
+every message transition and the dispatcher queues it to the
+account-level URL in project settings (`termii.webhook_url`, as in
+Termii's dashboard). There is no per-request callback.
+
+- Payload shape confirmed against Termii's public Events and Reports
+  docs (`{type, id, message_id, receiver, sender, message, sent_at,
+  cost, status, channel}`, POST, `application/json`); `cost` is always
+  null (the sandbox has no billing). `sent_at` uses the docs' microsecond
+  UTC format.
+- Status vocabulary: `Message Sent` (Termii's first state; also used for
+  queued), `Delivered`, `Message Failed` (failed and undelivered).
+- Signed with `X-Termii-Signature`: HMAC-SHA512 over the exact JSON
+  bytes, keyed by the `api_key` seen on sends. Unsigned (with a server
+  warning) when no key has been seen yet.
+
+**Unverified** (correct against a real account in X-01):
+
+- The `type` value for outbound reports (`"outbound"` assumed, mirroring
+  the documented `"inbound"` value) and the `id` semantics for single
+  sends (assumed equal to `message_id`).
+- The signature encoding (hex assumed — Termii documents "HMAC SHA512"
+  without naming one) and the signing key (the request `api_key`
+  assumed — Termii says "your secret key" without saying which).
+
+## Native webhooks (M3-04)
+
+Implemented: `message.status` transitions on `native`-provider messages
+with a `callback_url` POST `{"event": "message.status", "message": {…}}`
+(full stored message) as `application/json`.
+
+- Signed with `X-Mocksms-Signature: sha256=<hex HMAC-SHA256 of the raw
+  body>`, keyed with the project's oldest native API key (stable when
+  several keys exist). Projects without a key send unsigned webhooks,
+  per the design spec.
+- `verification.updated` has no destination: `Verification` carries no
+  callback URL and `StartVerificationRequest` accepts none, so no
+  verification webhook is queued. Wiring one needs a model addition
+  (callback on the verification), not just a formatter.
+
+## Webhook replay and Docker (M3-05)
+
+- Replay re-signs: the payload is rebuilt through the provider formatter
+  with current keys, so rotated keys produce valid signatures.
+- Docker caveat: the rewrite changes only the delivery host. Provider
+  signatures (Twilio, Termii, native) still cover the configured
+  `localhost` URL, so SDK request validation against the received
+  `host.docker.internal` URL fails inside Docker — validate against the
+  configured URL instead.
+
+## Failure simulation (M3-06)
+
+- SMTP 550 for `invalid_address` fires at DATA time, not per-recipient
+  at RCPT TO: multi-recipient mail gets one 550 for the whole message
+  instead of per-recipient 550s with the rest accepted.
 
 ## Termii Token (M2-08)
 

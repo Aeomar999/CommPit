@@ -186,6 +186,8 @@ func (m *mockSimulator) Evaluate(ctx context.Context, projectID string, req Send
 func (m *mockSimulator) SetRules(_ []SimRule)       {}
 func (m *mockSimulator) SetLatency(_ time.Duration) {}
 func (m *mockSimulator) SetFailureRate(_ float64)   {}
+func (m *mockSimulator) Latency() time.Duration     { return 0 }
+func (m *mockSimulator) FailureRate() float64       { return 0 }
 
 func setupTestService() (*Service, *testServiceStore, *FakeClock) {
 	store := newTestServiceStore()
@@ -304,6 +306,63 @@ func TestRecipient_StopThenStartReenablesSending(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("send after START failed: %v", err)
+	}
+}
+
+func TestRecipient_KeywordVariants(t *testing.T) {
+	for _, body := range []string{"STOP", "stopall", "  UnSuBsCrIbE  ", "CANCEL", "end", "Quit"} {
+		t.Run("stop/"+body, func(t *testing.T) {
+			svc, _, _ := setupTestService()
+			ctx := context.Background()
+			projectID := "prj_kw"
+			to := "+15005550006"
+			if _, err := svc.ReceiveInbound(ctx, projectID, InboundRequest{From: to, To: "+15005550000", Body: body}); err != nil {
+				t.Fatalf("ReceiveInbound: %v", err)
+			}
+			if _, err := svc.SendMessage(ctx, projectID, smsReq(to)); err == nil || !IsError(err, ErrCodeUnsubscribed) {
+				t.Fatalf("expected unsubscribed, got %v", err)
+			}
+		})
+	}
+	for _, body := range []string{"START", "yes", "UnStOp"} {
+		t.Run("start/"+body, func(t *testing.T) {
+			svc, _, _ := setupTestService()
+			ctx := context.Background()
+			projectID := "prj_kw"
+			to := "+15005550006"
+			if _, err := svc.ReceiveInbound(ctx, projectID, InboundRequest{From: to, To: "+15005550000", Body: "STOP"}); err != nil {
+				t.Fatalf("ReceiveInbound STOP: %v", err)
+			}
+			if _, err := svc.ReceiveInbound(ctx, projectID, InboundRequest{From: to, To: "+15005550000", Body: body}); err != nil {
+				t.Fatalf("ReceiveInbound %q: %v", body, err)
+			}
+			if _, err := svc.SendMessage(ctx, projectID, smsReq(to)); err != nil {
+				t.Fatalf("expected send after %q, got %v", body, err)
+			}
+		})
+	}
+}
+
+func TestRecipient_StopStartIdempotent(t *testing.T) {
+	svc, _, _ := setupTestService()
+	ctx := context.Background()
+	projectID := "prj_idem"
+	inbound := func(body string) {
+		t.Helper()
+		if _, err := svc.ReceiveInbound(ctx, projectID, InboundRequest{From: "+15005550006", To: "+15005550000", Body: body}); err != nil {
+			t.Fatalf("ReceiveInbound %q: %v", body, err)
+		}
+	}
+
+	inbound("STOP")
+	inbound("STOP")
+	if _, err := svc.SendMessage(ctx, projectID, smsReq("+15005550006")); err == nil || !IsError(err, ErrCodeUnsubscribed) {
+		t.Fatalf("expected unsubscribed after double STOP, got %v", err)
+	}
+	inbound("START")
+	inbound("START")
+	if _, err := svc.SendMessage(ctx, projectID, smsReq("+15005550006")); err != nil {
+		t.Fatalf("expected send after double START, got %v", err)
 	}
 }
 
@@ -540,5 +599,125 @@ func TestService_VerificationText(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// scriptedSimulator returns a fixed result for every evaluation.
+type scriptedSimulator struct {
+	result *SimResult
+	err    *Error
+}
+
+func (s *scriptedSimulator) Evaluate(ctx context.Context, projectID string, req SendRequest) (*Error, *SimResult) {
+	return s.err, s.result
+}
+
+func (s *scriptedSimulator) SetRules(_ []SimRule)       {}
+func (s *scriptedSimulator) SetLatency(_ time.Duration) {}
+func (s *scriptedSimulator) SetFailureRate(_ float64)   {}
+func (s *scriptedSimulator) Latency() time.Duration     { return 0 }
+func (s *scriptedSimulator) FailureRate() float64       { return 0 }
+
+func setupScriptedService(result *SimResult) (*Service, *FakeClock) {
+	store := newTestServiceStore()
+	clock := NewFakeClock()
+	clock.Set(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))
+	svc := NewService(ServiceConfig{
+		Store:     store,
+		Bus:       &mockBus{},
+		Simulator: &scriptedSimulator{result: result},
+		Clock:     clock,
+		StepDelay: 0,
+		PhoneMode: phone.ModeValid,
+	})
+	return svc, clock
+}
+
+func smsReq(to string) SendRequest {
+	return SendRequest{
+		Channel:  ChannelSMS,
+		From:     "+15005550000",
+		To:       []string{to},
+		BodyText: "Hello",
+		Provider: "native",
+	}
+}
+
+func TestService_RateLimitedSingle(t *testing.T) {
+	svc, _ := setupScriptedService(&SimResult{RateLimited: true})
+	_, err := svc.SendMessage(context.Background(), "prj_test1", smsReq("+15005550006"))
+	if err == nil || !IsError(err, ErrCodeRateLimited) {
+		t.Fatalf("expected rate_limited, got %v", err)
+	}
+}
+
+func TestService_RateLimitedBatch(t *testing.T) {
+	svc, _ := setupScriptedService(&SimResult{RateLimited: true})
+	resp, err := svc.SendBatch(context.Background(), "prj_test1", SendRequest{
+		Channel:  ChannelSMS,
+		From:     "+15005550000",
+		To:       []string{"+15005550006", "+15005550007"},
+		BodyText: "Hello",
+		Provider: "native",
+	})
+	if err != nil {
+		t.Fatalf("expected batch acceptance, got %v", err)
+	}
+	if len(resp.Batch.Rejected) != 2 {
+		t.Fatalf("expected 2 rejections, got %+v", resp.Batch.Rejected)
+	}
+	for _, rej := range resp.Batch.Rejected {
+		if rej.Code != string(ErrCodeRateLimited) {
+			t.Errorf("expected rate_limited, got %+v", rej)
+		}
+	}
+}
+
+func TestService_HangHoldsResponse(t *testing.T) {
+	svc, clock := setupScriptedService(&SimResult{Hang: 30 * time.Second})
+	type outcome struct {
+		resp *SendResponse
+		err  error
+	}
+	done := make(chan outcome, 1)
+	go func() {
+		resp, err := svc.SendMessage(context.Background(), "prj_test1", smsReq("+15005550006"))
+		done <- outcome{resp, err}
+	}()
+
+	clock.BlockUntilWaiters(1)
+	select {
+	case <-done:
+		t.Fatalf("SendMessage returned before the hang elapsed")
+	default:
+	}
+	clock.Advance(30 * time.Second)
+	select {
+	case out := <-done:
+		if out.err != nil || out.resp == nil || out.resp.Message == nil {
+			t.Fatalf("expected success after hang, got %+v %v", out.resp, out.err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatalf("timed out waiting for SendMessage after hang")
+	}
+}
+
+func TestService_HangCancelled(t *testing.T) {
+	svc, clock := setupScriptedService(&SimResult{Hang: time.Hour})
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() {
+		_, err := svc.SendMessage(ctx, "prj_test1", smsReq("+15005550006"))
+		done <- err
+	}()
+	clock.BlockUntilWaiters(1)
+	cancel()
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Fatalf("expected cancellation error, got nil")
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatalf("timed out waiting for cancellation")
 	}
 }

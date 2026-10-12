@@ -394,20 +394,20 @@ func runMigrations(db *sql.DB) error {
 |---|---|---|---|---|
 | [x] | M3-01 | `webhooks` worker: persistent queue, bus wake-up, 10 s timeout, backoff (1s, 5s, 30s, 2m, 10m), attempt records | M2 | REQ-053 |
 | [x] | M3-02 | Twilio `StatusNotifier` with `X-Twilio-Signature` (auth-token rules from spec §7.4) | M3-01 | REQ-051, REQ-052 |
-| [ ] | M3-03 | Termii delivery-report notifier (account-level URL) | M3-01 | REQ-051 |
-| [ ] | M3-04 | Native webhooks: JSON payloads, `X-Mocksms-Signature` HMAC-SHA256 (architecture §5.6) | M3-01 | REQ-051, REQ-052 |
-| [ ] | M3-05 | Docker `localhost` → `host.docker.internal` rewrite; webhook replay endpoint | M3-01 | REQ-054, REQ-055 |
-| [ ] | M3-06 | `sim` engine: rule matching, effects (reject, fail_async, delay, hang, rate_limit), built-in magic values, YAML rules | M2 | REQ-060, REQ-061 |
-| [ ] | M3-07 | Async failures with provider delivery error codes (Twilio 30003/30005/30007; email `bounced`) | M3-06 | REQ-060 |
-| [ ] | M3-08 | Inbound: `POST /api/v1/inbound`, `core.ReceiveInbound`, Twilio `InboundNotifier`, TwiML `ReplyParser` | M3-01 | REQ-070, REQ-071 |
-| [ ] | M3-09 | STOP/START keyword handling and `unsubscribed` errors | M3-08 | REQ-072 |
-| [ ] | M3-10 | UI: Batches view, reply box, webhook log tab with replay, sim settings (latency, failure %) | M3-01–M3-09 | REQ-062, REQ-081 |
-| [ ] | M3-11 | Playwright smoke tests: live arrival, reply → webhook, inspector, batch progress | M3-10 | — |
-| [ ] | M3-12 | Docs: webhooks guide, magic-values table, sim rule reference | M3-06 | — |
+| [x] | M3-03 | Termii delivery-report notifier (account-level URL) | M3-01 | REQ-051 |
+| [x] | M3-04 | Native webhooks: JSON payloads, `X-Mocksms-Signature` HMAC-SHA256 (architecture §5.6) | M3-01 | REQ-051, REQ-052 |
+| [x] | M3-05 | Docker `localhost` → `host.docker.internal` rewrite; webhook replay endpoint | M3-01 | REQ-054, REQ-055 |
+| [x] | M3-06 | `sim` engine: rule matching, effects (reject, fail_async, delay, hang, rate_limit), built-in magic values, YAML rules | M2 | REQ-060, REQ-061 |
+| [x] | M3-07 | Async failures with provider delivery error codes (Twilio 30003/30005/30007; email `bounced`) | M3-06 | REQ-060 |
+| [x] | M3-08 | Inbound: `POST /api/v1/inbound`, `core.ReceiveInbound`, Twilio `InboundNotifier`, TwiML `ReplyParser` | M3-01 | REQ-070, REQ-071 |
+| [x] | M3-09 | STOP/START keyword handling and `unsubscribed` errors | M3-08 | REQ-072 |
+| [x] | M3-10 | UI: Batches view, reply box, webhook log tab with replay, sim settings (latency, failure %) | M3-01–M3-09 | REQ-062, REQ-081 |
+| [x] | M3-11 | Playwright smoke tests: live arrival, reply → webhook, inspector, batch progress | M3-10 | — |
+| [x] | M3-12 | Docs: webhooks guide, magic-values table, sim rule reference | M3-06 | — |
 
 **M3 milestone gate** (in order, once every task above is `[x]`):
-- [ ] Full suite passes on `milestone/m3`: `task test`, `task lint`, `task e2e`, `task build`
-- [ ] Final commit (changelog `v0.3.0` heading, progress update) pushed to `milestone/m3`
+- [x] Full suite passes on `milestone/m3`: `task test`, `task lint`, `task e2e`, `task build`
+- [x] Final commit (changelog `v0.3.0` heading, progress update) pushed to `milestone/m3`
 - [ ] PR `milestone/m3` → `main` merged with a merge commit
 - [ ] `v0.3.0` tagged on `main`; next milestone branch created from `main`
 

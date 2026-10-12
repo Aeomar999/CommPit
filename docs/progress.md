@@ -6,10 +6,10 @@ Single source of truth for where the project stands. Update it in every PR that 
 
 | | |
 |---|---|
-| **Phase** | Milestone 3 in progress |
+| **Phase** | Milestone 3 done, releasing v0.3.0 |
 | **Current milestone** | M3 |
-| **Next action** | M3-02: Twilio `StatusNotifier` with `X-Twilio-Signature` |
-| **Last updated** | 2026-10-08 |
+| **Next action** | M3 gate: PR → merge → tag v0.3.0 → branch m4 |
+| **Last updated** | 2026-10-12 |
 
 ## Milestones
 
@@ -17,7 +17,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 |---|---|---|---|
 | M1: Core, native API, SMTP, inbox | v0.1.0 | Done | 21 / 21 |
 | M2: Twilio, Termii, test API, inspector | v0.2.0 | In progress | 14 / 14 |
-| M3: Webhooks, failure simulation, inbound, batches | v0.3.0 | In progress | 2 / 12 |
+| M3: Webhooks, failure simulation, inbound, batches | v0.3.0 | Done | 12 / 12 |
 | M4: Estimate, MCP, CI kit | v0.4.0 | Not started | 0 / 8 |
 
 ## Blockers and open items
@@ -33,6 +33,20 @@ Single source of truth for where the project stands. Update it in every PR that 
 
 Newest first. One entry per working session: what changed, decisions made, what's next.
 
+### 2026-10-12: M3 Gate
+
+- Full suite on `milestone/m3`: `task test` green; `task e2e` green (real-SDK examples + 7 Playwright tests, 3 consecutive runs); `task build` green (`bin/mocksms`, embed UI). `task lint` as a wrapper hangs in this environment (pnpm spawn), so both halves were verified directly: `golangci-lint run` 0 issues, `biome check src/` clean.
+- Gate fixes in this session: `TestWorker_DockerRewrite` flake (assertion raced `finish` persistence — now synced on the terminal bus event; audited sibling tests, which are safe via the parking sender); e2e project selection (auto-generated names are never literally "default" — specs now read the project id back from a send); biome format on the new UI files.
+- Final commit carries the `v0.3.0` changelog heading, progress update, and gate ticks 1–2. PR → merge → tag → m4 next.
+
+### 2026-10-12: M3 Gate Fixes (CI)
+
+- CI lint failed on e2e formatting (`bun run biome check .` covers `web/e2e`, local runs had scoped to `src/`): formatted the specs, fixed `node:http` import protocol + import order. Lesson: always run the exact CI command (`biome check .`), not a scoped subset.
+- CI Test failed once per OS on `TestRun_AdapterDedicatedPort` ("did not serve in time") with identical code that passed 10 minutes earlier — CI-runner timing flake; passed on retry (ubuntu, macos).
+- Windows CI persistently failed `TestSMTP_BounceAcceptedThenFails`: the second `clock.Advance` can run before the lifecycle goroutine re-arms its timer, so the step never fires on slow runners. Fixed by `BlockUntilWaiters(1)` between the event wait and the second advance — a real test race, not app code.
+- CI E2E failed `batches.spec` once (row not visible in 10 s on a cold runner). Hardened: API-level pre-assertion splits server vs UI failures, first-content timeouts 20 s, suite already serial.
+- e2e project selection fixed: auto-generated project names are never literally "default", so specs now read the default project id back from a send response instead of guessing list order.
+
 ### 2026-10-09: Webhooks Worker + Twilio StatusNotifier (M3-01, M3-02)
 
 - Completed M3-01 (`REQ-053`): new `webhooks` package (delivery worker, sender, config) wired into `cmd/mocksms` with bus wake-ups, graceful shutdown, `webhooks.timeout` / `webhooks.max_attempts` settings, and a `depguard` rule (core only).
@@ -46,7 +60,51 @@ Newest first. One entry per working session: what changed, decisions made, what'
   - `webhooks/dispatch.go`: `Formatters` registry (startup registration only) + `Dispatcher` that subscribes to `core.EventMessageStatus`, loads the message + project, calls the provider's `StatusNotifier`, and queues a `core.WebhookDelivery` row.
   - Wired into `cmd/mocksms`: dispatcher starts after adapters register, stops on shutdown.
   - Tests: Twilio signature ground-truth vector, status webhook payload + signature verification, credential recording on send, dispatcher queuing and skip paths.
-- **Next:** M3-03 (Termii delivery-report notifier).
+- Completed M3-03 (`REQ-051`): Termii delivery-report notifier.
+  - `adapters/termii/dlr.go`: `StatusWebhook` posts Termii's documented JSON delivery report (`type`, `id`, `message_id`, `receiver`, `sender`, `message`, `sent_at`, `cost: null`, `status`, `channel`) to the account-level `termii.webhook_url` setting — Termii has no per-request callback. Status vocabulary (`Message Sent` / `Delivered` / `Message Failed`), microsecond UTC `sent_at`, `X-Termii-Signature` (hex HMAC-SHA512 over the exact bytes, keyed by the observed `api_key`; unsigned with a warning when unseen). Payload shape confirmed against Termii's public Events and Reports docs; `type` value, `id` semantics, signature encoding and key choice marked **unverified** in `docs/fidelity.md` (X-01).
+  - `api_key` recorded from sends via the shared `sendHandler`. Registered in `cmd/mocksms` alongside Twilio.
+  - Tests: Python-computed golden signature vector, payload shape, status table, skip paths, key recording on send.
+- Completed M3-04 (`REQ-051`, `REQ-052`): native webhooks.
+  - `api/notify.go`: `Notifier` (holds the store, keeps the spec §7.3 method signature) builds `{"event": "message.status", "message": {…}}` for `native`-provider messages with a `callback_url`. `X-Mocksms-Signature: sha256=<hex HMAC-SHA256>` keyed by the project's oldest native API key (stable with several keys); unsigned with a warning when keyless. Registered in `cmd/mocksms`; no dispatcher change needed (it stays provider-agnostic; `api` was already allowed to import `adapterkit`).
+  - Tests: Python-computed golden vector, event payload shape, oldest-key selection with several credentials, skip paths, unsigned fallback.
+  - Gap noted in `docs/fidelity.md`: `verification.updated` has no destination (`Verification` carries no callback URL), so no verification webhook is queued — that needs a model addition, not a formatter.
+- Completed M3-05 (`REQ-054`, `REQ-055`): Docker rewrite + replay re-sign.
+  - Docker: `webhooks.InDocker` (`/.dockerenv` or `MOCKSMS_IN_DOCKER=1`) + `RewriteLoopback` (localhost/127.0.0.1/::1 → `host.docker.internal`, port/path/query preserved). The worker applies it at send time when `DockerRewrite` is set (`!cfg.NoDockerHostRewrite && InDocker()` from the pre-existing flag/config surface) and records a note on the delivery; the stored URL keeps the configured host. New `note` column via migration 002 (001 is merged and immutable) across sqlite + txstore, with a storetest round-trip.
+  - Replay: `Dispatcher.Redispatch` rebuilds the delivery as a fresh record (attempt reset), re-running the provider formatter to re-sign when the message context exists, else cloning verbatim. New `webhook.queued` core event, published after every create, wakes the worker — this also closes the dispatcher/worker race where a drain could run before the row existed. `POST /webhooks/{id}/replay` now goes through an api-owned `WebhookRedispatcher` interface (nil falls back to the old verbatim clone), so `api` imports no adapter code. Architecture §5.2 + ADR-011 updated.
+  - Tests: rewrite table (incl. suffix/IPv6/unparseable guards), worker send-time rewrite + note + stored-URL fidelity, queued-event publish, resign + both verbatim fallbacks, replay endpoint (redispatched/nil-fallback/404).
+- Completed M3-06 (`REQ-060`, `REQ-061`): sim rule engine.
+  - Engine (`sim`): email-aware matching (phone normalization mangled `@` addresses — `@` on either side now switches to case-insensitive match, so `*@invalid.mocksms.test` / `*@bounce.mocksms.test` defaults work and phone patterns can't false-match emails); sliding-window `rate_limit` (N/min per project per provider, allowed sends consume quota, injectable clock); all five effects producible.
+  - Core consumption: `RateLimited` → `rate_limited` sync error (single) / rejected entry (batch); `Hang` → clock-aware blocking wait after scheduling (covers HTTP + SMTP + verify uniformly, honors ctx cancel). Delay/fail_async/reject already flowed.
+  - YAML (`sim.rules`, `koanf:` tags — koanf v2 ignores `mapstructure` tags, found by a failing test): match + reject/fail_async/delay_ms/hang_ms/rate_limit_per_min with fail-fast validation; `cmd` prepends custom rules before built-ins so they win.
+  - SMTP maps `invalid_address` to 550 (at DATA time — RCPT-time phase is a documented gap in `docs/fidelity.md`).
+  - Tests: email magic + phone-pattern guard + From matching, window allow/limit/slide/isolation, YAML load + validation table, service rate/hang (FakeClock + BlockUntilWaiters, no sleeps), SMTP 550 + bounce-to-undelivered driven by bus-event sync.
+  - Observed (pre-existing, out of scope): `StepDelay: 0` means "default 300 ms", not "instant" as the spec claims — zero is defaulted in `NewService`.
+- Completed M3-07 (`REQ-060`): async failure codes.
+  - `core.AsyncFail` gains `Status` (empty = undelivered, back-compat); the lifecycle honors `failed`. Terminal mapping: 30005/30003 → undelivered, 30007 → failed, email `bounced` → failed.
+  - New magic `…999906` → `fail_async` 30003 "unreachable handset" (undelivered); the twilio guide line now lists 999901–999906.
+  - YAML `fail_async` accepts optional `status: failed|undelivered` (validated).
+  - Tests: status table (30003/30005/30007), lifecycle failed-path, YAML status valid + invalid, bounce e2e now asserts failed + `bounced` code.
+- Completed M3-08 (`REQ-070`, `REQ-071`): inbound webhooks and TwiML replies.
+  - Found on audit: `POST /inbound`, `core.ReceiveInbound` (incl. STOP/START branch), and `OutboundReply` already existed — the gaps were the notifiers, dispatch, and reply sending.
+  - Twilio `InboundNotifier` (form `MessageSid`/`AccountSid`/`From`/`To`/`Body`/`NumMedia` to `twilio.inbound_url`, signed) + `ReplyParser` (`<Response><Message>` → replies with fresh SM refs; missing `to` left for the worker to default).
+  - Native `InboundNotifier` (`{"event": "message.inbound", …}` to `native.inbound_url`, signed with the API-key logic).
+  - Dispatcher subscribes `message.created` for inbound direction → `kind: inbound` rows; worker parses replies at send time via a `WithReplies` option and re-enters through an `OnReply` service callback (addressing defaulted from the inbound message). New `provider` column via migration 003 for parser routing (also in the API JSON). Architecture §5.4 + ADR-012 updated.
+  - Tests: inbound payloads + skip paths, TwiML table (explicit/missing `to`, distinct refs, empty, malformed), dispatch queuing + outbound silence, worker reply addressing + skip cases, provider round-trip. Full suite run serially (`-p 1`) after parallel linking OOM'd the box.
+- Completed M3-09 (`REQ-072`): STOP/START audit.
+  - Verified complete against the spec: all six STOP and three START keywords (trimmed, case-insensitive), idempotent storage (`INSERT OR REPLACE`, delete-missing is a no-op), suppression on single + batch + verification sends, Twilio 21610 and Termii `unsubscribed` mappings — all pre-existing with tests.
+  - Added the missing coverage: full HTTP-path test (`POST /inbound` STOP → send 400 `unsubscribed` → START → send 201), all nine keyword variants, and double-STOP/double-START idempotency.
+- Completed M3-10 (`REQ-062`, `REQ-081`): UI batches, reply, webhooks log, sim settings.
+  - Backend first: `GET /batches` (openapi + regen, verified offline-idempotent), `GET/PUT /sim/config` runtime settings (global, validated; new `Simulator.Latency/FailureRate` getters + `Service.Simulator()`), `ListWebhookDeliveries` store method (project-scoped, newest-first; the log endpoint now shows terminal rows too, previously pending-only), `webhook.queued` on the SSE hub for live log updates.
+  - UI: BatchesPage list + detail (stacked status bar, counts, rejected table); ReplyBox under SMS threads (sends as the handset, STOP hint, per-thread reset); webhooks tab with status tones, response codes, docker notes, and per-row Replay; Settings simulation section (latency ms + failure %, validated, applied live). No design skill available in this environment — followed design.md tokens/patterns directly (cards, EmptyState, chips, focus rings, labelled controls).
+  - Verified: tsc + biome clean, vite build, existing smoke passes, and the full loop exercised live (batch 202 with counts, sim PUT round-trip, STOP suppression + START recovery, replay re-signs with fresh id). `task generate:web` deliberately NOT run — it would overwrite the hand-written `web/src/lib/api.ts`.
+  - Flake note: `TestWorker_DockerRewrite` failed once under full parallel load, passes serially and with `-count=1`.
+- Completed M3-11 (`REQ-062`, `REQ-081`): Playwright suite, 7 tests green.
+  - New specs: inbox live arrival, reply-box round trip, batches progress + detail, inspector adapter-request log, and the full webhook loop (Node catcher receives signed `message.inbound`, UI replay re-queues and redelivers). Unique bodies/numbers per run; batch row located by id from the 202 response.
+  - Fixed a stale-server trap mid-session (background jobs die with the shell; rebuilt with `-tags embed` and verified the PID before trusting results).
+- Completed M3-12: docs.
+  - New `docs/guides/webhooks.md` (per-provider callbacks + signature snippets, inbound + TwiML, retries/replay, Docker) and `docs/guides/simulation.md` (magic-values table, `sim.rules` reference, runtime settings). README links both; twilio/termii guides point at webhooks.
+  - Every curl verified live against the binary (native callback, inbound STOP, sim GET/PUT, Twilio StatusCallback queued + signed, replay re-signs) — including a live STOP-suppression recovery and backoff retries against a dead port.
+- **Next:** M3 gate (full suite, final commit, PR, tag, m4).
 
 ### 2026-10-09: SMTP Delivery Fix (M3, unplanned)
 

@@ -208,12 +208,18 @@ type WebhookDelivery struct {
 	URL            string                 `json:"url"`
 	Payload        map[string]interface{} `json:"payload"`
 	Headers        map[string]string      `json:"headers"`
-	Attempt        int                    `json:"attempt"`
-	Status         WebhookDeliveryStatus  `json:"status"`
-	ResponseStatus *int                   `json:"response_status,omitempty"`
-	ResponseBody   *string                `json:"response_body,omitempty"`
-	NextRetryAt    *time.Time             `json:"next_retry_at,omitempty"`
-	CreatedAt      time.Time              `json:"created_at"`
+	// Provider is the provider that formatted the delivery; the worker
+	// uses it to route inbound replies through ReplyParser.
+	Provider       string                `json:"provider,omitempty"`
+	Attempt        int                   `json:"attempt"`
+	Status         WebhookDeliveryStatus `json:"status"`
+	ResponseStatus *int                  `json:"response_status,omitempty"`
+	ResponseBody   *string               `json:"response_body,omitempty"`
+	NextRetryAt    *time.Time            `json:"next_retry_at,omitempty"`
+	// Note carries operator annotations on the record, e.g. the Docker
+	// host rewrite applied at send time. Never sent to the receiver.
+	Note      *string   `json:"note,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type RequestLog struct {

@@ -73,8 +73,9 @@ func TestSimulator_MagicNumbersTable(t *testing.T) {
 			expectAsync: "30007",
 		},
 		{
-			name: "Non-magic suffix 999906 should not trigger pattern",
-			to:   "+1555999906",
+			name:        "Pattern 999906 - Unreachable handset",
+			to:          "+1555999906",
+			expectAsync: "30003",
 		},
 		{
 			name: "Non-magic suffix 999900 should not trigger pattern",
@@ -126,6 +127,41 @@ func TestSimulator_MagicNumbersTable(t *testing.T) {
 				}
 			} else if res.Hang > 0 {
 				t.Errorf("unexpected Hang: %v", res.Hang)
+			}
+		})
+	}
+}
+
+func TestSimulator_AsyncFailStatuses(t *testing.T) {
+	s := New()
+	ctx := context.Background()
+	for _, tc := range []struct {
+		to     string
+		code   string
+		status core.MessageStatus
+	}{
+		{"+1555999902", "30005", core.StatusUndelivered},
+		{"+1555999905", "30007", core.StatusFailed},
+		{"+1555999906", "30003", core.StatusUndelivered},
+	} {
+		t.Run(tc.code, func(t *testing.T) {
+			_, res := s.Evaluate(ctx, "prj_test", core.SendRequest{
+				Channel: core.ChannelSMS,
+				From:    "+15005550000",
+				To:      []string{tc.to},
+			})
+			if res == nil || res.AsyncFail == nil {
+				t.Fatalf("expected async fail, got %+v", res)
+			}
+			if res.AsyncFail.ErrorCode != tc.code {
+				t.Errorf("expected code %q, got %q", tc.code, res.AsyncFail.ErrorCode)
+			}
+			got := res.AsyncFail.Status
+			if got == "" {
+				got = core.StatusUndelivered
+			}
+			if got != tc.status {
+				t.Errorf("expected status %q, got %q", tc.status, got)
 			}
 		})
 	}
@@ -218,4 +254,110 @@ func TestSimulator_ConcurrentEvaluateUnderRace(t *testing.T) {
 	}
 
 	wg.Wait()
+}
+
+func TestSimulator_EmailMagic(t *testing.T) {
+	s := New()
+	ctx := context.Background()
+
+	t.Run("invalid domain rejects synchronously", func(t *testing.T) {
+		err, _ := s.Evaluate(ctx, "prj_test", core.SendRequest{
+			Channel:  core.ChannelEmail,
+			From:     "app@example.com",
+			To:       []string{"user@invalid.mocksms.test"},
+			Provider: "smtp",
+		})
+		if err == nil || string(err.Code) != "invalid_address" {
+			t.Fatalf("expected invalid_address, got %v", err)
+		}
+	})
+
+	t.Run("bounce domain fails asynchronously", func(t *testing.T) {
+		err, res := s.Evaluate(ctx, "prj_test", core.SendRequest{
+			Channel:  core.ChannelEmail,
+			From:     "app@example.com",
+			To:       []string{"User@BOUNCE.mocksms.test"},
+			Provider: "smtp",
+		})
+		if err != nil {
+			t.Fatalf("expected acceptance, got %v", err)
+		}
+		if res == nil || res.AsyncFail == nil || res.AsyncFail.ErrorCode != "bounced" {
+			t.Fatalf("expected bounced async fail, got %+v", res)
+		}
+	})
+
+	t.Run("email addresses skip phone patterns", func(t *testing.T) {
+		err, res := s.Evaluate(ctx, "prj_test", core.SendRequest{
+			Channel:  core.ChannelEmail,
+			From:     "app@example.com",
+			To:       []string{"test999901@example.com"},
+			Provider: "smtp",
+		})
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+		if res != nil && res.AsyncFail != nil {
+			t.Fatalf("expected no async fail, got %+v", res.AsyncFail)
+		}
+	})
+
+	t.Run("email from matching", func(t *testing.T) {
+		s2 := New()
+		s2.SetRules([]core.SimRule{{
+			Match:  core.SimMatch{From: "*@blocked.test"},
+			Effect: core.SimEffect{Reject: core.NewInvalidSender("blocked sender", "from")},
+		}})
+		err, _ := s2.Evaluate(ctx, "prj_test", core.SendRequest{
+			Channel:  core.ChannelEmail,
+			From:     "spam@blocked.test",
+			To:       []string{"user@example.com"},
+			Provider: "smtp",
+		})
+		if err == nil || string(err.Code) != "invalid_sender" {
+			t.Fatalf("expected invalid_sender, got %v", err)
+		}
+	})
+}
+
+func TestSimulator_RateLimitWindow(t *testing.T) {
+	clock := core.NewFakeClock()
+	clock.Set(time.Date(2026, 10, 11, 12, 0, 0, 0, time.UTC))
+	s := New(WithClock(clock))
+	s.SetRules([]core.SimRule{{
+		Match:  core.SimMatch{Provider: "twilio"},
+		Effect: core.SimEffect{RateLimit: 2},
+	}})
+	ctx := context.Background()
+	req := func() core.SendRequest {
+		return core.SendRequest{Channel: core.ChannelSMS, From: "+15005550000", To: []string{"+15005550006"}, Provider: "twilio"}
+	}
+
+	for i := 0; i < 2; i++ {
+		_, res := s.Evaluate(ctx, "prj_a", req())
+		if res == nil || res.RateLimited {
+			t.Fatalf("send %d: expected allowance, got %+v", i+1, res)
+		}
+	}
+	if _, res := s.Evaluate(ctx, "prj_a", req()); res == nil || !res.RateLimited {
+		t.Fatalf("send 3: expected rate limit, got %+v", res)
+	}
+
+	t.Run("buckets isolate by project and provider", func(t *testing.T) {
+		if _, res := s.Evaluate(ctx, "prj_b", req()); res == nil || res.RateLimited {
+			t.Errorf("expected fresh bucket for other project, got %+v", res)
+		}
+		other := req()
+		other.Provider = "termii"
+		if _, res := s.Evaluate(ctx, "prj_a", other); res == nil || res.RateLimited {
+			t.Errorf("expected fresh bucket for other provider, got %+v", res)
+		}
+	})
+
+	t.Run("window slides", func(t *testing.T) {
+		clock.Advance(61 * time.Second)
+		if _, res := s.Evaluate(ctx, "prj_a", req()); res == nil || res.RateLimited {
+			t.Errorf("expected allowance after window slide, got %+v", res)
+		}
+	})
 }

@@ -62,7 +62,8 @@ curl -u ACXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX:test-token \
 ```
 
 `StatusCallback` is accepted and stored; delivery starts with the M3
-webhooks worker.
+webhooks worker. Callback payloads, signature checks and inbound SMS are
+covered in the [webhooks guide](webhooks.md).
 
 ## Verify v2
 
@@ -93,7 +94,7 @@ The SMS text uses the service friendly name
 | `+15005550002` | Rejected: `unroutable` (21612) |
 | `+15005550004` | Rejected as unsubscribed (21610); send `START` to resubscribe |
 | `+15005550009` | Rejected: `not_sms_capable` (21614) |
-| `…999901` … `…999905` suffix | Pattern rules (invalid, async-fail, rate-limit, hang, carrier-filter) |
+| `…999901` … `…999906` suffix | Pattern rules (invalid, async-fail, rate-limit, hang, carrier-filter, unreachable) |
 
 See the simulator rules in `mocksms.yaml` (`sim.rules`) for custom behavior.
 

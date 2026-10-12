@@ -8,9 +8,22 @@ Provider-compatible adapters follow the real providers' behavior. Fixes that mak
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-12
+
+Delivery webhooks, failure simulation, inbound replies and STOP, bulk batch view. See `docs/guides/webhooks.md` and `docs/guides/simulation.md` for the new guides.
+
 ### Added
 
 - Webhooks delivery worker (`webhooks`, REQ-053): persistent queue drained on bus wake-ups (no polling), 10 s send timeout, retries after 1 s, 5 s, 30 s, 2 min and 10 min (six sends max, configurable), per-attempt records and `webhook.delivered` events. `webhooks.timeout` / `webhooks.max_attempts` settings (flags, env, YAML).
+- Twilio status webhooks (REQ-051, REQ-052): per-request `StatusCallback` URLs receive form-encoded `MessageSid`/`MessageStatus` callbacks on every transition, signed with `X-Twilio-Signature` (explicit `twilio.auth_token`, else the token seen with an `AC` username, else the API secret with a warning).
+- Termii delivery reports (REQ-051): every message transition posts the documented JSON delivery report to the account-level `termii.webhook_url` project setting, signed with `X-Termii-Signature` (HMAC-SHA512 over the body, keyed by the observed `api_key`).
+- Native status webhooks (REQ-051, REQ-052): `message.status` transitions on native messages with a `callback_url` POST `{"event": "message.status", "message": {...}}`, signed with `X-Mocksms-Signature: sha256=<hex HMAC-SHA256>` keyed by the project's oldest native API key (unsigned when the project has no key).
+- Webhook replay (REQ-054): `POST /webhooks/{id}/replay` re-signs the original payload through the provider formatter and queues a fresh delivery record (attempt reset); replays without message context resend verbatim. A new `webhook.queued` event wakes the worker after every queued row.
+- Docker host rewrite (REQ-055): inside a container (detected via `/.dockerenv` or `MOCKSMS_IN_DOCKER=1`), loopback webhook hosts are rewritten to `host.docker.internal` at send time with a note on the delivery record; off with `--no-docker-host-rewrite`.
+- Failure simulation engine (REQ-060, REQ-061): custom `sim.rules` in `mocksms.yaml` (match on to/from/provider/project/channel; reject/fail_async/delay_ms/hang_ms/rate_limit_per_min effects, validated at startup, custom rules win over built-ins); email magic addresses (`*@invalid.mocksms.test` rejects, `*@bounce.mocksms.test` fails async with `bounced`); sliding-window `rate_limit` (N per minute per project per provider); `hang` holds the request (cancellable); SMTP answers 550 for invalid addresses.
+- Async failure codes (REQ-060): new `…999906` magic fails async with Twilio 30003 "unreachable handset"; 30007 carrier-filtered and email `bounced` now end `failed` while 30003/30005 end `undelivered` (via `AsyncFail.Status`, also settable as YAML `fail_async.status`).
+- Inbound webhooks and replies (REQ-070, REQ-071): inbound messages queue `kind: inbound` deliveries — Twilio form (`MessageSid`/`AccountSid`/`From`/`To`/`Body`/`NumMedia`) to `twilio.inbound_url`, native JSON to `native.inbound_url`, both signed. App-server TwiML `<Response><Message>` replies are parsed at send time and sent back through the core service (new `provider` column on deliveries for routing).
+- UI for M3 flows (REQ-062, REQ-081): Batches view (list with progress, detail with status counts and rejected recipients), reply box under SMS threads (sends as the handset, with a STOP/START hint), webhook log with per-row replay and docker-rewrite notes, and a Failure Simulation settings section (latency ms + random failure %, applied live). New APIs: `GET /batches`, `GET/PUT /sim/config`; the webhook log now lists terminal deliveries project-scoped instead of pending-only.
 
 ### Fixed
 

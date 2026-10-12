@@ -232,5 +232,11 @@ func (s *Session) submit() error {
 	}
 
 	_, err := s.backend.service.SendMessage(context.Background(), s.projectID, sendReq)
-	return err
+	if err != nil {
+		if core.IsError(err, core.ErrCodeInvalidAddress) {
+			return &smtp.SMTPError{Code: 550, Message: "mailbox unavailable"}
+		}
+		return err
+	}
+	return nil
 }

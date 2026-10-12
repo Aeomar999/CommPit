@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
-export function useSSE(project = "default") {
+export function useSSE(project = "") {
   const queryClient = useQueryClient();
   const [isConnected, setIsConnected] = useState(false);
   const [lastEventTime, setLastEventTime] = useState<Date | null>(null);
@@ -31,6 +31,11 @@ export function useSSE(project = "default") {
           queryClient.invalidateQueries({ queryKey: ["request-logs"] });
         };
 
+        const handleWebhook = () => {
+          setLastEventTime(new Date());
+          queryClient.invalidateQueries({ queryKey: ["webhook-deliveries"] });
+        };
+
         eventSource.addEventListener("message.created", handleUpdate);
         eventSource.addEventListener("message.updated", handleUpdate);
         eventSource.addEventListener("message.status", handleUpdate);
@@ -38,6 +43,8 @@ export function useSSE(project = "default") {
         eventSource.addEventListener("verification.updated", handleUpdate);
         eventSource.addEventListener("batch.updated", handleUpdate);
         eventSource.addEventListener("request.logged", handleRequestLogged);
+        eventSource.addEventListener("webhook.queued", handleWebhook);
+        eventSource.addEventListener("webhook.delivered", handleWebhook);
 
         eventSource.onerror = () => {
           setIsConnected(false);

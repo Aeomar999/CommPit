@@ -73,7 +73,7 @@ func setupTestRouter(t *testing.T, storeOverride core.Store, simOverride core.Si
 		Resolver:  resolver,
 	})
 
-	handlers := NewHandlers(svc, resolver, eventBus, "test", &config.SecurityConfig{
+	handlers := NewHandlers(svc, resolver, eventBus, nil, "test", &config.SecurityConfig{
 		AllowedHosts:    []string{}, // Empty = allow all for tests
 		RequireXMocksms: false,      // Disable for tests
 		UIAuth:          "",
@@ -619,6 +619,60 @@ func TestHandlers_SimulateInboundCarries201AndContentTypeJSON(t *testing.T) {
 
 	if rec.Code != http.StatusCreated {
 		t.Errorf("expected status 201, got %d. Body: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func postJSON(t *testing.T, router http.Handler, target string, body map[string]any) *httptest.ResponseRecorder {
+	t.Helper()
+	payload, _ := json.Marshal(body)
+	req := httptest.NewRequest(http.MethodPost, target, bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	return rec
+}
+
+func TestHandlers_InboundStopSuppressesSends(t *testing.T) {
+	router, _, _ := setupTestRouter(t, nil, nil)
+	handset, appNumber := "+15005550006", "+15555550100"
+
+	send := func() *httptest.ResponseRecorder {
+		return postJSON(t, router, "/sms", map[string]any{
+			"from": appNumber,
+			"to":   handset,
+			"body": "Hello test",
+		})
+	}
+	inbound := func(body string) *httptest.ResponseRecorder {
+		return postJSON(t, router, "/inbound", map[string]any{
+			"from": handset,
+			"to":   appNumber,
+			"body": body,
+		})
+	}
+
+	if rec := send(); rec.Code != http.StatusCreated {
+		t.Fatalf("initial send: expected 201, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if rec := inbound("  stop "); rec.Code != http.StatusCreated {
+		t.Fatalf("STOP inbound: expected 201, got %d: %s", rec.Code, rec.Body.String())
+	}
+	rec := send()
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("send after STOP: expected 400, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var resp map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if errObj, ok := resp["error"].(map[string]any); !ok || errObj["code"] != "unsubscribed" {
+		t.Fatalf("expected unsubscribed error, got %v", resp)
+	}
+	if rec := inbound("START"); rec.Code != http.StatusCreated {
+		t.Fatalf("START inbound: expected 201, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if rec := send(); rec.Code != http.StatusCreated {
+		t.Fatalf("send after START: expected 201, got %d: %s", rec.Code, rec.Body.String())
 	}
 }
 
@@ -1426,4 +1480,133 @@ func TestHandlers_LinkCredential(t *testing.T) {
 			}
 		}
 	})
+}
+
+func TestHandlers_ListBatches(t *testing.T) {
+	router, _, store := setupTestRouter(t, nil, nil)
+
+	projectID := core.NewProjectID()
+	if err := store.CreateProject(context.Background(), &core.Project{ID: projectID, Name: "batches"}); err != nil {
+		t.Fatalf("CreateProject: %v", err)
+	}
+	for i := 0; i < 3; i++ {
+		if err := store.CreateBatch(context.Background(), &core.Batch{
+			ID:        core.NewBatchID(),
+			ProjectID: projectID,
+			Provider:  "native",
+			Channel:   core.ChannelSMS,
+			Total:     1,
+			Counts:    map[string]int{"queued": 1},
+			CreatedAt: time.Now(),
+		}); err != nil {
+			t.Fatalf("CreateBatch: %v", err)
+		}
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/batches?project="+projectID, nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var resp map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	batches, _ := resp["batches"].([]any)
+	if len(batches) != 3 {
+		t.Fatalf("expected 3 batches, got %v", resp)
+	}
+	if batches[0].(map[string]any)["provider"] != "native" {
+		t.Errorf("expected batch fields, got %v", batches[0])
+	}
+}
+
+func TestHandlers_SimConfig(t *testing.T) {
+	router, _, _ := setupTestRouter(t, nil, nil)
+
+	get := func() map[string]any {
+		t.Helper()
+		req := httptest.NewRequest(http.MethodGet, "/sim/config", nil)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("GET sim config: %d %s", rec.Code, rec.Body.String())
+		}
+		var resp map[string]any
+		if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		return resp
+	}
+	put := func(body map[string]any) *httptest.ResponseRecorder {
+		t.Helper()
+		raw, _ := json.Marshal(body)
+		req := httptest.NewRequest(http.MethodPut, "/sim/config", bytes.NewReader(raw))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		return rec
+	}
+
+	if got := get(); got["latency_ms"] != float64(0) || got["failure_rate"] != float64(0) {
+		t.Fatalf("expected zero defaults, got %v", got)
+	}
+	rec := put(map[string]any{"latency_ms": 250, "failure_rate": 0.5})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("PUT sim config: %d %s", rec.Code, rec.Body.String())
+	}
+	if got := get(); got["latency_ms"] != float64(250) || got["failure_rate"] != float64(0.5) {
+		t.Fatalf("expected updated values, got %v", got)
+	}
+	if rec := put(map[string]any{"latency_ms": -1}); rec.Code != http.StatusBadRequest {
+		t.Errorf("negative latency: expected 400, got %d", rec.Code)
+	}
+	if rec := put(map[string]any{"failure_rate": 1.5}); rec.Code != http.StatusBadRequest {
+		t.Errorf("rate > 1: expected 400, got %d", rec.Code)
+	}
+}
+
+func TestHandlers_ListWebhooksScoped(t *testing.T) {
+	router, _, store := setupTestRouter(t, nil, nil)
+	ctx := context.Background()
+
+	mkProject := func(name string) string {
+		t.Helper()
+		id := core.NewProjectID()
+		if err := store.CreateProject(ctx, &core.Project{ID: id, Name: name}); err != nil {
+			t.Fatalf("CreateProject: %v", err)
+		}
+		return id
+	}
+	prjA, prjB := mkProject("a"), mkProject("b")
+	for _, prj := range []string{prjA, prjA, prjB} {
+		if err := store.CreateWebhookDelivery(ctx, &core.WebhookDelivery{
+			ID:        core.NewWebhookDeliveryID(),
+			ProjectID: prj,
+			Kind:      "status",
+			URL:       "https://example.com/x",
+			Payload:   map[string]interface{}{},
+			Headers:   map[string]string{},
+			Status:    core.WebhookSucceeded,
+			CreatedAt: time.Now(),
+		}); err != nil {
+			t.Fatalf("CreateWebhookDelivery: %v", err)
+		}
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/webhooks?project="+prjA, nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var resp map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	deliveries, _ := resp["deliveries"].([]any)
+	if len(deliveries) != 2 {
+		t.Fatalf("expected project-scoped rows (2), got %v", resp)
+	}
 }

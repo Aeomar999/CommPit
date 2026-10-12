@@ -135,6 +135,9 @@ func (lr *LifecycleRunner) advance(ctx context.Context, projectID, messageID str
 	case StatusSent:
 		if simResult != nil && simResult.AsyncFail != nil {
 			nextStatus = StatusUndelivered
+			if simResult.AsyncFail.Status == StatusFailed {
+				nextStatus = StatusFailed
+			}
 			errCode = &simResult.AsyncFail.ErrorCode
 			errMsg = &simResult.AsyncFail.ErrorMessage
 		} else {

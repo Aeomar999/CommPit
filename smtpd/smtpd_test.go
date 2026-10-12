@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/smtp"
+	"strings"
 	"testing"
 	"time"
 
@@ -14,7 +15,7 @@ import (
 	"github.com/Aeomar999/CommPit/store/sqlite"
 )
 
-func setupTestSMTP(t *testing.T) (*Server, core.Store, string) {
+func setupTestSMTP(t *testing.T) (*Server, core.Store, *core.FakeClock, core.Bus, string) {
 	t.Helper()
 	store, err := sqlite.NewStore(":memory:", 1)
 	if err != nil {
@@ -24,12 +25,13 @@ func setupTestSMTP(t *testing.T) (*Server, core.Store, string) {
 
 	eventBus := bus.NewEventBus()
 	resolver := core.NewProjectResolver(store)
+	clock := core.NewFakeClock()
 	svc := core.NewService(core.ServiceConfig{
 		Store:     store,
 		BlobStore: store,
 		Bus:       eventBus,
 		Simulator: sim.NewSimulator(),
-		Clock:     core.NewFakeClock(),
+		Clock:     clock,
 		Resolver:  resolver,
 	})
 
@@ -67,7 +69,7 @@ func setupTestSMTP(t *testing.T) (*Server, core.Store, string) {
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
-	return server, store, addr
+	return server, store, clock, eventBus, addr
 }
 
 func sendMail(t *testing.T, addr, from, to, subject, body string, auth smtp.Auth) {
@@ -91,7 +93,7 @@ func messagesIn(t *testing.T, store core.Store, projectID string) []*core.Messag
 }
 
 func TestSMTP_NoAuthDeliversToDefaultProject(t *testing.T) {
-	_, store, addr := setupTestSMTP(t)
+	_, store, _, _, addr := setupTestSMTP(t)
 
 	sendMail(t, addr, "test@app.local", "user@example.com", "Hello SMTP", "Hi from sandbox", nil)
 
@@ -113,7 +115,7 @@ func TestSMTP_NoAuthDeliversToDefaultProject(t *testing.T) {
 }
 
 func TestSMTP_AuthDeliversToUserProject(t *testing.T) {
-	_, store, addr := setupTestSMTP(t)
+	_, store, _, _, addr := setupTestSMTP(t)
 
 	auth := smtp.PlainAuth("", "smtpuser", "anypass", "127.0.0.1")
 	sendMail(t, addr, "test@app.local", "user@example.com", "Authed", "Hi authed", auth)
@@ -125,5 +127,72 @@ func TestSMTP_AuthDeliversToUserProject(t *testing.T) {
 	msgs := messagesIn(t, store, projectID)
 	if len(msgs) != 1 {
 		t.Fatalf("expected 1 stored message, got %d", len(msgs))
+	}
+}
+
+func TestSMTP_InvalidAddressRejected550(t *testing.T) {
+	_, _, _, _, addr := setupTestSMTP(t)
+
+	msg := "To: bad@invalid.mocksms.test\r\n" +
+		"From: test@app.local\r\n" +
+		"Subject: Nope\r\n" +
+		"\r\nHi\r\n"
+	err := smtp.SendMail(addr, nil, "test@app.local", []string{"bad@invalid.mocksms.test"}, []byte(msg))
+	if err == nil {
+		t.Fatalf("expected 550 rejection, got nil")
+	}
+	if !strings.Contains(err.Error(), "550") {
+		t.Errorf("expected 550, got %v", err)
+	}
+}
+
+func TestSMTP_BounceAcceptedThenFails(t *testing.T) {
+	_, store, clock, eventBus, addr := setupTestSMTP(t)
+
+	statuses := make(chan core.MessageStatus, 4)
+	sub := eventBus.Subscribe(string(core.EventMessageStatus), func(e core.Event) {
+		if ev, ok := e.Payload.(*core.StatusEvent); ok {
+			statuses <- ev.Status
+		}
+	})
+	defer sub.Unsubscribe()
+
+	sendMail(t, addr, "test@app.local", "user@bounce.mocksms.test", "Bounce", "Hi bounce", nil)
+
+	// Lifecycle steps ride the fake clock: queued→sent, then the async
+	// failure applies at sent→failed (bounces are terminal). The second
+	// advance must wait for the re-armed timer, or it can run before the
+	// lifecycle goroutine re-registers and the step never fires.
+	clock.Advance(500 * time.Millisecond)
+	waitStatus(t, statuses, core.StatusSent)
+	clock.BlockUntilWaiters(1)
+	clock.Advance(500 * time.Millisecond)
+	waitStatus(t, statuses, core.StatusFailed)
+
+	projectID, err := core.NewProjectResolver(store).Resolve(context.Background(), "native", "default")
+	if err != nil {
+		t.Fatalf("resolve default project: %v", err)
+	}
+	msgs := messagesIn(t, store, projectID)
+	if len(msgs) != 1 {
+		t.Fatalf("expected 1 stored message, got %d", len(msgs))
+	}
+	if msgs[0].Status != core.StatusFailed {
+		t.Errorf("expected failed, got %s", msgs[0].Status)
+	}
+	if msgs[0].ErrorCode == nil || *msgs[0].ErrorCode != "bounced" {
+		t.Errorf("expected bounced error code, got %v", msgs[0].ErrorCode)
+	}
+}
+
+func waitStatus(t *testing.T, ch chan core.MessageStatus, want core.MessageStatus) {
+	t.Helper()
+	select {
+	case got := <-ch:
+		if got != want {
+			t.Fatalf("expected status %s, got %s", want, got)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatalf("timed out waiting for status %s", want)
 	}
 }

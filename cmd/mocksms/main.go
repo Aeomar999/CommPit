@@ -96,6 +96,11 @@ func runWithContext(ctx context.Context, cfg *config.Config) error {
 	simulator := sim.NewSimulator()
 	simulator.SetLatency(cfg.Sim.Latency)
 	simulator.SetFailureRate(cfg.Sim.FailureRate)
+	customRules, err := cfg.Sim.CoreRules()
+	if err != nil {
+		return fmt.Errorf("sim rules: %w", err)
+	}
+	simulator.SetRules(append(customRules, sim.DefaultRules()...))
 
 	var phoneMode phone.Mode
 	switch cfg.Validation.Phone {
@@ -130,16 +135,38 @@ func runWithContext(ctx context.Context, cfg *config.Config) error {
 		PhoneMode:    phoneMode,
 	})
 
-	handlers := api.NewHandlers(service, projectResolver, eventBus, version, &cfg.Security)
+	// Webhook dispatch: provider formatters turn domain events into queued
+	// deliveries for the worker below. Adapters register after creation;
+	// the replay endpoint receives the dispatcher with the handlers.
+	webhookFormatters := webhooks.NewFormatters()
+	webhookDispatcher := webhooks.NewDispatcher(store, eventBus, core.RealClock{}, webhookFormatters)
+	webhookDispatcher.Start()
+
+	handlers := api.NewHandlers(service, projectResolver, eventBus, webhookDispatcher, version, &cfg.Security)
 
 	service.LifecycleRunner().ResumeQueuedAndSent(ctx)
 
 	// Webhook worker: persistent delivery queue woken by bus events.
+	// Inbound replies parsed from app-server responses are sent back
+	// through the core service.
 	webhookWorker := webhooks.NewWorker(store, eventBus, core.RealClock{}, webhooks.NewHTTPSender(), webhooks.Config{
-		Timeout:     cfg.Webhooks.Timeout,
-		MaxAttempts: cfg.Webhooks.MaxAttempts,
-	})
+		Timeout:       cfg.Webhooks.Timeout,
+		MaxAttempts:   cfg.Webhooks.MaxAttempts,
+		DockerRewrite: !cfg.NoDockerHostRewrite && webhooks.InDocker(),
+	}, webhooks.WithReplies(webhookFormatters, func(ctx context.Context, projectID string, reply core.OutboundReply) error {
+		_, err := service.SendMessage(ctx, projectID, core.SendRequest{
+			Channel:     core.ChannelSMS,
+			From:        reply.From,
+			To:          []string{reply.To},
+			BodyText:    reply.Body,
+			Provider:    reply.Provider,
+			ProviderRef: reply.ProviderRef,
+		})
+		return err
+	}))
 	webhookWorker.Start(ctx)
+
+	// (Provider formatters register with the adapters below.)
 
 	// Start SMTP server
 	smtpServer := smtpd.NewServer(&smtpd.Config{
@@ -180,12 +207,14 @@ func runWithContext(ctx context.Context, cfg *config.Config) error {
 	termiiKit := adapterkit.New(projectResolver, adapterkit.WithBus(eventBus), adapterkit.WithSink(termiiSink))
 	termiiHandler := termiiKit.Wrap(termiiAdapter, termii.Extractor(), adapterkit.WithRequired(true))
 
-	// Webhook dispatch: provider formatters turn domain events into queued
-	// deliveries for the worker above.
-	webhookFormatters := webhooks.NewFormatters()
+	// Provider formatters: status callbacks and inbound webhooks per
+	// provider, feeding the dispatcher and the worker's reply parsing.
+	nativeNotifier := api.NewNotifier(store)
 	webhookFormatters.RegisterStatus(twilioAdapter.Name(), twilioAdapter)
-	webhookDispatcher := webhooks.NewDispatcher(store, eventBus, core.RealClock{}, webhookFormatters)
-	webhookDispatcher.Start()
+	webhookFormatters.RegisterStatus(termiiAdapter.Name(), termiiAdapter)
+	webhookFormatters.RegisterStatus("native", nativeNotifier)
+	webhookFormatters.RegisterInbound(twilioAdapter.Name(), twilioAdapter)
+	webhookFormatters.RegisterInbound("native", nativeNotifier)
 
 	rootRouter := chi.NewRouter()
 	rootRouter.Mount("/twilio", middleware.SecurityMiddleware(&cfg.Security)(twilioHandler))

@@ -30,6 +30,11 @@ type Config struct {
 	MaxAttempts int
 	// BatchSize caps rows fetched per drain. Default 100.
 	BatchSize int
+	// DockerRewrite rewrites loopback webhook hosts to
+	// host.docker.internal at send time (design spec §7.5). The
+	// composition root sets it from Docker detection unless the operator
+	// passed --no-docker-host-rewrite. Default false.
+	DockerRewrite bool
 }
 
 // withDefaults fills zero values.

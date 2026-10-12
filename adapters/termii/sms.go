@@ -119,6 +119,7 @@ func (a *Adapter) sendHandler(maxRecipients int, bulk bool) http.HandlerFunc {
 			a.WriteError(w, verr)
 			return
 		}
+		a.recordAPIKey(r.Context(), projectID, adapterkit.Credential(r))
 
 		id, err := newTermiiID()
 		if err != nil {

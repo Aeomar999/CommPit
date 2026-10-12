@@ -408,12 +408,16 @@ func (t *txStore) CreateWebhookDelivery(ctx context.Context, w *core.WebhookDeli
 	if w.NextRetryAt != nil {
 		nextRetryAt = *w.NextRetryAt
 	}
+	var note interface{}
+	if w.Note != nil {
+		note = *w.Note
+	}
 
 	_, err := t.tx.ExecContext(ctx,
-		`INSERT INTO webhook_deliveries (id, project_id, message_id, verification_id, kind, url, payload, headers, attempt, status, response_status, response_body, next_retry_at, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO webhook_deliveries (id, project_id, message_id, verification_id, kind, url, payload, headers, attempt, status, response_status, response_body, next_retry_at, note, provider, created_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		w.ID, w.ProjectID, messageID, verificationID, w.Kind, w.URL, string(payload), string(headers),
-		w.Attempt, w.Status, w.ResponseStatus, w.ResponseBody, nextRetryAt, w.CreatedAt)
+		w.Attempt, w.Status, w.ResponseStatus, w.ResponseBody, nextRetryAt, note, w.Provider, w.CreatedAt)
 	return err
 }
 
@@ -436,16 +440,24 @@ func (t *txStore) UpdateWebhookDelivery(ctx context.Context, w *core.WebhookDeli
 	if w.NextRetryAt != nil {
 		nextRetryAt = *w.NextRetryAt
 	}
+	var note interface{}
+	if w.Note != nil {
+		note = *w.Note
+	}
 
 	_, err := t.tx.ExecContext(ctx,
-		`UPDATE webhook_deliveries SET project_id = ?, message_id = ?, verification_id = ?, kind = ?, url = ?, payload = ?, headers = ?, attempt = ?, status = ?, response_status = ?, response_body = ?, next_retry_at = ? WHERE id = ?`,
+		`UPDATE webhook_deliveries SET project_id = ?, message_id = ?, verification_id = ?, kind = ?, url = ?, payload = ?, headers = ?, attempt = ?, status = ?, response_status = ?, response_body = ?, next_retry_at = ?, note = ?, provider = ? WHERE id = ?`,
 		w.ProjectID, messageID, verificationID, w.Kind, w.URL, string(payload), string(headers),
-		w.Attempt, w.Status, w.ResponseStatus, w.ResponseBody, nextRetryAt, w.ID)
+		w.Attempt, w.Status, w.ResponseStatus, w.ResponseBody, nextRetryAt, note, w.Provider, w.ID)
 	return err
 }
 
 func (t *txStore) ListPendingWebhooks(ctx context.Context, now time.Time, limit int) ([]*core.WebhookDelivery, error) {
 	return t.base.ListPendingWebhooks(ctx, now, limit)
+}
+
+func (t *txStore) ListWebhookDeliveries(ctx context.Context, projectID string, limit int) ([]*core.WebhookDelivery, error) {
+	return t.base.ListWebhookDeliveries(ctx, projectID, limit)
 }
 
 func (t *txStore) CreateRequestLog(ctx context.Context, l *core.RequestLog) error {

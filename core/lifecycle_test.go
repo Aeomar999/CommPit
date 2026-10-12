@@ -414,6 +414,48 @@ func TestLifecycleRunner_AsyncFail_EndsInUndelivered(t *testing.T) {
 	}
 }
 
+func TestLifecycleRunner_AsyncFailFailedStatus(t *testing.T) {
+	store := newMockLifecycleStore()
+	bus := &mockBus{}
+	clock := NewFakeClock()
+
+	svc := &Service{
+		clock:     clock,
+		stepDelay: 0,
+		store:     store,
+		bus:       bus,
+	}
+	runner := NewLifecycleRunner(svc)
+
+	msg := &Message{
+		ID:        NewMessageID(),
+		ProjectID: "prj_test",
+		Status:    StatusQueued,
+	}
+	if err := store.CreateMessage(context.Background(), msg); err != nil {
+		t.Fatalf("CreateMessage: %v", err)
+	}
+
+	runner.Schedule(msg.ProjectID, msg.ID, &SimResult{
+		AsyncFail: &AsyncFail{
+			ErrorCode:    "30007",
+			ErrorMessage: "carrier filtered",
+			Status:       StatusFailed,
+		},
+	})
+
+	updated, err := store.GetMessage(context.Background(), msg.ProjectID, msg.ID)
+	if err != nil {
+		t.Fatalf("GetMessage: %v", err)
+	}
+	if updated.Status != StatusFailed {
+		t.Fatalf("expected StatusFailed, got %s", updated.Status)
+	}
+	if updated.ErrorCode == nil || *updated.ErrorCode != "30007" {
+		t.Errorf("expected ErrorCode 30007, got %v", updated.ErrorCode)
+	}
+}
+
 func TestLifecycleRunner_ResumeQueuedAndSent(t *testing.T) {
 	store := newMockLifecycleStore()
 	bus := &mockBus{}

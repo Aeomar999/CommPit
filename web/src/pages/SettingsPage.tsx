@@ -1,7 +1,7 @@
-import { Check, Globe, Info, KeyRound, Save, Shield, Trash2 } from "lucide-react";
+import { Check, FlaskConical, Globe, Info, KeyRound, Save, Shield, Trash2 } from "lucide-react";
 import type React from "react";
 import { useEffect, useState } from "react";
-import { projectsApi } from "../lib/api";
+import { projectsApi, simApi } from "../lib/api";
 import type { Project } from "../types";
 
 export function SettingsPage() {
@@ -12,6 +12,10 @@ export function SettingsPage() {
   const [linkKey, setLinkKey] = useState("");
   const [linkStatus, setLinkStatus] = useState<{ ok: boolean; text: string } | null>(null);
   const [linking, setLinking] = useState(false);
+  const [latencyMs, setLatencyMs] = useState("0");
+  const [failurePct, setFailurePct] = useState("0");
+  const [simStatus, setSimStatus] = useState<{ ok: boolean; text: string } | null>(null);
+  const [savingSim, setSavingSim] = useState(false);
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,6 +31,13 @@ export function SettingsPage() {
         setLinkProject((current) => current || resp.projects[0]?.id || "");
       })
       .catch(() => setProjects([]));
+    simApi
+      .get()
+      .then((cfg) => {
+        setLatencyMs(String(cfg.latency_ms ?? 0));
+        setFailurePct(String((cfg.failure_rate ?? 0) * 100));
+      })
+      .catch(() => setSimStatus({ ok: false, text: "Could not load simulation settings." }));
   }, []);
 
   const handleLink = async (e: React.FormEvent) => {
@@ -266,6 +277,107 @@ export function SettingsPage() {
               </button>
             </div>
           </form>
+        </div>
+
+        {/* Failure Simulation Section */}
+        <div className="rounded-xl bg-card border border-border shadow-xs p-5 sm:p-6 space-y-4">
+          <div className="flex items-center gap-2 pb-3 border-b border-border">
+            <FlaskConical className="w-4 h-4 text-ember-600" />
+            <h3 className="text-sm font-semibold text-foreground">Failure Simulation</h3>
+          </div>
+
+          <p className="text-[11px] text-muted-foreground">
+            Global delivery behaviour. Applies immediately and lasts until restart; values from
+            mocksms.yaml win back at boot.
+          </p>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-1.5">
+              <label htmlFor="sim-latency" className="text-xs font-semibold text-foreground">
+                Added latency (ms)
+              </label>
+              <input
+                id="sim-latency"
+                type="number"
+                min={0}
+                step={50}
+                value={latencyMs}
+                onChange={(e) => setLatencyMs(e.target.value)}
+                className="w-full px-3 py-2 rounded-md border border-border bg-card text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-ember-500 font-mono tabular-nums"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Extra wait on every lifecycle step.
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="sim-failure" className="text-xs font-semibold text-foreground">
+                Random failure (%)
+              </label>
+              <input
+                id="sim-failure"
+                type="number"
+                min={0}
+                max={100}
+                step={1}
+                value={failurePct}
+                onChange={(e) => setFailurePct(e.target.value)}
+                className="w-full px-3 py-2 rounded-md border border-border bg-card text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-ember-500 font-mono tabular-nums"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Share of sends that fail after acceptance.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-3">
+            {simStatus && (
+              <output
+                className={
+                  simStatus.ok
+                    ? "text-xs text-emerald-600 dark:text-emerald-400 font-medium"
+                    : "text-xs text-red-600 dark:text-red-400 font-medium"
+                }
+              >
+                {simStatus.text}
+              </output>
+            )}
+            <button
+              type="button"
+              disabled={savingSim}
+              onClick={() => {
+                const latency = Number(latencyMs);
+                const failure = Number(failurePct);
+                if (!Number.isFinite(latency) || latency < 0) {
+                  setSimStatus({ ok: false, text: "Latency must be zero or more." });
+                  return;
+                }
+                if (!Number.isFinite(failure) || failure < 0 || failure > 100) {
+                  setSimStatus({ ok: false, text: "Failure must sit between 0 and 100." });
+                  return;
+                }
+                setSavingSim(true);
+                setSimStatus(null);
+                simApi
+                  .update({ latency_ms: Math.round(latency), failure_rate: failure / 100 })
+                  .then((cfg) => {
+                    setLatencyMs(String(cfg.latency_ms ?? 0));
+                    setFailurePct(String((cfg.failure_rate ?? 0) * 100));
+                    setSimStatus({ ok: true, text: "Simulation settings applied." });
+                  })
+                  .catch((err: unknown) => {
+                    setSimStatus({
+                      ok: false,
+                      text: err instanceof Error ? err.message : "Save failed.",
+                    });
+                  })
+                  .finally(() => setSavingSim(false));
+              }}
+              className="inline-flex items-center gap-2 px-5 py-2 rounded-md bg-ember-500 hover:bg-ember-600 text-ember-950 font-semibold text-xs shadow-sm transition-all active:scale-[0.98] disabled:opacity-50"
+            >
+              <FlaskConical className="w-4 h-4" />
+              <span>{savingSim ? "Applying…" : "Apply Simulation"}</span>
+            </button>
+          </div>
         </div>
 
         {/* BMS-inspired Heads-up info card */}

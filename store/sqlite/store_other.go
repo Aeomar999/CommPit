@@ -195,18 +195,22 @@ func (s *Store) CreateWebhookDelivery(ctx context.Context, w *core.WebhookDelive
 	if w.NextRetryAt != nil {
 		nextRetryAt = *w.NextRetryAt
 	}
+	var note interface{}
+	if w.Note != nil {
+		note = *w.Note
+	}
 
 	err := s.execContext(ctx,
-		`INSERT INTO webhook_deliveries (id, project_id, message_id, verification_id, kind, url, payload, headers, attempt, status, response_status, response_body, next_retry_at, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO webhook_deliveries (id, project_id, message_id, verification_id, kind, url, payload, headers, attempt, status, response_status, response_body, next_retry_at, note, provider, created_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		w.ID, w.ProjectID, messageID, verificationID, w.Kind, w.URL, string(payload), string(headers),
-		w.Attempt, w.Status, w.ResponseStatus, w.ResponseBody, nextRetryAt, w.CreatedAt)
+		w.Attempt, w.Status, w.ResponseStatus, w.ResponseBody, nextRetryAt, note, w.Provider, w.CreatedAt)
 	return err
 }
 
 func (s *Store) GetWebhookDelivery(ctx context.Context, id string) (*core.WebhookDelivery, error) {
 	row := s.queryRowContext(ctx,
-		`SELECT id, project_id, message_id, verification_id, kind, url, payload, headers, attempt, status, response_status, response_body, next_retry_at, created_at
+		`SELECT id, project_id, message_id, verification_id, kind, url, payload, headers, attempt, status, response_status, response_body, next_retry_at, note, provider, created_at
 		 FROM webhook_deliveries WHERE id = ?`, id)
 	w, err := scanWebhookDelivery(row)
 	if err != nil {
@@ -225,9 +229,9 @@ func scanWebhookDelivery(row interface {
 	var payload, headers string
 	var messageID, verificationID sql.NullString
 	var responseStatus sql.NullInt64
-	var responseBody sql.NullString
+	var responseBody, note sql.NullString
 	var nextRetryAt sql.NullTime
-	err := row.Scan(&w.ID, &w.ProjectID, &messageID, &verificationID, &w.Kind, &w.URL, &payload, &headers, &w.Attempt, &w.Status, &responseStatus, &responseBody, &nextRetryAt, &w.CreatedAt)
+	err := row.Scan(&w.ID, &w.ProjectID, &messageID, &verificationID, &w.Kind, &w.URL, &payload, &headers, &w.Attempt, &w.Status, &responseStatus, &responseBody, &nextRetryAt, &note, &w.Provider, &w.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -247,6 +251,9 @@ func scanWebhookDelivery(row interface {
 	if nextRetryAt.Valid {
 		at := nextRetryAt.Time
 		w.NextRetryAt = &at
+	}
+	if note.Valid {
+		w.Note = &note.String
 	}
 	json.Unmarshal([]byte(payload), &w.Payload)
 	json.Unmarshal([]byte(headers), &w.Headers)
@@ -268,19 +275,46 @@ func (s *Store) UpdateWebhookDelivery(ctx context.Context, w *core.WebhookDelive
 	if w.NextRetryAt != nil {
 		nextRetryAt = *w.NextRetryAt
 	}
+	var note interface{}
+	if w.Note != nil {
+		note = *w.Note
+	}
 
 	err := s.execContext(ctx,
-		`UPDATE webhook_deliveries SET project_id = ?, message_id = ?, verification_id = ?, kind = ?, url = ?, payload = ?, headers = ?, attempt = ?, status = ?, response_status = ?, response_body = ?, next_retry_at = ? WHERE id = ?`,
+		`UPDATE webhook_deliveries SET project_id = ?, message_id = ?, verification_id = ?, kind = ?, url = ?, payload = ?, headers = ?, attempt = ?, status = ?, response_status = ?, response_body = ?, next_retry_at = ?, note = ?, provider = ? WHERE id = ?`,
 		w.ProjectID, messageID, verificationID, w.Kind, w.URL, string(payload), string(headers),
-		w.Attempt, w.Status, w.ResponseStatus, w.ResponseBody, nextRetryAt, w.ID)
+		w.Attempt, w.Status, w.ResponseStatus, w.ResponseBody, nextRetryAt, note, w.Provider, w.ID)
 	return err
 }
 
 func (s *Store) ListPendingWebhooks(ctx context.Context, now time.Time, limit int) ([]*core.WebhookDelivery, error) {
 	rows, err := s.queryContext(ctx,
-		`SELECT id, project_id, message_id, verification_id, kind, url, payload, headers, attempt, status, response_status, response_body, next_retry_at, created_at
+		`SELECT id, project_id, message_id, verification_id, kind, url, payload, headers, attempt, status, response_status, response_body, next_retry_at, note, provider, created_at
 		 FROM webhook_deliveries WHERE status = 'pending' AND (next_retry_at IS NULL OR next_retry_at <= ?) ORDER BY next_retry_at LIMIT ?`,
 		now, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var deliveries []*core.WebhookDelivery
+	for rows.Next() {
+		w, err := scanWebhookDelivery(rows)
+		if err != nil {
+			return nil, err
+		}
+		deliveries = append(deliveries, w)
+	}
+	return deliveries, nil
+}
+
+// ListWebhookDeliveries returns a project's deliveries newest first, for
+// the webhook log. Unlike ListPendingWebhooks it includes terminal rows.
+func (s *Store) ListWebhookDeliveries(ctx context.Context, projectID string, limit int) ([]*core.WebhookDelivery, error) {
+	rows, err := s.queryContext(ctx,
+		`SELECT id, project_id, message_id, verification_id, kind, url, payload, headers, attempt, status, response_status, response_body, next_retry_at, note, provider, created_at
+		 FROM webhook_deliveries WHERE project_id = ? ORDER BY created_at DESC, id DESC LIMIT ?`,
+		projectID, limit)
 	if err != nil {
 		return nil, err
 	}
