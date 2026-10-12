@@ -402,7 +402,7 @@ func runMigrations(db *sql.DB) error {
 | [x] | M3-08 | Inbound: `POST /api/v1/inbound`, `core.ReceiveInbound`, Twilio `InboundNotifier`, TwiML `ReplyParser` | M3-01 | REQ-070, REQ-071 |
 | [x] | M3-09 | STOP/START keyword handling and `unsubscribed` errors | M3-08 | REQ-072 |
 | [x] | M3-10 | UI: Batches view, reply box, webhook log tab with replay, sim settings (latency, failure %) | M3-01–M3-09 | REQ-062, REQ-081 |
-| [ ] | M3-11 | Playwright smoke tests: live arrival, reply → webhook, inspector, batch progress | M3-10 | — |
+| [x] | M3-11 | Playwright smoke tests: live arrival, reply → webhook, inspector, batch progress | M3-10 | — |
 | [ ] | M3-12 | Docs: webhooks guide, magic-values table, sim rule reference | M3-06 | — |
 
 **M3 milestone gate** (in order, once every task above is `[x]`):

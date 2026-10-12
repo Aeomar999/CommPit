@@ -8,7 +8,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 |---|---|
 | **Phase** | Milestone 3 in progress |
 | **Current milestone** | M3 |
-| **Next action** | M3-11: Playwright smoke suite |
+| **Next action** | M3-12: docs (webhooks guide, magic values, sim rules) |
 | **Last updated** | 2026-10-08 |
 
 ## Milestones
@@ -17,7 +17,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 |---|---|---|---|
 | M1: Core, native API, SMTP, inbox | v0.1.0 | Done | 21 / 21 |
 | M2: Twilio, Termii, test API, inspector | v0.2.0 | In progress | 14 / 14 |
-| M3: Webhooks, failure simulation, inbound, batches | v0.3.0 | In progress | 10 / 12 |
+| M3: Webhooks, failure simulation, inbound, batches | v0.3.0 | In progress | 11 / 12 |
 | M4: Estimate, MCP, CI kit | v0.4.0 | Not started | 0 / 8 |
 
 ## Blockers and open items
@@ -84,7 +84,10 @@ Newest first. One entry per working session: what changed, decisions made, what'
   - UI: BatchesPage list + detail (stacked status bar, counts, rejected table); ReplyBox under SMS threads (sends as the handset, STOP hint, per-thread reset); webhooks tab with status tones, response codes, docker notes, and per-row Replay; Settings simulation section (latency ms + failure %, validated, applied live). No design skill available in this environment — followed design.md tokens/patterns directly (cards, EmptyState, chips, focus rings, labelled controls).
   - Verified: tsc + biome clean, vite build, existing smoke passes, and the full loop exercised live (batch 202 with counts, sim PUT round-trip, STOP suppression + START recovery, replay re-signs with fresh id). `task generate:web` deliberately NOT run — it would overwrite the hand-written `web/src/lib/api.ts`.
   - Flake note: `TestWorker_DockerRewrite` failed once under full parallel load, passes serially and with `-count=1`.
-- **Next:** M3-11 (Playwright suite).
+- Completed M3-11 (`REQ-062`, `REQ-081`): Playwright suite, 7 tests green.
+  - New specs: inbox live arrival, reply-box round trip, batches progress + detail, inspector adapter-request log, and the full webhook loop (Node catcher receives signed `message.inbound`, UI replay re-queues and redelivers). Unique bodies/numbers per run; batch row located by id from the 202 response.
+  - Fixed a stale-server trap mid-session (background jobs die with the shell; rebuilt with `-tags embed` and verified the PID before trusting results).
+- **Next:** M3-12 (docs).
 
 ### 2026-10-09: SMTP Delivery Fix (M3, unplanned)
 
