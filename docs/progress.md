@@ -6,10 +6,10 @@ Single source of truth for where the project stands. Update it in every PR that 
 
 | | |
 |---|---|
-| **Phase** | Milestone 3 in progress |
+| **Phase** | Milestone 3 done, releasing v0.3.0 |
 | **Current milestone** | M3 |
-| **Next action** | M3 gate: full suite → final commit → PR → merge → tag v0.3.0 → branch m4 |
-| **Last updated** | 2026-10-08 |
+| **Next action** | M3 gate: PR → merge → tag v0.3.0 → branch m4 |
+| **Last updated** | 2026-10-12 |
 
 ## Milestones
 
@@ -17,7 +17,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 |---|---|---|---|
 | M1: Core, native API, SMTP, inbox | v0.1.0 | Done | 21 / 21 |
 | M2: Twilio, Termii, test API, inspector | v0.2.0 | In progress | 14 / 14 |
-| M3: Webhooks, failure simulation, inbound, batches | v0.3.0 | In progress | 12 / 12 |
+| M3: Webhooks, failure simulation, inbound, batches | v0.3.0 | Done | 12 / 12 |
 | M4: Estimate, MCP, CI kit | v0.4.0 | Not started | 0 / 8 |
 
 ## Blockers and open items
@@ -32,6 +32,12 @@ Single source of truth for where the project stands. Update it in every PR that 
 ## Session log
 
 Newest first. One entry per working session: what changed, decisions made, what's next.
+
+### 2026-10-12: M3 Gate
+
+- Full suite on `milestone/m3`: `task test` green; `task e2e` green (real-SDK examples + 7 Playwright tests, 3 consecutive runs); `task build` green (`bin/mocksms`, embed UI). `task lint` as a wrapper hangs in this environment (pnpm spawn), so both halves were verified directly: `golangci-lint run` 0 issues, `biome check src/` clean.
+- Gate fixes in this session: `TestWorker_DockerRewrite` flake (assertion raced `finish` persistence — now synced on the terminal bus event; audited sibling tests, which are safe via the parking sender); e2e project selection (auto-generated names are never literally "default" — specs now read the project id back from a send); biome format on the new UI files.
+- Final commit carries the `v0.3.0` changelog heading, progress update, and gate ticks 1–2. PR → merge → tag → m4 next.
 
 ### 2026-10-09: Webhooks Worker + Twilio StatusNotifier (M3-01, M3-02)
 

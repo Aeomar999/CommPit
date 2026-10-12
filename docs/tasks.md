@@ -406,8 +406,8 @@ func runMigrations(db *sql.DB) error {
 | [x] | M3-12 | Docs: webhooks guide, magic-values table, sim rule reference | M3-06 | — |
 
 **M3 milestone gate** (in order, once every task above is `[x]`):
-- [ ] Full suite passes on `milestone/m3`: `task test`, `task lint`, `task e2e`, `task build`
-- [ ] Final commit (changelog `v0.3.0` heading, progress update) pushed to `milestone/m3`
+- [x] Full suite passes on `milestone/m3`: `task test`, `task lint`, `task e2e`, `task build`
+- [x] Final commit (changelog `v0.3.0` heading, progress update) pushed to `milestone/m3`
 - [ ] PR `milestone/m3` → `main` merged with a merge commit
 - [ ] `v0.3.0` tagged on `main`; next milestone branch created from `main`
 

@@ -8,6 +8,10 @@ Provider-compatible adapters follow the real providers' behavior. Fixes that mak
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-12
+
+Delivery webhooks, failure simulation, inbound replies and STOP, bulk batch view. See `docs/guides/webhooks.md` and `docs/guides/simulation.md` for the new guides.
+
 ### Added
 
 - Webhooks delivery worker (`webhooks`, REQ-053): persistent queue drained on bus wake-ups (no polling), 10 s send timeout, retries after 1 s, 5 s, 30 s, 2 min and 10 min (six sends max, configurable), per-attempt records and `webhook.delivered` events. `webhooks.timeout` / `webhooks.max_attempts` settings (flags, env, YAML).
