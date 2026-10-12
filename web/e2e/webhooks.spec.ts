@@ -31,13 +31,14 @@ test("reply reaches the inbound webhook and replay re-queues", async ({
   test.info().annotations.push({ type: "hook", description: hookUrl });
 
   try {
-    const projects = await request.get("/api/v1/projects", {
+    // The default project is whatever keyless native calls resolve to —
+    // read it back from a send instead of guessing list order.
+    const seed = await request.post("/api/v1/sms", {
       headers: { "X-Mocksms": "true" },
+      data: { from: "+15555550100", to: "+15005550119", body: "project probe" },
     });
-    expect(projects.ok()).toBeTruthy();
-    const listed = await projects.json();
-    const project = listed.projects.find((p: { name: string }) => p.name === "default") || listed.projects[0];
-    const projectId = project.id as string;
+    expect(seed.status()).toBe(201);
+    const projectId = ((await seed.json()) as { project_id: string }).project_id;
 
     // Give the default project a native API key so webhooks are signed,
     // then point its inbound URL at the catcher.

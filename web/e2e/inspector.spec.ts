@@ -6,13 +6,16 @@ test("twilio adapter request is logged in the inspector", async ({ page, request
   const accountSid = `AC${"0".repeat(32)}`;
   const stamp = Date.now();
 
-  const projects = await request.get("/api/v1/projects", {
+  // Link into the default project (what keyless native calls resolve to),
+  // so the adapter traffic shows in the UI.
+  const seed = await request.post("/api/v1/sms", {
     headers: { "X-Mocksms": "true" },
+    data: { from: "+15555550100", to: "+15005550118", body: "project probe" },
   });
-  const listed = await projects.json();
-  const project = listed.projects.find((p: { name: string }) => p.name === "default") || listed.projects[0];
+  expect(seed.status()).toBe(201);
+  const projectId = ((await seed.json()) as { project_id: string }).project_id;
 
-  const link = await request.post(`/api/v1/projects/${project.id}/credentials`, {
+  const link = await request.post(`/api/v1/projects/${projectId}/credentials`, {
     headers: { "X-Mocksms": "true" },
     data: { provider: "twilio", key: accountSid },
   });
