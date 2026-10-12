@@ -39,6 +39,14 @@ Newest first. One entry per working session: what changed, decisions made, what'
 - Gate fixes in this session: `TestWorker_DockerRewrite` flake (assertion raced `finish` persistence — now synced on the terminal bus event; audited sibling tests, which are safe via the parking sender); e2e project selection (auto-generated names are never literally "default" — specs now read the project id back from a send); biome format on the new UI files.
 - Final commit carries the `v0.3.0` changelog heading, progress update, and gate ticks 1–2. PR → merge → tag → m4 next.
 
+### 2026-10-12: M3 Gate Fixes (CI)
+
+- CI lint failed on e2e formatting (`bun run biome check .` covers `web/e2e`, local runs had scoped to `src/`): formatted the specs, fixed `node:http` import protocol + import order. Lesson: always run the exact CI command (`biome check .`), not a scoped subset.
+- CI Test failed once per OS on `TestRun_AdapterDedicatedPort` ("did not serve in time") with identical code that passed 10 minutes earlier — CI-runner timing flake; passed on retry (ubuntu, macos).
+- Windows CI persistently failed `TestSMTP_BounceAcceptedThenFails`: the second `clock.Advance` can run before the lifecycle goroutine re-arms its timer, so the step never fires on slow runners. Fixed by `BlockUntilWaiters(1)` between the event wait and the second advance — a real test race, not app code.
+- CI E2E failed `batches.spec` once (row not visible in 10 s on a cold runner). Hardened: API-level pre-assertion splits server vs UI failures, first-content timeouts 20 s, suite already serial.
+- e2e project selection fixed: auto-generated project names are never literally "default", so specs now read the default project id back from a send response instead of guessing list order.
+
 ### 2026-10-09: Webhooks Worker + Twilio StatusNotifier (M3-01, M3-02)
 
 - Completed M3-01 (`REQ-053`): new `webhooks` package (delivery worker, sender, config) wired into `cmd/mocksms` with bus wake-ups, graceful shutdown, `webhooks.timeout` / `webhooks.max_attempts` settings, and a `depguard` rule (core only).
