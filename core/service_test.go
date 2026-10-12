@@ -685,7 +685,10 @@ func TestService_HangHoldsResponse(t *testing.T) {
 		done <- outcome{resp, err}
 	}()
 
-	clock.BlockUntilWaiters(1)
+	// Two waiters: the lifecycle step timer, then the hang itself. Waiting
+	// for one can return on the step timer before the hang registers, so
+	// the advance below would fire too early and the test would time out.
+	clock.BlockUntilWaiters(2)
 	select {
 	case <-done:
 		t.Fatalf("SendMessage returned before the hang elapsed")
