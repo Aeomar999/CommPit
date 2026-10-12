@@ -6,9 +6,9 @@ Single source of truth for where the project stands. Update it in every PR that 
 
 | | |
 |---|---|
-| **Phase** | Milestone 3 done, releasing v0.3.0 |
-| **Current milestone** | M3 |
-| **Next action** | M3 gate: PR → merge → tag v0.3.0 → branch m4 |
+| **Phase** | Milestone 4 in progress |
+| **Current milestone** | M4 |
+| **Next action** | M4-01: pricing tables, estimate package, estimate endpoint |
 | **Last updated** | 2026-10-12 |
 
 ## Milestones
@@ -45,7 +45,9 @@ Newest first. One entry per working session: what changed, decisions made, what'
 - CI Test failed once per OS on `TestRun_AdapterDedicatedPort` ("did not serve in time") with identical code that passed 10 minutes earlier — CI-runner timing flake; passed on retry (ubuntu, macos).
 - Windows CI persistently failed `TestSMTP_BounceAcceptedThenFails`: the second `clock.Advance` can run before the lifecycle goroutine re-arms its timer, so the step never fires on slow runners. Fixed by `BlockUntilWaiters(1)` between the event wait and the second advance — a real test race, not app code.
 - CI E2E failed `batches.spec` once (row not visible in 10 s on a cold runner). Hardened: API-level pre-assertion splits server vs UI failures, first-content timeouts 20 s, suite already serial.
-- e2e project selection fixed: auto-generated project names are never literally "default", so specs now read the default project id back from a send response instead of guessing list order.
+- CI E2E failed `batches.spec` once (detail never showed `delivered`). Root cause found in app code, not the test: the UI subscribed SSE on the literal channel `"default"`, but the server only broadcasts to real `prj_` IDs plus `"all"` — live updates never arrived anywhere, and the detail only passed locally by timing luck. Fixed (`useSSE()` → `"all"` channel); `inbox.spec` is now a true live test (send after open, no reload).
+- e2e hardened along the way: serial workers (shared server + default project), default-project resolution from a send response (auto-names are never literally "default"), API pre-assertion splitting server vs UI failures, 20 s cold-start timeouts.
+- **M3 RELEASED as v0.3.0**: PR #16 merged with a merge commit, tag pushed, `milestone/m4` branched from `main` (fast-forwarded past the #17 gate-tick fix PR). Gate ticks 3–4 went through the compliant `fix/` → PR flow.
 
 ### 2026-10-09: Webhooks Worker + Twilio StatusNotifier (M3-01, M3-02)
 
