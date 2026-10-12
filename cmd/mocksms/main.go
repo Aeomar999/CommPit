@@ -21,6 +21,7 @@ import (
 	"github.com/Aeomar999/CommPit/bus"
 	"github.com/Aeomar999/CommPit/config"
 	"github.com/Aeomar999/CommPit/core"
+	"github.com/Aeomar999/CommPit/estimate"
 	"github.com/Aeomar999/CommPit/middleware"
 	"github.com/Aeomar999/CommPit/phone"
 	"github.com/Aeomar999/CommPit/retention"
@@ -142,7 +143,13 @@ func runWithContext(ctx context.Context, cfg *config.Config) error {
 	webhookDispatcher := webhooks.NewDispatcher(store, eventBus, core.RealClock{}, webhookFormatters)
 	webhookDispatcher.Start()
 
-	handlers := api.NewHandlers(service, projectResolver, eventBus, webhookDispatcher, version, &cfg.Security)
+	// Go-live pricing tables (embedded, fail fast on parse errors).
+	estimateTables, err := estimate.LoadTables()
+	if err != nil {
+		return fmt.Errorf("load pricing tables: %w", err)
+	}
+
+	handlers := api.NewHandlers(service, projectResolver, eventBus, webhookDispatcher, estimateTables, version, &cfg.Security)
 
 	service.LifecycleRunner().ResumeQueuedAndSent(ctx)
 

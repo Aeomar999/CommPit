@@ -8,6 +8,10 @@ Provider-compatible adapters follow the real providers' behavior. Fixes that mak
 
 ## [Unreleased]
 
+### Added
+
+- Go-live estimate (REQ-100): `GET /projects/{id}/estimate?volume=N` scales the project's observed SMS mix (provider, destination country, segments) plus verification counts to a monthly volume, priced from embedded tables (`estimate/pricing/twilio.yaml`, `termii.yaml`, with `as_of` dates and an estimate-only label). Countries without data are reported, never guessed; native/smtp traffic and email (Wave 2) are excluded.
+
 ## [0.3.0] - 2026-10-12
 
 Delivery webhooks, failure simulation, inbound replies and STOP, bulk batch view. See `docs/guides/webhooks.md` and `docs/guides/simulation.md` for the new guides.

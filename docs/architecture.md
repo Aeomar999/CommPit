@@ -62,7 +62,7 @@ Ports-and-adapters layout: `core` owns the domain types **and the interfaces it 
 | `store/storetest` | Conformance suite any `core.Store` implementation must pass | `core` |
 | `bus` | In-process implementation of `core.Bus` | `core` |
 | `sim` | Implements `core.Simulator` (rule engine, built-in magic values) | `core`, `phone` |
-| `api` | Native REST API (generated from `openapi/openapi.yaml`), test helpers, SSE hub, security middleware | `core` |
+| `api` | Native REST API (generated from `openapi/openapi.yaml`), test helpers, SSE hub, security middleware | `core`, `config`, `middleware`, `adapters/adapterkit`, `estimate` |
 | `adapters/adapterkit` | Shared adapter middleware and helpers | `core` |
 | `adapters/twilio`, `adapters/termii` | Provider translation | `core`, `adapters/adapterkit`, `phone` |
 | `smtpd` | SMTP listener and MIME parsing | `core` |

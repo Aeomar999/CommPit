@@ -1,0 +1,12 @@
+# Termii go-live pricing (USD). Estimate only — Termii publishes no public
+# per-country table; confirm your rate card with Termii before launch.
+# Generic-route SMS units and Verify contacts; the DND/OTP premium route
+# costs 2 units. Sender-ID and other fees excluded.
+provider: termii
+currency: USD
+as_of: "2026-10-12"
+source: "third-party reported unit prices (SMS $0.005/unit, Verify $0.008/contact, DND x2); Termii rate card on request"
+sms:
+  NG: 0.005
+verify: 0.008
+dnd_multiplier: 2

@@ -1003,6 +1003,58 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /projects/{id}/estimate:
+    get:
+      operationId: getEstimate
+      summary: Go-live cost estimate for a project
+      security:
+        - BearerAuth: []
+        - ProjectQuery: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: ulid
+            pattern: '^prj_[A-Z0-9]{26}$'
+        - name: volume
+          in: query
+          required: true
+          description: Projected messages per month to scale the observed mix to
+          schema:
+            type: integer
+            minimum: 0
+        - name: project
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Cost estimate per provider
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EstimateResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /projects/{id}/credentials:
     post:
       operationId: linkCredential
@@ -1670,6 +1722,68 @@ components:
             $ref: '#/components/schemas/Batch'
         next_cursor:
           type: string
+
+    EstimateResponse:
+      type: object
+      properties:
+        volume:
+          type: integer
+        observed_messages:
+          type: integer
+        observed_verifications:
+          type: integer
+        providers:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProviderEstimate'
+
+    ProviderEstimate:
+      type: object
+      properties:
+        provider:
+          type: string
+        currency:
+          type: string
+        as_of:
+          type: string
+        estimate_only:
+          type: boolean
+        monthly_messages:
+          type: integer
+        total_cost:
+          type: number
+        by_country:
+          type: array
+          items:
+            $ref: '#/components/schemas/CountryEstimate'
+        monthly_verifications:
+          type: integer
+        verify_cost:
+          type: number
+        no_price_data:
+          type: array
+          items:
+            $ref: '#/components/schemas/MissingPrice'
+
+    CountryEstimate:
+      type: object
+      properties:
+        country:
+          type: string
+        messages:
+          type: integer
+        unit_price:
+          type: number
+        cost:
+          type: number
+
+    MissingPrice:
+      type: object
+      properties:
+        country:
+          type: string
+        messages:
+          type: integer
 
     SimConfig:
       type: object

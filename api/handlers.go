@@ -7,12 +7,14 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/Aeomar999/CommPit/config"
 	"github.com/Aeomar999/CommPit/core"
+	"github.com/Aeomar999/CommPit/estimate"
 	"github.com/Aeomar999/CommPit/middleware"
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
@@ -33,16 +35,18 @@ type Handlers struct {
 	projectResolver core.ProjectResolver
 	sseHub          *SSEHub
 	redispatch      WebhookRedispatcher
+	estimateTables  map[string]*estimate.Table
 	version         string
 	securityCfg     *config.SecurityConfig
 }
 
-func NewHandlers(service *core.Service, resolver core.ProjectResolver, eventBus core.Bus, redispatch WebhookRedispatcher, version string, securityCfg *config.SecurityConfig) *Handlers {
+func NewHandlers(service *core.Service, resolver core.ProjectResolver, eventBus core.Bus, redispatch WebhookRedispatcher, estimateTables map[string]*estimate.Table, version string, securityCfg *config.SecurityConfig) *Handlers {
 	return &Handlers{
 		service:         service,
 		projectResolver: resolver,
 		sseHub:          NewSSEHub(eventBus),
 		redispatch:      redispatch,
+		estimateTables:  estimateTables,
 		version:         version,
 		securityCfg:     securityCfg,
 	}
@@ -246,6 +250,26 @@ func (h *Handlers) Routes() http.Handler {
 			// Simulation settings
 			r.Get("/sim/config", func(w http.ResponseWriter, r *http.Request) {
 				h.GetSimConfig(w, r, GetSimConfigParams{
+					Project: strPtr(r.URL.Query().Get("project")),
+				})
+			})
+
+			// Go-live estimate
+			r.Get("/projects/{id}/estimate", func(w http.ResponseWriter, r *http.Request) {
+				volume := 0
+				if v := r.URL.Query().Get("volume"); v != "" {
+					parsed, err := strconv.Atoi(v)
+					if err != nil {
+						h.writeError(w, r, core.NewValidationError("volume must be an integer", "volume"))
+						return
+					}
+					volume = parsed
+				} else {
+					h.writeError(w, r, core.NewValidationError("volume is required", "volume"))
+					return
+				}
+				h.GetEstimate(w, r, chi.URLParam(r, "id"), GetEstimateParams{
+					Volume:  volume,
 					Project: strPtr(r.URL.Query().Get("project")),
 				})
 			})
@@ -1262,6 +1286,93 @@ func (h *Handlers) ListBatches(w http.ResponseWriter, r *http.Request, params Li
 		"batches":     converted,
 		"next_cursor": nextCursor,
 	})
+}
+
+func (h *Handlers) GetEstimate(w http.ResponseWriter, r *http.Request, id string, params GetEstimateParams) {
+	if id == "" {
+		h.writeError(w, r, core.NewValidationError("project ID required", "id"))
+		return
+	}
+	if _, err := h.getProjectID(r); err != nil {
+		h.writeError(w, r, core.NewUnauthorized("authentication required"))
+		return
+	}
+	if params.Volume < 0 {
+		h.writeError(w, r, core.NewValidationError("volume must not be negative", "volume"))
+		return
+	}
+
+	if _, err := h.Store().GetProject(r.Context(), id); err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+
+	messages, err := h.allMessages(r.Context(), id)
+	if err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	verifications, err := h.allVerifications(r.Context(), id)
+	if err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+
+	mix := estimate.Summarize(messages)
+	providers := map[string]bool{}
+	for _, row := range mix {
+		providers[row.Provider] = true
+	}
+	results := make([]estimate.Result, 0, len(providers))
+	for provider := range providers {
+		table, ok := h.estimateTables[provider]
+		if !ok {
+			continue
+		}
+		results = append(results, estimate.Estimate(table, provider, mix, len(verifications), params.Volume))
+	}
+	sort.Slice(results, func(i, j int) bool { return results[i].Provider < results[j].Provider })
+
+	render.JSON(w, r, map[string]interface{}{
+		"volume":                 params.Volume,
+		"observed_messages":      len(messages),
+		"observed_verifications": len(verifications),
+		"providers":              results,
+	})
+}
+
+// allMessages pages through every message in a project. Retention caps
+// projects at 10,000 messages, so the loop stays short.
+func (h *Handlers) allMessages(ctx context.Context, projectID string) ([]*core.Message, error) {
+	var out []*core.Message
+	cursor := ""
+	for {
+		batch, next, err := h.Store().ListMessages(ctx, projectID, core.MessageFilter{Limit: 500, Cursor: cursor})
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, batch...)
+		if next == "" {
+			return out, nil
+		}
+		cursor = next
+	}
+}
+
+func (h *Handlers) allVerifications(ctx context.Context, projectID string) ([]*core.Verification, error) {
+	var out []*core.Verification
+	cursor := ""
+	for {
+		batch, next, err := h.Store().ListVerifications(ctx, projectID, 500, cursor)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, batch...)
+		if next == "" {
+			return out, nil
+		}
+		cursor = next
+	}
 }
 
 func (h *Handlers) simConfigResponse() SimConfig {

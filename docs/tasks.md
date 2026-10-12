@@ -417,7 +417,7 @@ func runMigrations(db *sql.DB) error {
 
 | | ID | Task | Depends on | REQ |
 |---|---|---|---|---|
-| [ ] | M4-01 | Pricing tables (`estimate/pricing/twilio.yaml`, `termii.yaml`) with `as_of`; `estimate` package; `GET /projects/{id}/estimate` | M3 | REQ-100 |
+| [x] | M4-01 | Pricing tables (`estimate/pricing/twilio.yaml`, `termii.yaml`) with `as_of`; `estimate` package; `GET /projects/{id}/estimate` | M3 | REQ-100 |
 | [ ] | M4-02 | Estimate UI with volume inputs | M4-01 | REQ-100 |
 | [ ] | M4-03 | `mcpserver` at `/mcp` with the seven tools | M3 | REQ-101 |
 | [ ] | M4-04 | CLI subcommands: `otp latest`, `messages wait`, `reset` | M3 | REQ-102 |

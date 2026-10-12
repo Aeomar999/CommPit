@@ -8,7 +8,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 |---|---|
 | **Phase** | Milestone 4 in progress |
 | **Current milestone** | M4 |
-| **Next action** | M4-01: pricing tables, estimate package, estimate endpoint |
+| **Next action** | M4-02: estimate UI with volume inputs |
 | **Last updated** | 2026-10-12 |
 
 ## Milestones
@@ -18,7 +18,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 | M1: Core, native API, SMTP, inbox | v0.1.0 | Done | 21 / 21 |
 | M2: Twilio, Termii, test API, inspector | v0.2.0 | In progress | 14 / 14 |
 | M3: Webhooks, failure simulation, inbound, batches | v0.3.0 | Done | 12 / 12 |
-| M4: Estimate, MCP, CI kit | v0.4.0 | Not started | 0 / 8 |
+| M4: Estimate, MCP, CI kit | v0.4.0 | In progress | 1 / 6 |
 
 ## Blockers and open items
 
@@ -32,6 +32,15 @@ Single source of truth for where the project stands. Update it in every PR that 
 ## Session log
 
 Newest first. One entry per working session: what changed, decisions made, what's next.
+
+### 2026-10-12: Estimate Backend (M4-01)
+
+- Completed M4-01 (`REQ-100`): `estimate` package (embedded YAML tables, `Summarize` mix builder, `Estimate` scaler) + `GET /projects/{id}/estimate?volume=N`.
+  - Tables researched live: Twilio per-segment SMS (US/CA/GB/DE/FR/IN/NG/KE) + $0.05 Verify; Termii NG $0.005/unit + $0.008 Verify contact (third-party reported, sourced in-file). Unlisted countries → `no_price_data`, never guesses.
+  - Mix from outbound SMS only (native/smtp and email excluded, documented); verifications scale by the same factor; money rounded to cents; deterministic ordering throughout.
+  - Handler pages messages/verifications (retention caps at 10k, loop stays short); new `Simulator.Latency/FailureRate` getters + `Service.Simulator()` for the sim endpoint; `NewHandlers` takes pricing tables (loaded once in `cmd`, fail fast). OpenAPI-first with regen; `api` architecture row updated to match reality.
+  - Tests: table parsing, grouping/skips, scaling math, missing-data, validation (400s), 404, FK-safe seeding.
+- **Next:** M4-02 (estimate UI).
 
 ### 2026-10-12: M3 Gate
 

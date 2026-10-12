@@ -59,6 +59,17 @@ linters:
               desc: "sim may import only core and phone"
             - pkg: "github.com/Aeomar999/CommPit/api"
               desc: "sim may import only core and phone"
+        estimate:
+          files:
+            - "**/estimate/**/*.go"
+          list-mode: lax
+          deny:
+            - pkg: "github.com/Aeomar999/CommPit/store"
+              desc: "estimate may import only core and phone"
+            - pkg: "github.com/Aeomar999/CommPit/bus"
+              desc: "estimate may import only core and phone"
+            - pkg: "github.com/Aeomar999/CommPit/api"
+              desc: "estimate may import only core and phone"
         bus:
           files:
             - "**/bus/**/*.go"

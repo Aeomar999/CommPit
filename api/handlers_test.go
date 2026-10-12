@@ -14,6 +14,7 @@ import (
 	"github.com/Aeomar999/CommPit/bus"
 	"github.com/Aeomar999/CommPit/config"
 	"github.com/Aeomar999/CommPit/core"
+	"github.com/Aeomar999/CommPit/estimate"
 	"github.com/Aeomar999/CommPit/sim"
 	"github.com/Aeomar999/CommPit/store/sqlite"
 )
@@ -64,6 +65,11 @@ func setupTestRouter(t *testing.T, storeOverride core.Store, simOverride core.Si
 	eventBus := bus.NewEventBus()
 	resolver := core.NewProjectResolver(store)
 
+	tables, err := estimate.LoadTables()
+	if err != nil {
+		t.Fatalf("LoadTables: %v", err)
+	}
+
 	svc := core.NewService(core.ServiceConfig{
 		Store:     effectiveStore,
 		BlobStore: store,
@@ -73,7 +79,7 @@ func setupTestRouter(t *testing.T, storeOverride core.Store, simOverride core.Si
 		Resolver:  resolver,
 	})
 
-	handlers := NewHandlers(svc, resolver, eventBus, nil, "test", &config.SecurityConfig{
+	handlers := NewHandlers(svc, resolver, eventBus, nil, tables, "test", &config.SecurityConfig{
 		AllowedHosts:    []string{}, // Empty = allow all for tests
 		RequireXMocksms: false,      // Disable for tests
 		UIAuth:          "",
@@ -1609,4 +1615,105 @@ func TestHandlers_ListWebhooksScoped(t *testing.T) {
 	if len(deliveries) != 2 {
 		t.Fatalf("expected project-scoped rows (2), got %v", resp)
 	}
+}
+
+func seedEstimateMessage(t *testing.T, store core.Store, projectID, provider, to string, segments int) *core.Message {
+	t.Helper()
+	msg := &core.Message{
+		ID:          core.NewMessageID(),
+		ProjectID:   projectID,
+		Channel:     core.ChannelSMS,
+		Direction:   core.DirectionOutbound,
+		Provider:    provider,
+		ProviderRef: "ref",
+		From:        "+15555550100",
+		To:          to,
+		BodyText:    "Hi",
+		Status:      core.StatusDelivered,
+		Segments:    segments,
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+	}
+	if err := store.CreateMessage(context.Background(), msg); err != nil {
+		t.Fatalf("CreateMessage: %v", err)
+	}
+	return msg
+}
+
+func TestHandlers_GetEstimate(t *testing.T) {
+	router, _, store := setupTestRouter(t, nil, nil)
+	ctx := context.Background()
+
+	projectID := core.NewProjectID()
+	if err := store.CreateProject(ctx, &core.Project{ID: projectID, Name: "est"}); err != nil {
+		t.Fatalf("CreateProject: %v", err)
+	}
+	seedEstimateMessage(t, store, projectID, "twilio", "+15005550006", 1)
+	sent := seedEstimateMessage(t, store, projectID, "twilio", "+15005550007", 2)
+	if err := store.CreateVerification(ctx, &core.Verification{
+		ID:          core.NewVerificationID(),
+		ProjectID:   projectID,
+		Provider:    "twilio",
+		ProviderRef: "VEabc",
+		To:          "+15005550006",
+		Channel:     core.ChannelSMS,
+		Code:        "123456",
+		Status:      core.VerificationApproved,
+		Attempts:    1,
+		MaxAttempts: 5,
+		ExpiresAt:   time.Now().Add(time.Hour),
+		MessageID:   sent.ID,
+		CreatedAt:   time.Now(),
+	}); err != nil {
+		t.Fatalf("CreateVerification: %v", err)
+	}
+
+	t.Run("scales observed mix", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/projects/"+projectID+"/estimate?volume=300", nil)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+		}
+		var resp map[string]any
+		if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		if resp["volume"] != float64(300) || resp["observed_messages"] != float64(2) || resp["observed_verifications"] != float64(1) {
+			t.Fatalf("observed mismatch: %v", resp)
+		}
+		providers, _ := resp["providers"].([]any)
+		if len(providers) != 1 {
+			t.Fatalf("expected 1 provider, got %v", resp)
+		}
+		twilio := providers[0].(map[string]any)
+		if twilio["provider"] != "twilio" || twilio["currency"] != "USD" || twilio["estimate_only"] != true {
+			t.Errorf("provider metadata mismatch: %v", twilio)
+		}
+		if twilio["monthly_messages"] != float64(300) || twilio["total_cost"] != float64(3.74) {
+			t.Errorf("expected 300 msgs at 3.74, got %v", twilio)
+		}
+		if twilio["monthly_verifications"] != float64(150) || twilio["verify_cost"] != float64(7.5) {
+			t.Errorf("expected 150 verifications at 7.5, got %v", twilio)
+		}
+		if twilio["as_of"] == "" {
+			t.Errorf("expected as_of date, got %v", twilio)
+		}
+	})
+
+	t.Run("validation", func(t *testing.T) {
+		for target, want := range map[string]int{
+			"/projects/" + projectID + "/estimate":                        http.StatusBadRequest,
+			"/projects/" + projectID + "/estimate?volume=-5":              http.StatusBadRequest,
+			"/projects/" + projectID + "/estimate?volume=lots":            http.StatusBadRequest,
+			"/projects/prj_00000000000000000000000000/estimate?volume=10": http.StatusNotFound,
+		} {
+			req := httptest.NewRequest(http.MethodGet, target, nil)
+			rec := httptest.NewRecorder()
+			router.ServeHTTP(rec, req)
+			if rec.Code != want {
+				t.Errorf("%s: expected %d, got %d: %s", target, want, rec.Code, rec.Body.String())
+			}
+		}
+	})
 }
