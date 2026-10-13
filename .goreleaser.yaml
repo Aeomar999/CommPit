@@ -52,7 +52,6 @@ checksum:
 
 snapshot:
   version_template: "{{ incpatch .Version }}-next"
-  name_template: "{{ .Tag }}-next"
 
 changelog:
   sort: asc
@@ -72,9 +71,7 @@ dockers:
     build_flag_templates:
       - "--platform=linux/amd64,linux/arm64"
     goos: linux
-    goarch:
-      - amd64
-      - arm64
+    goarch: amd64
     extra_files:
       - LICENSE
       - README.md
@@ -105,15 +102,10 @@ nfpms:
       - rpm
       - apk
     bindir: /usr/bin
-    formats:
-      - deb
-      - rpm
-    formats:
-      - apk
     epoch: "0"
     section: utils
     priority: optional
-    depends:
+    dependencies:
       - libc6
     recommends:
       - ca-certificates
@@ -126,8 +118,10 @@ nfpms:
         systemctl daemon-reload || true
 
 sboms:
-  - artifacts: archive
-  - artifacts: docker
+  - id: archive
+    artifacts: archive
+  - id: docker
+    artifacts: docker
 
 signs:
   - artifacts: all
@@ -138,22 +132,20 @@ signs:
       - --output-certificate=${certificate}
       - ${artifact}
 
-brew:
-  tap:
-    owner: aeomar999
-    name: homebrew-tap
-  repository:
-    owner: aeomar999
-    name: homebrew-tap
-  commit_author:
-    name: goreleaserbot
-    email: goreleaser@goreleaser.com
-  description: "Local-first sandbox messaging provider for development"
-  homepage: "https://github.com/Aeomar999/CommPit"
-  license: "Apache-2.0"
-  test: |
-    system "#{bin}/mocksms version"
-  install: |
-    bin.install "mocksms"
-  conflicts_with:
-    - "mocksms-bin"
+brews:
+  - name: mocksms
+    repository:
+      owner: aeomar999
+      name: homebrew-tap
+    commit_author:
+      name: goreleaserbot
+      email: goreleaser@goreleaser.com
+    description: "Local-first sandbox messaging provider for development"
+    homepage: "https://github.com/Aeomar999/CommPit"
+    license: "Apache-2.0"
+    test: |
+      system "#{bin}/mocksms version"
+    install: |
+      bin.install "mocksms"
+    conflicts:
+      - "mocksms-bin"
