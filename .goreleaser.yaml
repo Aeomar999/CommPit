@@ -5,7 +5,10 @@ before:
   hooks:
     - go mod tidy
     - go generate ./...
-    - cd web && npm ci && npm run build
+    - cmd: npm ci
+      dir: web
+    - cmd: npm run build
+      dir: web
 
 builds:
   - id: mocksms
