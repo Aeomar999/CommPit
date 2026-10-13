@@ -424,7 +424,7 @@ func runMigrations(db *sql.DB) error {
 | [ ] | M4-05 | `setup-mocksms` GitHub Action (separate repository) | M1-20 | REQ-103 |
 | [ ] | M4-06 | Testcontainers modules: Node, Go, Python (separate packages) with `waitForOtp` | M1-20, M2-10 | REQ-104 |
 | [x] | M4-07 | Bulk benchmark (10,000 recipients) tracked in CI | M3 | — |
-| [ ] | M4-08 | Docs: MCP setup, CI guide, estimate methodology | M4-03–M4-06 | — |
+| [x] | M4-08 | Docs: MCP setup, CI guide, estimate methodology | M4-03–M4-06 | — |
 
 M4-05 and M4-06 live in separate repositories; use a `milestone/m4` branch and the same test gate there too.
 

@@ -8,7 +8,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 |---|---|
 | **Phase** | Milestone 4 in progress |
 | **Current milestone** | M4 |
-| **Next action** | M4-08: docs (MCP setup, CI guide, estimate methodology) |
+| **Next action** | M4 gate: full suite → final commit → PR → merge → tag v0.4.0 |
 | **Last updated** | 2026-10-12 |
 
 ## Milestones
@@ -18,7 +18,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 | M1: Core, native API, SMTP, inbox | v0.1.0 | Done | 21 / 21 |
 | M2: Twilio, Termii, test API, inspector | v0.2.0 | In progress | 14 / 14 |
 | M3: Webhooks, failure simulation, inbound, batches | v0.3.0 | Done | 12 / 12 |
-| M4: Estimate, MCP, CI kit | v0.4.0 | In progress | 5 / 6 |
+| M4: Estimate, MCP, CI kit | v0.4.0 | In progress | 6 / 6 |
 
 ## Blockers and open items
 
@@ -56,6 +56,10 @@ Newest first. One entry per working session: what changed, decisions made, what'
   - New `BenchmarkServiceSendBatch10k` (real service + sqlite + fake clock): first run took 3.76 s, over the 3 s budget. Profiling blamed `sim.cleanPhone` (full libphonenumber parse per rule per recipient, 64% of accept time), so E.164-shaped input now fast-paths and rule patterns pre-clean once at `SetRules` — 1.15 s, with behavior locked by new tests (fast-path identity set, formatted-rule match).
   - Nightly `benchmark.yml` (tracked, never failing) runs both benchmarks once, posts to the job summary, keeps a 90-day artifact; `task bench` for local runs. Store insert holds at ~0.6 s.
 - **Next:** M4-08 (docs).
+- Completed M4-08: docs.
+  - New `docs/guides/mcp.md` (setup one-liner, seven-tool table, project scoping, troubleshooting), `docs/guides/ci.md` (minimal job, wait/reset/credential-isolation patterns, Playwright reference, external M4-05/M4-06 pointers), `docs/guides/estimate.md` (inputs, math, price sources, exclusions, API). README links all three.
+  - Every curl verified live (native callback, inbound, sim round-trip, Twilio callback queued + signed with replay, estimate $83 for 10k US Twilio with native excluded).
+- **Next:** M4 gate (full suite, final commit, PR, tag).
 
 ### 2026-10-12: M3 Gate
 
