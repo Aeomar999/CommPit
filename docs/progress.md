@@ -6,9 +6,9 @@ Single source of truth for where the project stands. Update it in every PR that 
 
 | | |
 |---|---|
-| **Phase** | Milestone 4 done, releasing v0.4.0 |
-| **Current milestone** | M4 |
-| **Next action** | M4 gate: PR → merge → tag v0.4.0 |
+| **Phase** | Wave 1 complete (v0.4.0 released) |
+| **Current milestone** | — |
+| **Next action** | M4-05/M4-06 external repos, or next wave planning |
 | **Last updated** | 2026-10-13 |
 
 ## Milestones
@@ -37,6 +37,10 @@ Newest first. One entry per working session: what changed, decisions made, what'
 
 - Full suite on `milestone/m4`: `go test -p 1 -count=1 ./...` green uncached; `golangci-lint` 0 issues; `biome check .` clean (one e2e format fix); `task build` fresh binary; real-SDK examples fresh green; Playwright 8/8 green. (`task lint` wrapper still hangs on pnpm spawn here, halves verified directly as in M3.)
 - Final commit carries the `v0.4.0` heading, progress update, gate ticks 1–2. M4-05/M4-06 live in separate repos (out of this gate by design). PR → merge → tag next.
+
+### 2026-10-13: v0.4.0 Released
+
+- PR #20 merged with a merge commit, `v0.4.0` tagged on `main`, gate ticks 3–4 via fix PR #21 (green). Wave 1 (M1–M4) is complete: core + native API + SMTP + inbox, Twilio/Termii adapters + test API + inspector, webhooks + sim + inbound + batches UI, estimate + MCP + CLI + benchmark + guides.
 
 ### 2026-10-12: Estimate Backend (M4-01)
 
