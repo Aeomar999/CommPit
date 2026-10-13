@@ -6,10 +6,10 @@ Single source of truth for where the project stands. Update it in every PR that 
 
 | | |
 |---|---|
-| **Phase** | Milestone 4 in progress |
+| **Phase** | Milestone 4 done, releasing v0.4.0 |
 | **Current milestone** | M4 |
-| **Next action** | M4-03: MCP server at /mcp |
-| **Last updated** | 2026-10-12 |
+| **Next action** | M4 gate: PR → merge → tag v0.4.0 |
+| **Last updated** | 2026-10-13 |
 
 ## Milestones
 
@@ -18,7 +18,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 | M1: Core, native API, SMTP, inbox | v0.1.0 | Done | 21 / 21 |
 | M2: Twilio, Termii, test API, inspector | v0.2.0 | In progress | 14 / 14 |
 | M3: Webhooks, failure simulation, inbound, batches | v0.3.0 | Done | 12 / 12 |
-| M4: Estimate, MCP, CI kit | v0.4.0 | In progress | 2 / 6 |
+| M4: Estimate, MCP, CI kit | v0.4.0 | Done | 6 / 6 |
 
 ## Blockers and open items
 
@@ -33,6 +33,11 @@ Single source of truth for where the project stands. Update it in every PR that 
 
 Newest first. One entry per working session: what changed, decisions made, what's next.
 
+### 2026-10-13: M4 Gate
+
+- Full suite on `milestone/m4`: `go test -p 1 -count=1 ./...` green uncached; `golangci-lint` 0 issues; `biome check .` clean (one e2e format fix); `task build` fresh binary; real-SDK examples fresh green; Playwright 8/8 green. (`task lint` wrapper still hangs on pnpm spawn here, halves verified directly as in M3.)
+- Final commit carries the `v0.4.0` heading, progress update, gate ticks 1–2. M4-05/M4-06 live in separate repos (out of this gate by design). PR → merge → tag next.
+
 ### 2026-10-12: Estimate Backend (M4-01)
 
 - Completed M4-01 (`REQ-100`): `estimate` package (embedded YAML tables, `Summarize` mix builder, `Estimate` scaler) + `GET /projects/{id}/estimate?volume=N`.
@@ -43,7 +48,23 @@ Newest first. One entry per working session: what changed, decisions made, what'
 - Completed M4-02 (`REQ-100`): estimate UI.
   - New Estimate page (nav + route + title): volume input with apply, per-provider cards (totals, verification row, by-country table, no-price-data notice, as_of + estimate-only label), empty states. `default` project alias on the endpoint (the UI never learns ULIDs) + openapi description.
   - Playwright `estimate.spec.ts` (link-credential-to-default pattern, card assertions). Full suite 8/8 green; tsc + biome + build clean.
-- **Next:** M4-03 (MCP server).
+- Completed M4-03 (`REQ-101`): MCP server.
+  - New `mcpserver` package on the official Go SDK (v1.8.0) with seven typed tools calling the core service directly: list/wait/latest-OTP/latest-email/simulate-inbound/list-requests/reset-project. Project arg is a ULID or empty (default project); wait mirrors the API semantics plus an explicit `since` (needed for deterministic tests); results carry both JSON text and structured output.
+  - Mounted at `/mcp` (streamable HTTP), exempt from `X-Mocksms` like the adapters (Host protection stays). New `mcpserver` depguard rule (core only).
+  - Tests: all seven handlers (incl. wait existing/timeout paths, not-found + validation errors, project resolution), raw JSON-RPC wire test (initialize → tools/list → tools/call with SSE-frame decoding), middleware exemption test. Verified live: session handshake, 7-tool listing with schemas, inbound call with no header.
+- **Next:** M4-04 (CLI subcommands).
+- Completed M4-04 (`REQ-102`): CLI subcommands on a running server.
+  - `otp latest --to` prints the bare code (script-friendly); `messages wait [--to/--channel/--timeout/--since/--project]` prints the message JSON; `reset --project` wipes a project with confirmation. `--host/--port` select the server (0.0.0.0 maps to loopback); usage errors exit 2, request failures exit 1; flags accepted before or after the subcommand (Go's flag package stops at the first positional, so a splitter partitions them first — caught by a failing test).
+  - Tests: usage table (no dial-out via dead port), canned-server paths incl. headers + error extraction, flag-order matrix, `--since` validation, and a live-server e2e (seed → otp + wait). The wait test needed `--since`: the API defaults `since` to call time, so pre-seeded messages never match.
+- **Next:** M4-07 (bulk benchmark).
+- Completed M4-07: bulk benchmark in CI.
+  - New `BenchmarkServiceSendBatch10k` (real service + sqlite + fake clock): first run took 3.76 s, over the 3 s budget. Profiling blamed `sim.cleanPhone` (full libphonenumber parse per rule per recipient, 64% of accept time), so E.164-shaped input now fast-paths and rule patterns pre-clean once at `SetRules` — 1.15 s, with behavior locked by new tests (fast-path identity set, formatted-rule match).
+  - Nightly `benchmark.yml` (tracked, never failing) runs both benchmarks once, posts to the job summary, keeps a 90-day artifact; `task bench` for local runs. Store insert holds at ~0.6 s.
+- **Next:** M4-08 (docs).
+- Completed M4-08: docs.
+  - New `docs/guides/mcp.md` (setup one-liner, seven-tool table, project scoping, troubleshooting), `docs/guides/ci.md` (minimal job, wait/reset/credential-isolation patterns, Playwright reference, external M4-05/M4-06 pointers), `docs/guides/estimate.md` (inputs, math, price sources, exclusions, API). README links all three.
+  - Every curl verified live (native callback, inbound, sim round-trip, Twilio callback queued + signed with replay, estimate $83 for 10k US Twilio with native excluded).
+- **Next:** M4 gate (full suite, final commit, PR, tag).
 
 ### 2026-10-12: M3 Gate
 

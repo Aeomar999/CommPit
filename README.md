@@ -87,6 +87,9 @@ go build -o mocksms ./cmd/mocksms
 - [Test API guide](docs/guides/test-api.md) — `messages/wait`, `otp/latest`, `emails/latest` with Playwright, Cypress and Jest examples
 - [Webhooks guide](docs/guides/webhooks.md) — status callbacks and signatures per provider, inbound webhooks, TwiML replies, retries, replay, Docker
 - [Failure simulation guide](docs/guides/simulation.md) — magic values table, `sim.rules` reference, runtime settings
+- [MCP setup](docs/guides/mcp.md) — agent tools over `/mcp`
+- [CI guide](docs/guides/ci.md) — sandbox in pipelines, deterministic patterns
+- [Go-live estimate](docs/guides/estimate.md) — methodology, API, UI walkthrough
 
 ## SMTP Setup Guides
 

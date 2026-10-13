@@ -8,10 +8,17 @@ Provider-compatible adapters follow the real providers' behavior. Fixes that mak
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-13
+
+Go-live estimate, MCP server, CI kit. See `docs/guides/` for the new MCP, CI and estimate guides. M4-05 (GitHub Action) and M4-06 (Testcontainers) live in separate repositories.
+
 ### Added
 
 - Go-live estimate (REQ-100): `GET /projects/{id}/estimate?volume=N` scales the project's observed SMS mix (provider, destination country, segments) plus verification counts to a monthly volume, priced from embedded tables (`estimate/pricing/twilio.yaml`, `termii.yaml`, with `as_of` dates and an estimate-only label). Countries without data are reported, never guessed; native/smtp traffic and email (Wave 2) are excluded.
 - Estimate UI (REQ-100): Estimate page with launch-volume input and per-provider cost cards (totals, verification row, by-country breakdown, no-price-data notice, pricing date); the endpoint accepts `default` as the project id.
+- MCP server (REQ-101): `/mcp` over streamable HTTP (official Go SDK) with seven tools calling the core service directly — `list_messages`, `wait_for_message`, `get_latest_otp`, `get_latest_email`, `simulate_inbound`, `list_requests`, `reset_project`. No `X-Mocksms` header needed (Host protection stays).
+- CLI subcommands (REQ-102): `otp latest --to` prints the bare code, `messages wait` prints the arrived message JSON, `reset --project` wipes a project — all against a running server (`--host`/`--port` select it). Usage errors exit 2, request failures exit 1.
+- Bulk benchmark: end-to-end 10,000-recipient accept benchmark alongside the store insert benchmark, nightly in CI (tracked, not a gate) plus `task bench`. A first run found rule matching spending 64% of accept time re-normalizing numbers; E.164 fast-path plus registration-time pattern cleaning cut it from 3.76 s to ~1.15 s (budget 3 s).
 
 ## [0.3.0] - 2026-10-12
 

@@ -70,6 +70,19 @@ linters:
               desc: "estimate may import only core and phone"
             - pkg: "github.com/Aeomar999/CommPit/api"
               desc: "estimate may import only core and phone"
+        mcpserver:
+          files:
+            - "**/mcpserver/**/*.go"
+          list-mode: lax
+          deny:
+            - pkg: "github.com/Aeomar999/CommPit/store"
+              desc: "mcpserver may import only core"
+            - pkg: "github.com/Aeomar999/CommPit/bus"
+              desc: "mcpserver may import only core"
+            - pkg: "github.com/Aeomar999/CommPit/api"
+              desc: "mcpserver may import only core"
+            - pkg: "github.com/Aeomar999/CommPit/adapters"
+              desc: "mcpserver may import only core"
         bus:
           files:
             - "**/bus/**/*.go"

@@ -419,18 +419,18 @@ func runMigrations(db *sql.DB) error {
 |---|---|---|---|---|
 | [x] | M4-01 | Pricing tables (`estimate/pricing/twilio.yaml`, `termii.yaml`) with `as_of`; `estimate` package; `GET /projects/{id}/estimate` | M3 | REQ-100 |
 | [x] | M4-02 | Estimate UI with volume inputs | M4-01 | REQ-100 |
-| [ ] | M4-03 | `mcpserver` at `/mcp` with the seven tools | M3 | REQ-101 |
-| [ ] | M4-04 | CLI subcommands: `otp latest`, `messages wait`, `reset` | M3 | REQ-102 |
+| [x] | M4-03 | `mcpserver` at `/mcp` with the seven tools | M3 | REQ-101 |
+| [x] | M4-04 | CLI subcommands: `otp latest`, `messages wait`, `reset` | M3 | REQ-102 |
 | [ ] | M4-05 | `setup-mocksms` GitHub Action (separate repository) | M1-20 | REQ-103 |
 | [ ] | M4-06 | Testcontainers modules: Node, Go, Python (separate packages) with `waitForOtp` | M1-20, M2-10 | REQ-104 |
-| [ ] | M4-07 | Bulk benchmark (10,000 recipients) tracked in CI | M3 | — |
-| [ ] | M4-08 | Docs: MCP setup, CI guide, estimate methodology | M4-03–M4-06 | — |
+| [x] | M4-07 | Bulk benchmark (10,000 recipients) tracked in CI | M3 | — |
+| [x] | M4-08 | Docs: MCP setup, CI guide, estimate methodology | M4-03–M4-06 | — |
 
 M4-05 and M4-06 live in separate repositories; use a `milestone/m4` branch and the same test gate there too.
 
 **M4 milestone gate** (in order, once every task above is `[x]`):
-- [ ] Full suite passes on `milestone/m4`: `task test`, `task lint`, `task e2e`, `task build`
-- [ ] Final commit (changelog `v0.4.0` heading, progress update) pushed to `milestone/m4`
+- [x] Full suite passes on `milestone/m4`: `task test`, `task lint`, `task e2e`, `task build`
+- [x] Final commit (changelog `v0.4.0` heading, progress update) pushed to `milestone/m4`
 - [ ] PR `milestone/m4` → `main` merged with a merge commit
 - [ ] `v0.4.0` tagged on `main`
 
