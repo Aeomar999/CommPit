@@ -6,6 +6,7 @@ import {
   Layers,
   MessageSquare,
   Moon,
+  PiggyBank,
   Server,
   Settings,
   Sun,
@@ -56,6 +57,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
       to: "/batches",
       label: "Batches",
       icon: Layers,
+    },
+    {
+      to: "/estimate",
+      label: "Estimate",
+      icon: PiggyBank,
     },
     {
       to: "/inspector",

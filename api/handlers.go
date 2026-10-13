@@ -1302,6 +1302,16 @@ func (h *Handlers) GetEstimate(w http.ResponseWriter, r *http.Request, id string
 		return
 	}
 
+	// The UI works against the default project without knowing its ULID.
+	if id == "default" {
+		resolved, err := h.projectResolver.Resolve(r.Context(), "native", "default")
+		if err != nil {
+			h.writeError(w, r, err)
+			return
+		}
+		id = resolved
+	}
+
 	if _, err := h.Store().GetProject(r.Context(), id); err != nil {
 		h.writeError(w, r, err)
 		return

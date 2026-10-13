@@ -1014,10 +1014,9 @@ paths:
         - name: id
           in: path
           required: true
+          description: Project ULID, or `default` for the default project
           schema:
             type: string
-            format: ulid
-            pattern: '^prj_[A-Z0-9]{26}$'
         - name: volume
           in: query
           required: true

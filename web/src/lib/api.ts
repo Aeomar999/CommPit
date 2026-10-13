@@ -1,5 +1,6 @@
 import type {
   Batch,
+  EstimateResponse,
   Message,
   Project,
   RequestLog,
@@ -242,6 +243,15 @@ export const simApi = {
     request<SimConfig>("/sim/config", {
       method: "PUT",
       body: JSON.stringify(body),
+    }),
+};
+
+// Go-live estimate API
+export const estimateApi = {
+  get: (volume: number) =>
+    request<EstimateResponse>("/projects/default/estimate", {
+      method: "GET",
+      params: { volume },
     }),
 };
 

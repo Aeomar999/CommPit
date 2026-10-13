@@ -8,7 +8,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 |---|---|
 | **Phase** | Milestone 4 in progress |
 | **Current milestone** | M4 |
-| **Next action** | M4-02: estimate UI with volume inputs |
+| **Next action** | M4-03: MCP server at /mcp |
 | **Last updated** | 2026-10-12 |
 
 ## Milestones
@@ -18,7 +18,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 | M1: Core, native API, SMTP, inbox | v0.1.0 | Done | 21 / 21 |
 | M2: Twilio, Termii, test API, inspector | v0.2.0 | In progress | 14 / 14 |
 | M3: Webhooks, failure simulation, inbound, batches | v0.3.0 | Done | 12 / 12 |
-| M4: Estimate, MCP, CI kit | v0.4.0 | In progress | 1 / 6 |
+| M4: Estimate, MCP, CI kit | v0.4.0 | In progress | 2 / 6 |
 
 ## Blockers and open items
 
@@ -40,7 +40,10 @@ Newest first. One entry per working session: what changed, decisions made, what'
   - Mix from outbound SMS only (native/smtp and email excluded, documented); verifications scale by the same factor; money rounded to cents; deterministic ordering throughout.
   - Handler pages messages/verifications (retention caps at 10k, loop stays short); new `Simulator.Latency/FailureRate` getters + `Service.Simulator()` for the sim endpoint; `NewHandlers` takes pricing tables (loaded once in `cmd`, fail fast). OpenAPI-first with regen; `api` architecture row updated to match reality.
   - Tests: table parsing, grouping/skips, scaling math, missing-data, validation (400s), 404, FK-safe seeding.
-- **Next:** M4-02 (estimate UI).
+- Completed M4-02 (`REQ-100`): estimate UI.
+  - New Estimate page (nav + route + title): volume input with apply, per-provider cards (totals, verification row, by-country table, no-price-data notice, as_of + estimate-only label), empty states. `default` project alias on the endpoint (the UI never learns ULIDs) + openapi description.
+  - Playwright `estimate.spec.ts` (link-credential-to-default pattern, card assertions). Full suite 8/8 green; tsc + biome + build clean.
+- **Next:** M4-03 (MCP server).
 
 ### 2026-10-12: M3 Gate
 
