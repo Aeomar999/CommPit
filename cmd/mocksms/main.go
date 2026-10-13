@@ -65,6 +65,12 @@ func main() {
 		os.Exit(0)
 	}
 
+	// Client subcommands talk to a running server; anything else serves.
+	// Bare runs and `serve` keep the historical behavior.
+	if args := flag.Args(); len(args) > 0 && args[0] != "serve" {
+		os.Exit(runCLI(cfg.HTTP.Host, cfg.HTTP.Port, os.Stdout, os.Stderr, args))
+	}
+
 	if err := run(cfg); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)

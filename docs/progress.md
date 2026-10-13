@@ -8,7 +8,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 |---|---|
 | **Phase** | Milestone 4 in progress |
 | **Current milestone** | M4 |
-| **Next action** | M4-04: CLI subcommands |
+| **Next action** | M4-07: bulk benchmark in CI |
 | **Last updated** | 2026-10-12 |
 
 ## Milestones
@@ -18,7 +18,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 | M1: Core, native API, SMTP, inbox | v0.1.0 | Done | 21 / 21 |
 | M2: Twilio, Termii, test API, inspector | v0.2.0 | In progress | 14 / 14 |
 | M3: Webhooks, failure simulation, inbound, batches | v0.3.0 | Done | 12 / 12 |
-| M4: Estimate, MCP, CI kit | v0.4.0 | In progress | 3 / 6 |
+| M4: Estimate, MCP, CI kit | v0.4.0 | In progress | 4 / 6 |
 
 ## Blockers and open items
 
@@ -48,6 +48,10 @@ Newest first. One entry per working session: what changed, decisions made, what'
   - Mounted at `/mcp` (streamable HTTP), exempt from `X-Mocksms` like the adapters (Host protection stays). New `mcpserver` depguard rule (core only).
   - Tests: all seven handlers (incl. wait existing/timeout paths, not-found + validation errors, project resolution), raw JSON-RPC wire test (initialize → tools/list → tools/call with SSE-frame decoding), middleware exemption test. Verified live: session handshake, 7-tool listing with schemas, inbound call with no header.
 - **Next:** M4-04 (CLI subcommands).
+- Completed M4-04 (`REQ-102`): CLI subcommands on a running server.
+  - `otp latest --to` prints the bare code (script-friendly); `messages wait [--to/--channel/--timeout/--since/--project]` prints the message JSON; `reset --project` wipes a project with confirmation. `--host/--port` select the server (0.0.0.0 maps to loopback); usage errors exit 2, request failures exit 1; flags accepted before or after the subcommand (Go's flag package stops at the first positional, so a splitter partitions them first — caught by a failing test).
+  - Tests: usage table (no dial-out via dead port), canned-server paths incl. headers + error extraction, flag-order matrix, `--since` validation, and a live-server e2e (seed → otp + wait). The wait test needed `--since`: the API defaults `since` to call time, so pre-seeded messages never match.
+- **Next:** M4-07 (bulk benchmark).
 
 ### 2026-10-12: M3 Gate
 
