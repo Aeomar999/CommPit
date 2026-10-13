@@ -22,6 +22,7 @@ import (
 	"github.com/Aeomar999/CommPit/config"
 	"github.com/Aeomar999/CommPit/core"
 	"github.com/Aeomar999/CommPit/estimate"
+	"github.com/Aeomar999/CommPit/mcpserver"
 	"github.com/Aeomar999/CommPit/middleware"
 	"github.com/Aeomar999/CommPit/phone"
 	"github.com/Aeomar999/CommPit/retention"
@@ -226,6 +227,10 @@ func runWithContext(ctx context.Context, cfg *config.Config) error {
 	rootRouter := chi.NewRouter()
 	rootRouter.Mount("/twilio", middleware.SecurityMiddleware(&cfg.Security)(twilioHandler))
 	rootRouter.Mount("/termii", middleware.SecurityMiddleware(&cfg.Security)(termiiHandler))
+	// MCP over streamable HTTP for coding agents; Host-protected, no
+	// X-Mocksms header needed (see the middleware exemption).
+	mcpServer := mcpserver.New(service)
+	rootRouter.Mount("/mcp", middleware.SecurityMiddleware(&cfg.Security)(mcpServer.Handler()))
 	// The native API is served under the spec-canonical /api/v1 prefix.
 	// / serves the embedded web UI with an SPA fallback; see ADR-010.
 	rootRouter.Mount("/api/v1", handlers.Routes())

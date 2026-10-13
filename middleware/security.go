@@ -78,8 +78,11 @@ func isExemptPath(path string) bool {
 	}
 	// Provider adapters carry their own credentials (Twilio Basic auth, Termii
 	// api_key) and serve official SDKs that cannot send the X-Mocksms header.
+	// The MCP endpoint is local-only Host-protected; MCP clients do not send
+	// the header by default.
 	return path == "/twilio" || strings.HasPrefix(path, "/twilio/") ||
-		path == "/termii" || strings.HasPrefix(path, "/termii/")
+		path == "/termii" || strings.HasPrefix(path, "/termii/") ||
+		path == "/mcp" || strings.HasPrefix(path, "/mcp/")
 }
 
 func isUIPath(path string) bool {
