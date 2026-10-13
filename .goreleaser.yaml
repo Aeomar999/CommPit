@@ -108,13 +108,6 @@ nfpms:
       - libc6
     recommends:
       - ca-certificates
-    scripts:
-      postinstall: |
-        #!/bin/sh
-        systemctl daemon-reload || true
-      postremove: |
-        #!/bin/sh
-        systemctl daemon-reload || true
 
 sboms:
   - id: archive
