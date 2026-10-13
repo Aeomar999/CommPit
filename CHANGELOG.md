@@ -14,6 +14,7 @@ Provider-compatible adapters follow the real providers' behavior. Fixes that mak
 - Estimate UI (REQ-100): Estimate page with launch-volume input and per-provider cost cards (totals, verification row, by-country breakdown, no-price-data notice, pricing date); the endpoint accepts `default` as the project id.
 - MCP server (REQ-101): `/mcp` over streamable HTTP (official Go SDK) with seven tools calling the core service directly — `list_messages`, `wait_for_message`, `get_latest_otp`, `get_latest_email`, `simulate_inbound`, `list_requests`, `reset_project`. No `X-Mocksms` header needed (Host protection stays).
 - CLI subcommands (REQ-102): `otp latest --to` prints the bare code, `messages wait` prints the arrived message JSON, `reset --project` wipes a project — all against a running server (`--host`/`--port` select it). Usage errors exit 2, request failures exit 1.
+- Bulk benchmark: end-to-end 10,000-recipient accept benchmark alongside the store insert benchmark, nightly in CI (tracked, not a gate) plus `task bench`. A first run found rule matching spending 64% of accept time re-normalizing numbers; E.164 fast-path plus registration-time pattern cleaning cut it from 3.76 s to ~1.15 s (budget 3 s).
 
 ## [0.3.0] - 2026-10-12
 

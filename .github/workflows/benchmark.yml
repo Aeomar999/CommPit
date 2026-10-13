@@ -1,0 +1,33 @@
+name: Bulk benchmark
+
+# Tracks the 10,000-recipient batch benchmarks over time. Tracked, not a
+# gate: results are reported, never failed. See engineering.md §4 and §12.
+on:
+  schedule:
+    - cron: '0 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    name: Bulk benchmarks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+      - name: Run bulk benchmarks
+        run: |
+          go test -run=NONE -bench='BatchInsert10k|SendBatch10k' -benchtime=1x -count=1 ./store/sqlite/ | tee bench.txt
+      - name: Summarize
+        run: |
+          grep -E 'Benchmark|batch_ms' bench.txt >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload raw output
+        uses: actions/upload-artifact@v4
+        with:
+          name: bulk-benchmark
+          path: bench.txt
+          retention-days: 90

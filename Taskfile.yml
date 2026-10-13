@@ -44,6 +44,11 @@ tasks:
     cmds:
       - set CGO_ENABLED=1 && go test -race ./...
 
+  bench:
+    desc: Run bulk benchmarks once (tracked, not a gate)
+    cmds:
+      - go test -run=NONE -bench='BatchInsert10k|SendBatch10k' -benchtime=1x -count=1 ./store/sqlite/
+
   lint:
     desc: Run golangci-lint (incl. depguard) + Biome
     cmds:

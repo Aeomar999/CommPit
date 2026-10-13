@@ -361,3 +361,42 @@ func TestSimulator_RateLimitWindow(t *testing.T) {
 		}
 	})
 }
+
+func TestCleanPhoneFastPath(t *testing.T) {
+	// Already-clean E.164 must pass through untouched: the hot path
+	// relies on Normalize being the identity here.
+	for _, num := range []string{
+		"+15005550001", "+15005550006", "+2348031234567", "+1555999906",
+		"+442071234567", "+8613800138000",
+	} {
+		if got := cleanPhone(num); got != num {
+			t.Errorf("cleanPhone(%q) = %q, want identity", num, got)
+		}
+		if !isE164Shaped(num) {
+			t.Errorf("isE164Shaped(%q) = false, want true", num)
+		}
+	}
+	for _, raw := range []string{"", "+", "+1 555 123", "5551234", "user@example.com"} {
+		if isE164Shaped(raw) {
+			t.Errorf("isE164Shaped(%q) = true, want false", raw)
+		}
+	}
+}
+
+func TestSimulator_FormattedRuleMatches(t *testing.T) {
+	// Patterns are normalized once at registration, so formatted rule
+	// numbers still match normalized recipients.
+	s := New()
+	s.SetRules([]core.SimRule{{
+		Match:  core.SimMatch{To: "+1 555 123 4567"},
+		Effect: core.SimEffect{Reject: core.NewInvalidNumber("blocked", "to")},
+	}})
+	err, _ := s.Evaluate(context.Background(), "prj_test", core.SendRequest{
+		Channel: core.ChannelSMS,
+		From:    "+15005550000",
+		To:      []string{"+15551234567"},
+	})
+	if err == nil || string(err.Code) != "invalid_number" {
+		t.Fatalf("expected invalid_number, got %v", err)
+	}
+}

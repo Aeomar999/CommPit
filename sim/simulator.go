@@ -14,6 +14,13 @@ import (
 )
 
 func cleanPhone(s string) string {
+	// Fast path: already-clean E.164 normalizes to itself. The service
+	// hands Evaluate normalized recipients, so this skips a full
+	// libphonenumber parse on the hot path (bulk batches evaluate every
+	// rule per recipient).
+	if isE164Shaped(s) {
+		return s
+	}
 	norm := phone.Normalize(s)
 	var b strings.Builder
 	for _, r := range norm {
@@ -22,6 +29,29 @@ func cleanPhone(s string) string {
 		}
 	}
 	return b.String()
+}
+
+// isE164Shaped reports whether s is already canonical: '+' followed by
+// digits only. phone.Normalize is the identity on such input.
+func isE164Shaped(s string) bool {
+	if len(s) < 2 || s[0] != '+' {
+		return false
+	}
+	for i := 1; i < len(s); i++ {
+		if s[i] < '0' || s[i] > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+// cleanPattern normalizes a rule pattern once at registration. Email
+// patterns pass through untouched (phone cleaning would destroy them).
+func cleanPattern(s string) string {
+	if s == "" || strings.Contains(s, "@") {
+		return s
+	}
+	return cleanPhone(s)
 }
 
 // Simulator evaluates simulation rules, pattern numbers, latency, and failure rates.
@@ -57,11 +87,11 @@ func WithClock(clock core.Clock) Option {
 // New creates a new Simulator with default rules.
 func New(opts ...Option) *Simulator {
 	s := &Simulator{
-		rules:     DefaultRules(),
 		clock:     core.RealClock{},
 		windows:   map[string][]time.Time{},
 		randFloat: rand.Float64,
 	}
+	s.SetRules(DefaultRules())
 	for _, opt := range opts {
 		opt(s)
 	}
@@ -117,11 +147,18 @@ func DefaultRules() []core.SimRule {
 	}
 }
 
-// SetRules updates the explicit simulation rules.
+// SetRules updates the explicit simulation rules, normalizing match
+// patterns once so evaluation stays cheap on bulk sends.
 func (s *Simulator) SetRules(rules []core.SimRule) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.rules = rules
+	cleaned := make([]core.SimRule, 0, len(rules))
+	for _, rule := range rules {
+		rule.Match.To = cleanPattern(rule.Match.To)
+		rule.Match.From = cleanPattern(rule.Match.From)
+		cleaned = append(cleaned, rule)
+	}
+	s.rules = cleaned
 }
 
 // SetLatency sets the global simulated latency.

@@ -2,12 +2,16 @@ package sqlite
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/Aeomar999/CommPit/bus"
 	"github.com/Aeomar999/CommPit/core"
+	"github.com/Aeomar999/CommPit/phone"
+	"github.com/Aeomar999/CommPit/sim"
 	"github.com/Aeomar999/CommPit/store/storetest"
 )
 
@@ -297,6 +301,61 @@ func BenchmarkSQLiteStoreBatchInsert10k(b *testing.B) {
 		})
 		if err != nil {
 			b.Fatalf("Transaction: %v", err)
+		}
+		b.ReportMetric(float64(time.Since(start).Milliseconds()), "batch_ms")
+	}
+}
+
+// BenchmarkServiceSendBatch10k tracks the end-to-end accept path for a
+// 10,000-recipient batch (nightly, not a gate): validation, simulation,
+// one transactional store write and lifecycle scheduling via a real
+// service. The fake clock keeps lifecycle timers parked so iterations
+// measure the accept path only. Budget: accepted ≤ 3 s (§12).
+func BenchmarkServiceSendBatch10k(b *testing.B) {
+	store, err := NewStore(":memory:", 2)
+	if err != nil {
+		b.Fatalf("NewStore: %v", err)
+	}
+	defer store.Close()
+
+	ctx := context.Background()
+	prjID := core.NewProjectID()
+	if err := store.CreateProject(ctx, &core.Project{ID: prjID, Name: "bench-e2e"}); err != nil {
+		b.Fatalf("CreateProject: %v", err)
+	}
+	clock := core.NewFakeClock()
+	svc := core.NewService(core.ServiceConfig{
+		Store:     store,
+		BlobStore: store,
+		Bus:       bus.NewEventBus(),
+		Simulator: sim.NewSimulator(),
+		Clock:     clock,
+		Resolver:  core.NewProjectResolver(store),
+		PhoneMode: phone.ModeValid,
+	})
+
+	recipients := make([]string, 0, 10000)
+	for i := 0; i < 10000; i++ {
+		// +1500556 prefix: clear of the Twilio test numbers and the
+		// 99990x magic suffixes, so every recipient is accepted.
+		recipients = append(recipients, fmt.Sprintf("+1500556%04d", i))
+	}
+
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		start := time.Now()
+		resp, err := svc.SendBatch(ctx, prjID, core.SendRequest{
+			Channel:  core.ChannelSMS,
+			From:     "+15555550100",
+			BodyText: "Bulk message",
+			To:       recipients,
+			Provider: "native",
+		})
+		if err != nil {
+			b.Fatalf("SendBatch: %v", err)
+		}
+		if resp.Batch == nil || resp.Batch.Total != 10000 {
+			b.Fatalf("expected 10000 accepted, got %+v", resp.Batch)
 		}
 		b.ReportMetric(float64(time.Since(start).Milliseconds()), "batch_ms")
 	}
