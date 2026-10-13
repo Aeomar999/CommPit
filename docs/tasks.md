@@ -431,8 +431,8 @@ M4-05 and M4-06 live in separate repositories; use a `milestone/m4` branch and t
 **M4 milestone gate** (in order, once every task above is `[x]`):
 - [x] Full suite passes on `milestone/m4`: `task test`, `task lint`, `task e2e`, `task build`
 - [x] Final commit (changelog `v0.4.0` heading, progress update) pushed to `milestone/m4`
-- [ ] PR `milestone/m4` → `main` merged with a merge commit
-- [ ] `v0.4.0` tagged on `main`
+- [x] PR `milestone/m4` → `main` merged with a merge commit
+- [x] `v0.4.0` tagged on `main`
 
 ## Cross-cutting
 
