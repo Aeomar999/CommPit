@@ -49,7 +49,7 @@ func setupReplayTest(t *testing.T, redispatch WebhookRedispatcher) (*Handlers, c
 		Clock:     core.NewFakeClock(),
 		Resolver:  resolver,
 	})
-	handlers := NewHandlers(svc, resolver, eventBus, redispatch, "test", &config.SecurityConfig{})
+	handlers := NewHandlers(svc, resolver, eventBus, redispatch, nil, "test", &config.SecurityConfig{})
 
 	project := core.Project{ID: "prj_replay", Name: "replay", Settings: map[string]interface{}{}, CreatedAt: time.Now()}
 	if err := store.CreateProject(context.Background(), &project); err != nil {

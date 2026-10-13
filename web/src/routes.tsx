@@ -1,6 +1,7 @@
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { BatchesPage } from "./pages/BatchesPage";
+import { EstimatePage } from "./pages/EstimatePage";
 import { HomePage } from "./pages/HomePage";
 import { InspectorPage } from "./pages/InspectorPage";
 import { LandingPage } from "./pages/LandingPage";
@@ -20,6 +21,7 @@ export function AppRoutes() {
           <Route path="/inbox" element={<HomePage />} />
           <Route path="/otps" element={<OtpsPage />} />
           <Route path="/batches" element={<BatchesPage />} />
+          <Route path="/estimate" element={<EstimatePage />} />
           <Route path="/inspector" element={<InspectorPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<NotFoundPage />} />

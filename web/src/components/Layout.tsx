@@ -56,6 +56,8 @@ export function Layout() {
         return "OTPs & Verifications";
       case "/batches":
         return "Batches";
+      case "/estimate":
+        return "Estimate";
       case "/inspector":
         return "Inspector";
       case "/settings":

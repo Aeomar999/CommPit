@@ -1,0 +1,18 @@
+# Twilio go-live pricing (USD). Estimate only — confirm current rates at
+# https://www.twilio.com/en-us/sms/pricing before launch.
+# Per-segment outbound SMS; Verify is per successful verification plus
+# channel fees. Carrier passthrough fees and number rental excluded.
+provider: twilio
+currency: USD
+as_of: "2026-10-12"
+source: "twilio.com SMS/Verify pricing pages (US official; others via 2026-09 published per-country table)"
+sms:
+  US: 0.0083
+  CA: 0.0083
+  GB: 0.056
+  DE: 0.112
+  FR: 0.0798
+  IN: 0.0832
+  NG: 0.3868
+  KE: 0.3134
+verify: 0.05

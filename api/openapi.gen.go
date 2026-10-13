@@ -527,6 +527,14 @@ type CheckVerificationResponse struct {
 // CheckVerificationResponseStatus defines model for CheckVerificationResponse.Status.
 type CheckVerificationResponseStatus string
 
+// CountryEstimate defines model for CountryEstimate.
+type CountryEstimate struct {
+	Cost      *float32 `json:"cost,omitempty"`
+	Country   *string  `json:"country,omitempty"`
+	Messages  *int     `json:"messages,omitempty"`
+	UnitPrice *float32 `json:"unit_price,omitempty"`
+}
+
 // EmailLatestResponse defines model for EmailLatestResponse.
 type EmailLatestResponse struct {
 	Codes       []string `json:"codes"`
@@ -542,6 +550,14 @@ type ErrorResponse struct {
 		Field   *string `json:"field,omitempty"`
 		Message string  `json:"message"`
 	} `json:"error,omitempty"`
+}
+
+// EstimateResponse defines model for EstimateResponse.
+type EstimateResponse struct {
+	ObservedMessages      *int                `json:"observed_messages,omitempty"`
+	ObservedVerifications *int                `json:"observed_verifications,omitempty"`
+	Providers             *[]ProviderEstimate `json:"providers,omitempty"`
+	Volume                *int                `json:"volume,omitempty"`
 }
 
 // InboundRequest defines model for InboundRequest.
@@ -646,6 +662,12 @@ type MessageWithEventsEncoding string
 // MessageWithEventsStatus defines model for MessageWithEvents.Status.
 type MessageWithEventsStatus string
 
+// MissingPrice defines model for MissingPrice.
+type MissingPrice struct {
+	Country  *string `json:"country,omitempty"`
+	Messages *int    `json:"messages,omitempty"`
+}
+
 // OTPLatestResponse defines model for OTPLatestResponse.
 type OTPLatestResponse struct {
 	Code           string                  `json:"code"`
@@ -669,6 +691,20 @@ type Project struct {
 type ProjectListResponse struct {
 	NextCursor *string    `json:"next_cursor,omitempty"`
 	Projects   *[]Project `json:"projects,omitempty"`
+}
+
+// ProviderEstimate defines model for ProviderEstimate.
+type ProviderEstimate struct {
+	AsOf                 *string            `json:"as_of,omitempty"`
+	ByCountry            *[]CountryEstimate `json:"by_country,omitempty"`
+	Currency             *string            `json:"currency,omitempty"`
+	EstimateOnly         *bool              `json:"estimate_only,omitempty"`
+	MonthlyMessages      *int               `json:"monthly_messages,omitempty"`
+	MonthlyVerifications *int               `json:"monthly_verifications,omitempty"`
+	NoPriceData          *[]MissingPrice    `json:"no_price_data,omitempty"`
+	Provider             *string            `json:"provider,omitempty"`
+	TotalCost            *float32           `json:"total_cost,omitempty"`
+	VerifyCost           *float32           `json:"verify_cost,omitempty"`
 }
 
 // RequestLog defines model for RequestLog.
@@ -931,6 +967,13 @@ type ListProjectsParams struct {
 	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
 
+// GetEstimateParams defines parameters for GetEstimate.
+type GetEstimateParams struct {
+	// Volume Projected messages per month to scale the observed mix to
+	Volume  int     `form:"volume" json:"volume"`
+	Project *string `form:"project,omitempty" json:"project,omitempty"`
+}
+
 // ListRequestLogsParams defines parameters for ListRequestLogs.
 type ListRequestLogsParams struct {
 	Limit   *int    `form:"limit,omitempty" json:"limit,omitempty"`
@@ -1114,6 +1157,9 @@ type ServerInterface interface {
 	// LinkCredential Link credential to project
 	// (POST /projects/{id}/credentials)
 	LinkCredential(w http.ResponseWriter, r *http.Request, id string)
+	// GetEstimate Go-live cost estimate for a project
+	// (GET /projects/{id}/estimate)
+	GetEstimate(w http.ResponseWriter, r *http.Request, id string, params GetEstimateParams)
 	// ListRequestLogs List request logs
 	// (GET /requests)
 	ListRequestLogs(w http.ResponseWriter, r *http.Request, params ListRequestLogsParams)
@@ -1261,6 +1307,12 @@ func (_ Unimplemented) UpdateProject(w http.ResponseWriter, r *http.Request, id 
 // LinkCredential Link credential to project
 // (POST /projects/{id}/credentials)
 func (_ Unimplemented) LinkCredential(w http.ResponseWriter, r *http.Request, id string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetEstimate Go-live cost estimate for a project
+// (GET /projects/{id}/estimate)
+func (_ Unimplemented) GetEstimate(w http.ResponseWriter, r *http.Request, id string, params GetEstimateParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -2157,6 +2209,61 @@ func (siw *ServerInterfaceWrapper) LinkCredential(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
+// GetEstimate operation middleware
+func (siw *ServerInterfaceWrapper) GetEstimate(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetEstimateParams
+
+	// ------------- Required query parameter "volume" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "volume", r.URL.Query(), &params.Volume, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "volume"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "volume", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "project" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "project", r.URL.Query(), &params.Project, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "project"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetEstimate(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListRequestLogs operation middleware
 func (siw *ServerInterfaceWrapper) ListRequestLogs(w http.ResponseWriter, r *http.Request) {
 
@@ -2777,6 +2884,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Patch(options.BaseURL+"/projects/{id}", wrapper.UpdateProject)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/projects/{id}/estimate", wrapper.GetEstimate)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/projects/{id}/credentials", wrapper.LinkCredential)

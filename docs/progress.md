@@ -6,9 +6,9 @@ Single source of truth for where the project stands. Update it in every PR that 
 
 | | |
 |---|---|
-| **Phase** | Milestone 3 done, releasing v0.3.0 |
-| **Current milestone** | M3 |
-| **Next action** | M3 gate: PR → merge → tag v0.3.0 → branch m4 |
+| **Phase** | Milestone 4 in progress |
+| **Current milestone** | M4 |
+| **Next action** | M4-03: MCP server at /mcp |
 | **Last updated** | 2026-10-12 |
 
 ## Milestones
@@ -18,7 +18,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 | M1: Core, native API, SMTP, inbox | v0.1.0 | Done | 21 / 21 |
 | M2: Twilio, Termii, test API, inspector | v0.2.0 | In progress | 14 / 14 |
 | M3: Webhooks, failure simulation, inbound, batches | v0.3.0 | Done | 12 / 12 |
-| M4: Estimate, MCP, CI kit | v0.4.0 | Not started | 0 / 8 |
+| M4: Estimate, MCP, CI kit | v0.4.0 | In progress | 2 / 6 |
 
 ## Blockers and open items
 
@@ -33,6 +33,18 @@ Single source of truth for where the project stands. Update it in every PR that 
 
 Newest first. One entry per working session: what changed, decisions made, what's next.
 
+### 2026-10-12: Estimate Backend (M4-01)
+
+- Completed M4-01 (`REQ-100`): `estimate` package (embedded YAML tables, `Summarize` mix builder, `Estimate` scaler) + `GET /projects/{id}/estimate?volume=N`.
+  - Tables researched live: Twilio per-segment SMS (US/CA/GB/DE/FR/IN/NG/KE) + $0.05 Verify; Termii NG $0.005/unit + $0.008 Verify contact (third-party reported, sourced in-file). Unlisted countries → `no_price_data`, never guesses.
+  - Mix from outbound SMS only (native/smtp and email excluded, documented); verifications scale by the same factor; money rounded to cents; deterministic ordering throughout.
+  - Handler pages messages/verifications (retention caps at 10k, loop stays short); new `Simulator.Latency/FailureRate` getters + `Service.Simulator()` for the sim endpoint; `NewHandlers` takes pricing tables (loaded once in `cmd`, fail fast). OpenAPI-first with regen; `api` architecture row updated to match reality.
+  - Tests: table parsing, grouping/skips, scaling math, missing-data, validation (400s), 404, FK-safe seeding.
+- Completed M4-02 (`REQ-100`): estimate UI.
+  - New Estimate page (nav + route + title): volume input with apply, per-provider cards (totals, verification row, by-country table, no-price-data notice, as_of + estimate-only label), empty states. `default` project alias on the endpoint (the UI never learns ULIDs) + openapi description.
+  - Playwright `estimate.spec.ts` (link-credential-to-default pattern, card assertions). Full suite 8/8 green; tsc + biome + build clean.
+- **Next:** M4-03 (MCP server).
+
 ### 2026-10-12: M3 Gate
 
 - Full suite on `milestone/m3`: `task test` green; `task e2e` green (real-SDK examples + 7 Playwright tests, 3 consecutive runs); `task build` green (`bin/mocksms`, embed UI). `task lint` as a wrapper hangs in this environment (pnpm spawn), so both halves were verified directly: `golangci-lint run` 0 issues, `biome check src/` clean.
@@ -45,7 +57,9 @@ Newest first. One entry per working session: what changed, decisions made, what'
 - CI Test failed once per OS on `TestRun_AdapterDedicatedPort` ("did not serve in time") with identical code that passed 10 minutes earlier — CI-runner timing flake; passed on retry (ubuntu, macos).
 - Windows CI persistently failed `TestSMTP_BounceAcceptedThenFails`: the second `clock.Advance` can run before the lifecycle goroutine re-arms its timer, so the step never fires on slow runners. Fixed by `BlockUntilWaiters(1)` between the event wait and the second advance — a real test race, not app code.
 - CI E2E failed `batches.spec` once (row not visible in 10 s on a cold runner). Hardened: API-level pre-assertion splits server vs UI failures, first-content timeouts 20 s, suite already serial.
-- e2e project selection fixed: auto-generated project names are never literally "default", so specs now read the default project id back from a send response instead of guessing list order.
+- CI E2E failed `batches.spec` once (detail never showed `delivered`). Root cause found in app code, not the test: the UI subscribed SSE on the literal channel `"default"`, but the server only broadcasts to real `prj_` IDs plus `"all"` — live updates never arrived anywhere, and the detail only passed locally by timing luck. Fixed (`useSSE()` → `"all"` channel); `inbox.spec` is now a true live test (send after open, no reload).
+- e2e hardened along the way: serial workers (shared server + default project), default-project resolution from a send response (auto-names are never literally "default"), API pre-assertion splitting server vs UI failures, 20 s cold-start timeouts.
+- **M3 RELEASED as v0.3.0**: PR #16 merged with a merge commit, tag pushed, `milestone/m4` branched from `main` (fast-forwarded past the #17 gate-tick fix PR). Gate ticks 3–4 went through the compliant `fix/` → PR flow.
 
 ### 2026-10-09: Webhooks Worker + Twilio StatusNotifier (M3-01, M3-02)
 

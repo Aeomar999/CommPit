@@ -113,6 +113,38 @@ export interface SimConfig {
   failure_rate?: number;
 }
 
+export interface CountryEstimate {
+  country: string;
+  messages: number;
+  unit_price: number;
+  cost: number;
+}
+
+export interface MissingPrice {
+  country: string;
+  messages: number;
+}
+
+export interface ProviderEstimate {
+  provider: string;
+  currency: string;
+  as_of: string;
+  estimate_only: boolean;
+  monthly_messages: number;
+  total_cost: number;
+  by_country: CountryEstimate[];
+  monthly_verifications: number;
+  verify_cost: number;
+  no_price_data: MissingPrice[];
+}
+
+export interface EstimateResponse {
+  volume: number;
+  observed_messages: number;
+  observed_verifications: number;
+  providers: ProviderEstimate[];
+}
+
 export interface Project {
   id: string;
   name: string;
