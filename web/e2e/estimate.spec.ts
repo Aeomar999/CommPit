@@ -22,16 +22,13 @@ test("estimate view prices twilio traffic", async ({ page, request }) => {
     From: "+15555550100",
     Body: "estimate seed",
   });
-  const send = await request.post(
-    `/twilio/2010-04-01/Accounts/${accountSid}/Messages.json`,
-    {
-      headers: {
-        Authorization: `Basic ${Buffer.from(`${accountSid}:token`).toString("base64")}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      data: form.toString(),
-    }
-  );
+  const send = await request.post(`/twilio/2010-04-01/Accounts/${accountSid}/Messages.json`, {
+    headers: {
+      Authorization: `Basic ${Buffer.from(`${accountSid}:token`).toString("base64")}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    data: form.toString(),
+  });
   expect(send.status()).toBe(201);
 
   await page.goto("/estimate");

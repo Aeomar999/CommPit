@@ -6,10 +6,10 @@ Single source of truth for where the project stands. Update it in every PR that 
 
 | | |
 |---|---|
-| **Phase** | Milestone 4 in progress |
+| **Phase** | Milestone 4 done, releasing v0.4.0 |
 | **Current milestone** | M4 |
-| **Next action** | M4 gate: full suite → final commit → PR → merge → tag v0.4.0 |
-| **Last updated** | 2026-10-12 |
+| **Next action** | M4 gate: PR → merge → tag v0.4.0 |
+| **Last updated** | 2026-10-13 |
 
 ## Milestones
 
@@ -18,7 +18,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 | M1: Core, native API, SMTP, inbox | v0.1.0 | Done | 21 / 21 |
 | M2: Twilio, Termii, test API, inspector | v0.2.0 | In progress | 14 / 14 |
 | M3: Webhooks, failure simulation, inbound, batches | v0.3.0 | Done | 12 / 12 |
-| M4: Estimate, MCP, CI kit | v0.4.0 | In progress | 6 / 6 |
+| M4: Estimate, MCP, CI kit | v0.4.0 | Done | 6 / 6 |
 
 ## Blockers and open items
 
@@ -32,6 +32,11 @@ Single source of truth for where the project stands. Update it in every PR that 
 ## Session log
 
 Newest first. One entry per working session: what changed, decisions made, what's next.
+
+### 2026-10-13: M4 Gate
+
+- Full suite on `milestone/m4`: `go test -p 1 -count=1 ./...` green uncached; `golangci-lint` 0 issues; `biome check .` clean (one e2e format fix); `task build` fresh binary; real-SDK examples fresh green; Playwright 8/8 green. (`task lint` wrapper still hangs on pnpm spawn here, halves verified directly as in M3.)
+- Final commit carries the `v0.4.0` heading, progress update, gate ticks 1–2. M4-05/M4-06 live in separate repos (out of this gate by design). PR → merge → tag next.
 
 ### 2026-10-12: Estimate Backend (M4-01)
 

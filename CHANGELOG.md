@@ -8,6 +8,10 @@ Provider-compatible adapters follow the real providers' behavior. Fixes that mak
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-13
+
+Go-live estimate, MCP server, CI kit. See `docs/guides/` for the new MCP, CI and estimate guides. M4-05 (GitHub Action) and M4-06 (Testcontainers) live in separate repositories.
+
 ### Added
 
 - Go-live estimate (REQ-100): `GET /projects/{id}/estimate?volume=N` scales the project's observed SMS mix (provider, destination country, segments) plus verification counts to a monthly volume, priced from embedded tables (`estimate/pricing/twilio.yaml`, `termii.yaml`, with `as_of` dates and an estimate-only label). Countries without data are reported, never guessed; native/smtp traffic and email (Wave 2) are excluded.
