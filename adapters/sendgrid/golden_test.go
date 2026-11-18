@@ -23,19 +23,6 @@ import (
 
 var sendgridGoldenUpdate = flag.Bool("update", false, "regenerate golden files")
 
-func normalizeSendGrid(body map[string]any) map[string]any {
-	out := make(map[string]any, len(body))
-	for k, v := range body {
-		switch k {
-		case "X-Message-Id":
-			out[k] = "msg_normalized"
-		default:
-			out[k] = v
-		}
-	}
-	return out
-}
-
 func sendGridGoldenPost(handler http.Handler, payload map[string]any) (int, map[string]any, http.Header) {
 	raw, _ := json.Marshal(payload)
 	req := httptest.NewRequest(http.MethodPost, "/v3/mail/send", bytes.NewReader(raw))

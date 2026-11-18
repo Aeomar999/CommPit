@@ -125,5 +125,3 @@ func SignPayload(payload []byte, secret string) string {
 	mac.Write(payload)
 	return base64.StdEncoding.EncodeToString(mac.Sum(nil))
 }
-
-

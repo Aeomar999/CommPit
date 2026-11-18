@@ -12,14 +12,14 @@ import (
 
 // resendMail is the request body for POST /emails.
 type resendMail struct {
-	From     string   `json:"from"`
-	To       []string `json:"to"`
-	CC       []string `json:"cc"`
-	BCC      []string `json:"bcc"`
-	Subject  string   `json:"subject"`
-	Text     string   `json:"text"`
-	HTML     string   `json:"html"`
-	ReplyTo  string   `json:"reply_to"`
+	From    string   `json:"from"`
+	To      []string `json:"to"`
+	CC      []string `json:"cc"`
+	BCC     []string `json:"bcc"`
+	Subject string   `json:"subject"`
+	Text    string   `json:"text"`
+	HTML    string   `json:"html"`
+	ReplyTo string   `json:"reply_to"`
 }
 
 func newMessageID() string {
