@@ -1,0 +1,10 @@
+# Dockerfile used by goreleaser (packages the pre-built binary).
+FROM alpine:3.20 AS builder
+RUN mkdir -p /data && chown 65532:65532 /data
+
+FROM gcr.io/distroless/static:nonroot
+COPY --from=builder /data /data
+COPY mocksms /mocksms
+ENV MOCKSMS_HTTP_HOST=0.0.0.0 MOCKSMS_SMTP_HOST=0.0.0.0
+EXPOSE 4010 1025
+ENTRYPOINT ["/mocksms", "serve"]
