@@ -15,6 +15,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/Aeomar999/CommPit/adapters/adapterkit"
+	"github.com/Aeomar999/CommPit/adapters/resend"
 	"github.com/Aeomar999/CommPit/adapters/sendgrid"
 	"github.com/Aeomar999/CommPit/adapters/termii"
 	"github.com/Aeomar999/CommPit/adapters/twilio"
@@ -231,12 +232,21 @@ func runWithContext(ctx context.Context, cfg *config.Config) error {
 	sendgridKit := adapterkit.New(projectResolver, adapterkit.WithBus(eventBus), adapterkit.WithSink(sendgridSink))
 	sendgridHandler := sendgridKit.Wrap(sendgridAdapter, sendgrid.Extractor(), adapterkit.WithRequired(true))
 
+	// Resend adapter: same middleware stack, Bearer-token credential.
+	resendAdapter := resend.New(service)
+	resendSink := adapterkit.RequestLogSinkFunc(func(ctx context.Context, entry *core.RequestLog) error {
+		return store.CreateRequestLog(ctx, entry)
+	})
+	resendKit := adapterkit.New(projectResolver, adapterkit.WithBus(eventBus), adapterkit.WithSink(resendSink))
+	resendHandler := resendKit.Wrap(resendAdapter, resend.Extractor(), adapterkit.WithRequired(true))
+
 	// Provider formatters: status callbacks and inbound webhooks per
 	// provider, feeding the dispatcher and the worker's reply parsing.
 	nativeNotifier := api.NewNotifier(store)
 	webhookFormatters.RegisterStatus(twilioAdapter.Name(), twilioAdapter)
 	webhookFormatters.RegisterStatus(termiiAdapter.Name(), termiiAdapter)
 	webhookFormatters.RegisterStatus(sendgridAdapter.Name(), sendgridAdapter)
+	webhookFormatters.RegisterStatus(resendAdapter.Name(), resendAdapter)
 	webhookFormatters.RegisterStatus("native", nativeNotifier)
 	webhookFormatters.RegisterInbound(twilioAdapter.Name(), twilioAdapter)
 	webhookFormatters.RegisterInbound("native", nativeNotifier)
@@ -245,6 +255,7 @@ func runWithContext(ctx context.Context, cfg *config.Config) error {
 	rootRouter.Mount("/twilio", middleware.SecurityMiddleware(&cfg.Security)(twilioHandler))
 	rootRouter.Mount("/termii", middleware.SecurityMiddleware(&cfg.Security)(termiiHandler))
 	rootRouter.Mount("/sendgrid", middleware.SecurityMiddleware(&cfg.Security)(sendgridHandler))
+	rootRouter.Mount("/resend", middleware.SecurityMiddleware(&cfg.Security)(resendHandler))
 	// MCP over streamable HTTP for coding agents; Host-protected, no
 	// X-Mocksms header needed (see the middleware exemption).
 	mcpServer := mcpserver.New(service)

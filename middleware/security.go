@@ -83,6 +83,7 @@ func isExemptPath(path string) bool {
 	return path == "/twilio" || strings.HasPrefix(path, "/twilio/") ||
 		path == "/termii" || strings.HasPrefix(path, "/termii/") ||
 		path == "/sendgrid" || strings.HasPrefix(path, "/sendgrid/") ||
+		path == "/resend" || strings.HasPrefix(path, "/resend/") ||
 		path == "/mcp" || strings.HasPrefix(path, "/mcp/")
 }
 
