@@ -6,9 +6,9 @@ Single source of truth for where the project stands. Update it in every PR that 
 
 | | |
 |---|---|
-| **Phase** | Wave 1 complete (v0.4.1 released); M4-05 and M4-06 shipped |
-| **Current milestone** | — |
-| **Next action** | Blocked items (X-01 Termii account, X-02 legal, X-03 usability) or Wave 2 planning |
+| **Phase** | Wave 2 in progress (M5 SendGrid, v0.5.0) |
+| **Current milestone** | M5 |
+| **Next action** | M5-03 golden fixtures; then M6 (Resend) |
 | **Last updated** | 2026-11-18 |
 
 ## Milestones
@@ -19,6 +19,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 | M2: Twilio, Termii, test API, inspector | v0.2.0 | In progress | 14 / 14 |
 | M3: Webhooks, failure simulation, inbound, batches | v0.3.0 | Done | 12 / 12 |
 | M4: Estimate, MCP, CI kit | v0.4.1 | Done | 8 / 8 |
+| M5: SendGrid + email cost estimates | v0.5.0 | In progress | 5 / 6 |
 
 ## Blockers and open items
 
