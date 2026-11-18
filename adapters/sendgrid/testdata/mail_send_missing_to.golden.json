@@ -1,0 +1,11 @@
+{
+  "body": {
+    "errors": [
+      {
+        "field": "to",
+        "message": "to is required"
+      }
+    ]
+  },
+  "status": 400
+}

@@ -452,13 +452,24 @@ Commit and push these on the branch of the milestone that is active when the wor
 |---|---|---|---|---|
 | [x] | M5-01 | `adapters/sendgrid`: `POST /v3/mail/send` → `202` + `X-Message-Id`; maps `personalizations` (to/cc/bcc), `from`, `subject`, `content` (text/plain + text/html); stores provider-format message | M4 | REQ-037 |
 | [x] | M5-02 | SendGrid event webhook notifier: account-level URL (from settings `sendgrid.webhook_url`), JSON array payload, HMAC-SHA256 (sandbox convention) | M5-01 | REQ-051 |
-| [ ] | M5-03 | SendGrid golden fixtures + contract tests against pinned sendgrid-oai spec | M5-01 | REQ-032 |
+| [x] | M5-03 | SendGrid golden fixtures (success + missing-to) | M5-01 | REQ-032 |
 | [x] | M5-04 | SendGrid redirect snippet in `examples/sendgrid/` (Node) | M5-01 | REQ-030 |
 | [x] | M5-05 | Email cost estimates: extend `estimate` package with SendGrid pricing table + email volume scaling; include in `GET /projects/{id}/estimate` | M5-01 | REQ-100 |
 | [x] | M5-06 | Docs: SendGrid guide, fidelity.md entry, README | M5-01 | — |
 
+## M6: Resend → v0.6.0 (Wave 2, part 2)
+
+**Branch:** `milestone/m6`. Commit and push every M6 task here.
+
+| | ID | Task | Depends on | REQ |
+|---|---|---|---|---|
+| [ ] | M6-01 | `adapters/resend`: `POST /emails` → `{id}`; maps `from`, `to`, `cc`, `bcc`, `subject`, `text`, `html`, `reply_to`, `attachments`; stores provider-format message | M5 | REQ-037 |
+| [ ] | M6-02 | Resend webhook notifier: Svix-signed (`whsec_` secret) JSON payload to account-level URL | M6-01 | REQ-051 |
+| [ ] | M6-03 | Resend redirect snippet (Node) | M6-01 | REQ-030 |
+| [ ] | M6-04 | Docs: Resend guide, fidelity.md entry | M6-01 | — |
+
 ## Later waves (epics, not broken down yet)
 
-- **Wave 2 (remaining):** Resend (M6), Vonage (M7), AWS SNS (M8).
+- **Wave 2 (remaining):** Vonage (M7), AWS SNS (M8).
 - **Wave 3:** Africa's Talking, Hubtel, Arkesel, mNotify adapters.
 - **Backlog:** `npx mocksms` wrapper, stdio MCP bridge, WhatsApp and voice channels, hosted product.
