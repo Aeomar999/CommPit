@@ -68,7 +68,7 @@ dockers:
       - "ghcr.io/aeomar999/commpit/mocksms:latest"
     dockerfile: Dockerfile.goreleaser
     build_flag_templates:
-      - "--platform=linux/amd64,linux/arm64"
+      - "--platform=linux/amd64"
       - "--build-arg=VERSION={{.Version}}"
       - "--build-arg=COMMIT={{.Commit}}"
       - "--build-arg=DATE={{.Date}}"
