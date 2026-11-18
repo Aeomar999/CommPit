@@ -236,6 +236,7 @@ func runWithContext(ctx context.Context, cfg *config.Config) error {
 	nativeNotifier := api.NewNotifier(store)
 	webhookFormatters.RegisterStatus(twilioAdapter.Name(), twilioAdapter)
 	webhookFormatters.RegisterStatus(termiiAdapter.Name(), termiiAdapter)
+	webhookFormatters.RegisterStatus(sendgridAdapter.Name(), sendgridAdapter)
 	webhookFormatters.RegisterStatus("native", nativeNotifier)
 	webhookFormatters.RegisterInbound(twilioAdapter.Name(), twilioAdapter)
 	webhookFormatters.RegisterInbound("native", nativeNotifier)

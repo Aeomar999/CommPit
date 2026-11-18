@@ -75,6 +75,7 @@ func (a *Adapter) sendMail(w http.ResponseWriter, r *http.Request) {
 		a.writeServiceError(w, core.NewInternal("missing project context"))
 		return
 	}
+	a.recordAPIKey(r.Context(), projectID, adapterkit.CredentialFromContext(r.Context()))
 
 	if len(body.Personalizations) == 0 {
 		a.writeServiceError(w, core.NewValidationError("personalizations is required", "personalizations"))

@@ -451,7 +451,7 @@ Commit and push these on the branch of the milestone that is active when the wor
 | | ID | Task | Depends on | REQ |
 |---|---|---|---|---|
 | [x] | M5-01 | `adapters/sendgrid`: `POST /v3/mail/send` → `202` + `X-Message-Id`; maps `personalizations` (to/cc/bcc), `from`, `subject`, `content` (text/plain + text/html); stores provider-format message | M4 | REQ-037 |
-| [ ] | M5-02 | SendGrid event webhook notifier: account-level URL (from settings `sendgrid.webhook_url`), JSON array payload (`email`, `timestamp`, `event`, `sg_message_id`, ...), HMAC-SHA256 via `X-Twilio-Email-Event-Webhook-Signature`? (actually SendGrid uses ECDSA; mock uses HMAC-SHA256 keyed by project) | M5-01 | REQ-051 |
+| [x] | M5-02 | SendGrid event webhook notifier: account-level URL (from settings `sendgrid.webhook_url`), JSON array payload, HMAC-SHA256 (sandbox convention) | M5-01 | REQ-051 |
 | [ ] | M5-03 | SendGrid golden fixtures + contract tests against pinned sendgrid-oai spec | M5-01 | REQ-032 |
 | [ ] | M5-04 | SendGrid redirect snippet in `examples/sendgrid/` (Node) | M5-01 | REQ-030 |
 | [ ] | M5-05 | Email cost estimates: extend `estimate` package with SendGrid pricing table + email volume scaling; include in `GET /projects/{id}/estimate` | M5-01 | REQ-100 |
