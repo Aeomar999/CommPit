@@ -6,10 +6,10 @@ Single source of truth for where the project stands. Update it in every PR that 
 
 | | |
 |---|---|
-| **Phase** | Wave 1 complete (v0.4.0 released) |
+| **Phase** | Wave 1 complete (v0.4.1 released) |
 | **Current milestone** | — |
 | **Next action** | M4-05/M4-06 external repos, or next wave planning |
-| **Last updated** | 2026-10-13 |
+| **Last updated** | 2026-11-18 |
 
 ## Milestones
 
@@ -32,6 +32,17 @@ Single source of truth for where the project stands. Update it in every PR that 
 ## Session log
 
 Newest first. One entry per working session: what changed, decisions made, what's next.
+
+### 2026-11-18: Release pipeline repaired (v0.4.1)
+
+- The Release workflow had never succeeded (every tag push failed). Fixed in a series of patch PRs on `main`:
+  - Removed the goreleaser SBOM step that tried to catalog docker artifacts before they existed.
+  - Dropped SBOM generation entirely (syft not installed in CI).
+  - Switched docker image tags to the full git tag; added GHCR login to the goreleaser job.
+  - Replaced the multi-stage source-build Dockerfile (incompatible with goreleaser's binary-only build context) with `Dockerfile.goreleaser`, which packages the pre-built binary and creates a writable `/data` dir.
+  - Built the docker image for linux/amd64 only (no qemu in CI).
+  - Removed the redundant docker pull/push job (goreleaser already publishes `:vX.Y.Z` and `:latest`) and the Homebrew/Scoop jobs whose tap/bucket repos do not exist.
+- `v0.4.1` tagged on `main`; the Release workflow now completes green and publishes binaries, packages and the docker image. M4-05/M4-06 remain external-repo work.
 
 ### 2026-10-13: M4 Gate
 
