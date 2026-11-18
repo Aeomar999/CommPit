@@ -468,8 +468,19 @@ Commit and push these on the branch of the milestone that is active when the wor
 | [x] | M6-03 | Resend redirect snippet (Node) | M6-01 | REQ-030 |
 | [x] | M6-04 | Docs: Resend guide, fidelity.md entry, README | M6-01 | — |
 
+## M7: Vonage (SMS + Verify) → v0.7.0 (Wave 2, part 3)
+
+**Branch:** `milestone/m7`. Commit and push every M7 task here.
+
+| | ID | Task | Depends on | REQ |
+|---|---|---|---|---|
+| [x] | M7-01 | `adapters/vonage`: `POST /sms/json` → `{messages: [...]}`; maps from/to/text; stores provider-format message | M6 | REQ-037 |
+| [x] | M7-02 | Vonage Verify v2: `POST /v2/verify` (start) + `POST /v2/verify/{request_id}` (check) | M7-01 | REQ-031 |
+| [ ] | M7-03 | Vonage redirect snippet (Node) | M7-01 | REQ-030 |
+| [x] | M7-04 | Docs: Vonage guide, fidelity.md entry, README | M7-01 | — |
+
 ## Later waves (epics, not broken down yet)
 
-- **Wave 2 (remaining):** Vonage (M7), AWS SNS (M8).
+- **Wave 2 (remaining):** AWS SNS (M8).
 - **Wave 3:** Africa's Talking, Hubtel, Arkesel, mNotify adapters.
 - **Backlog:** `npx mocksms` wrapper, stdio MCP bridge, WhatsApp and voice channels, hosted product.

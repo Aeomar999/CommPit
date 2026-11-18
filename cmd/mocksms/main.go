@@ -19,6 +19,7 @@ import (
 	"github.com/Aeomar999/CommPit/adapters/sendgrid"
 	"github.com/Aeomar999/CommPit/adapters/termii"
 	"github.com/Aeomar999/CommPit/adapters/twilio"
+	"github.com/Aeomar999/CommPit/adapters/vonage"
 	"github.com/Aeomar999/CommPit/api"
 	"github.com/Aeomar999/CommPit/bus"
 	"github.com/Aeomar999/CommPit/config"
@@ -240,6 +241,14 @@ func runWithContext(ctx context.Context, cfg *config.Config) error {
 	resendKit := adapterkit.New(projectResolver, adapterkit.WithBus(eventBus), adapterkit.WithSink(resendSink))
 	resendHandler := resendKit.Wrap(resendAdapter, resend.Extractor(), adapterkit.WithRequired(true))
 
+	// Vonage adapter: same middleware stack, api_key credential from body.
+	vonageAdapter := vonage.New(service)
+	vonageSink := adapterkit.RequestLogSinkFunc(func(ctx context.Context, entry *core.RequestLog) error {
+		return store.CreateRequestLog(ctx, entry)
+	})
+	vonageKit := adapterkit.New(projectResolver, adapterkit.WithBus(eventBus), adapterkit.WithSink(vonageSink))
+	vonageHandler := vonageKit.Wrap(vonageAdapter, vonage.Extractor(), adapterkit.WithRequired(true))
+
 	// Provider formatters: status callbacks and inbound webhooks per
 	// provider, feeding the dispatcher and the worker's reply parsing.
 	nativeNotifier := api.NewNotifier(store)
@@ -256,6 +265,7 @@ func runWithContext(ctx context.Context, cfg *config.Config) error {
 	rootRouter.Mount("/termii", middleware.SecurityMiddleware(&cfg.Security)(termiiHandler))
 	rootRouter.Mount("/sendgrid", middleware.SecurityMiddleware(&cfg.Security)(sendgridHandler))
 	rootRouter.Mount("/resend", middleware.SecurityMiddleware(&cfg.Security)(resendHandler))
+	rootRouter.Mount("/vonage", middleware.SecurityMiddleware(&cfg.Security)(vonageHandler))
 	// MCP over streamable HTTP for coding agents; Host-protected, no
 	// X-Mocksms header needed (see the middleware exemption).
 	mcpServer := mcpserver.New(service)
