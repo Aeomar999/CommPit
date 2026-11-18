@@ -8,7 +8,11 @@ Provider-compatible adapters follow the real providers' behavior. Fixes that mak
 
 ## [Unreleased]
 
-## [0.4.0] - 2026-10-13
+## [0.4.1] - 2026-11-18
+
+### Fixed
+
+- Release pipeline: goreleaser SBOM no longer tries to catalog docker artifacts that are not produced in that phase (was failing every release with `invalid list of artifacts to catalog: docker`); docker image tags now use the full git tag so the post-release docker job can pull them; the Dockerfile accepts VERSION/COMMIT/DATE build args instead of literal goreleaser templates. Removed the Homebrew and Scoop release steps (their tap/bucket repositories do not exist yet); added GHCR login to the goreleaser job so the image push succeeds.
 
 Go-live estimate, MCP server, CI kit. See `docs/guides/` for the new MCP, CI and estimate guides. M4-05 (GitHub Action) and M4-06 (Testcontainers) live in separate repositories.
 
