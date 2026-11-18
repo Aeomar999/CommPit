@@ -21,6 +21,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 | M4: Estimate, MCP, CI kit | v0.4.1 | Done | 8 / 8 |
 | M5: SendGrid + email cost estimates | v0.5.0 | In progress | 6 / 6 |
 | M6: Resend | v0.6.0 | In progress | 4 / 4 |
+| M7: Vonage (SMS + Verify) | v0.7.0 | In progress | 3 / 4 |
 
 ## Blockers and open items
 
