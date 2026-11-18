@@ -112,9 +112,7 @@ nfpms:
     recommends:
       - ca-certificates
 
-sboms:
-  - id: archive
-    artifacts: archive
+
 
 
 
