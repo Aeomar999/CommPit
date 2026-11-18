@@ -59,6 +59,20 @@ Unverified (no pinned spec or contract test yet):
 - Whether `X-Message-Id` is returned as a bare id or a full URL.
 - Multi-personalization semantics.
 
+## Resend Email (M6-01, M6-02)
+
+Implemented: `POST /resend/emails` returning `200 OK` with `{ "id": "..." }`.
+Maps `from`, `to`, `cc`, `bcc`, `subject`, `text`, `html`, `reply_to` onto the
+native email message.
+
+- Auth: `Authorization: Bearer <api_key>`. Missing credentials return 401.
+- Webhook: account-level URL from project settings `resend.webhook_url`, JSON
+  event payload, Svix-style headers (`svix-id`, `svix-timestamp`,
+  `svix-signature`). Signature uses HMAC-SHA256 (sandbox convention).
+
+Unverified:
+- Svix signature scheme exactness (whsec_ secret decoding, base64 signature).
+
 ## SendGrid event webhook (M5-02)
 
 - Account-level URL from project settings `sendgrid.webhook_url`; no

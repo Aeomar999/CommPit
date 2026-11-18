@@ -465,8 +465,8 @@ Commit and push these on the branch of the milestone that is active when the wor
 |---|---|---|---|---|
 | [x] | M6-01 | `adapters/resend`: `POST /emails` → `{id}`; maps `from`, `to`, `cc`, `bcc`, `subject`, `text`, `html`, `reply_to`; stores provider-format message | M5 | REQ-037 |
 | [x] | M6-02 | Resend webhook notifier: Svix-signed (`whsec_` secret) JSON payload to account-level URL | M6-01 | REQ-051 |
-| [ ] | M6-03 | Resend redirect snippet (Node) | M6-01 | REQ-030 |
-| [ ] | M6-04 | Docs: Resend guide, fidelity.md entry | M6-01 | — |
+| [x] | M6-03 | Resend redirect snippet (Node) | M6-01 | REQ-030 |
+| [x] | M6-04 | Docs: Resend guide, fidelity.md entry, README | M6-01 | — |
 
 ## Later waves (epics, not broken down yet)
 

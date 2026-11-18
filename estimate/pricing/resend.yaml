@@ -1,0 +1,7 @@
+# Resend go-live pricing (USD). Estimate only - confirm current rates at
+# https://resend.com/pricing before launch.
+provider: resend
+currency: USD
+as_of: "2026-11-18"
+source: "resend.com pricing page (2026-11)"
+email: 0.001
