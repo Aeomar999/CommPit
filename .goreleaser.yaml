@@ -64,11 +64,14 @@ changelog:
 
 dockers:
   - image_templates:
-      - "ghcr.io/aeomar999/commpit/mocksms:{{ .Version }}"
+      - "ghcr.io/aeomar999/commpit/mocksms:{{ .Tag }}"
       - "ghcr.io/aeomar999/commpit/mocksms:latest"
     dockerfile: Dockerfile
     build_flag_templates:
       - "--platform=linux/amd64,linux/arm64"
+      - "--build-arg=VERSION={{.Version}}"
+      - "--build-arg=COMMIT={{.Commit}}"
+      - "--build-arg=DATE={{.Date}}"
     goos: linux
     goarch: amd64
     extra_files:
@@ -112,32 +115,7 @@ nfpms:
 sboms:
   - id: archive
     artifacts: archive
-  - id: docker
-    artifacts: docker
 
-signs:
-  - artifacts: all
-    cmd: cosign
-    args:
-      - sign-blob
-      - --output-signature=${signature}
-      - --output-certificate=${certificate}
-      - ${artifact}
 
-brews:
-  - name: mocksms
-    repository:
-      owner: aeomar999
-      name: homebrew-tap
-    commit_author:
-      name: goreleaserbot
-      email: goreleaser@goreleaser.com
-    description: "Local-first sandbox messaging provider for development"
-    homepage: "https://github.com/Aeomar999/CommPit"
-    license: "Apache-2.0"
-    test: |
-      system "#{bin}/mocksms version"
-    install: |
-      bin.install "mocksms"
-    conflicts:
-      - "mocksms-bin"
+
+

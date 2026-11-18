@@ -86,6 +86,13 @@ jobs:
       - name: Build web
         run: cd web && npm run build
 
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Import GPG key
         uses: crazy-max/ghaction-import-gpg@v6
         if: env.GPG_PRIVATE_KEY != ''
@@ -137,41 +144,9 @@ jobs:
           docker push ghcr.io/aeomar999/commpit/mocksms:${{ github.ref_name }}
           docker push ghcr.io/aeomar999/commpit/mocksms:latest
 
-  homebrew:
-    name: Homebrew
-    needs: goreleaser
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          repository: aeomar999/homebrew-tap
-          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-      - name: Update formula
-        run: |
-          # Formula update handled by goreleaser's brew section
-          echo "Homebrew formula update handled by goreleaser"
-
-  scoop:
-    name: Scoop
-    needs: goreleaser
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          repository: aeomar999/scoop-bucket
-          token: ${{ secrets.SCOOP_BUCKET_TOKEN }}
-      - name: Update manifest
-        run: |
-          # Manifest update handled by goreleaser's scoop section
-          echo "Scoop manifest update handled by goreleaser"
-
   notify:
     name: Notify
-    needs: [goreleaser, docker, homebrew, scoop]
+    needs: [goreleaser, docker]
     runs-on: ubuntu-latest
     if: always()
     steps:

@@ -13,7 +13,10 @@ COPY . .
 
 RUN mkdir -p /data-empty
 
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}" -o /mocksms ./cmd/mocksms
+ARG VERSION=dev
+ARG COMMIT=none
+ARG DATE=unknown
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.date=${DATE}" -o /mocksms ./cmd/mocksms
 
 # Final stage
 FROM gcr.io/distroless/static:nonroot
