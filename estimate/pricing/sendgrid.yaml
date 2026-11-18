@@ -1,0 +1,8 @@
+# SendGrid go-live pricing (USD). Estimate only - confirm current rates at
+# https://sendgrid.com/pricing before launch.
+# Per-email outbound; no per-country breakdown for email.
+provider: sendgrid
+currency: USD
+as_of: "2026-11-18"
+source: "sendgrid.com pricing page (Essentials plan, 2026-11)"
+email: 0.0012

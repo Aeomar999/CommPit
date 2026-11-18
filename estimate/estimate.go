@@ -29,6 +29,7 @@ type Table struct {
 	AsOf          string             `yaml:"as_of"`
 	Source        string             `yaml:"source"`
 	SMS           map[string]float64 `yaml:"sms"`
+	Email         *float64           `yaml:"email"`
 	Verify        *float64           `yaml:"verify"`
 	DNDMultiplier *float64           `yaml:"dnd_multiplier"`
 }
@@ -77,15 +78,25 @@ func Summarize(messages []*core.Message) []MixRow {
 	counts := map[key]int{}
 	segments := map[key]int{}
 	for _, msg := range messages {
-		if msg == nil || msg.Direction != core.DirectionOutbound || msg.Channel != core.ChannelSMS {
+		if msg == nil || msg.Direction != core.DirectionOutbound {
 			continue
 		}
-		if msg.Provider != "twilio" && msg.Provider != "termii" {
+		if msg.Channel == core.ChannelSMS {
+			if msg.Provider != "twilio" && msg.Provider != "termii" && msg.Provider != "vonage" {
+				continue
+			}
+		} else if msg.Channel == core.ChannelEmail {
+			if msg.Provider != "sendgrid" && msg.Provider != "resend" {
+				continue
+			}
+		} else {
 			continue
 		}
 		country := ""
-		if parsed, err := phone.Parse(msg.To, phone.ModeValid); err == nil {
-			country = parsed.Country
+		if msg.Channel == core.ChannelSMS {
+			if parsed, err := phone.Parse(msg.To, phone.ModeValid); err == nil {
+				country = parsed.Country
+			}
 		}
 		k := key{msg.Provider, msg.Channel, country}
 		counts[k]++
@@ -134,6 +145,7 @@ type Result struct {
 	AsOf                 string         `json:"as_of"`
 	EstimateOnly         bool           `json:"estimate_only"`
 	MonthlyMessages      int            `json:"monthly_messages"`
+	EmailCost            float64        `json:"email_cost"`
 	TotalCost            float64        `json:"total_cost"`
 	ByCountry            []CountryCost  `json:"by_country"`
 	MonthlyVerifications int            `json:"monthly_verifications"`
@@ -170,6 +182,18 @@ func Estimate(table *Table, provider string, mix []MixRow, verifications, volume
 			continue
 		}
 		monthly := int(math.Round(float64(row.Count) * factor))
+		if row.Channel == core.ChannelEmail {
+			if table.Email == nil {
+				res.NoPriceData = append(res.NoPriceData, MissingPrice{Country: "email", Messages: monthly})
+				continue
+			}
+			unit := *table.Email
+			cost := cents(float64(monthly) * unit)
+			res.EmailCost += cost
+			res.MonthlyMessages += monthly
+			res.TotalCost += cost
+			continue
+		}
 		unit, ok := table.SMS[row.Country]
 		if !ok {
 			res.NoPriceData = append(res.NoPriceData, MissingPrice{Country: row.Country, Messages: monthly})

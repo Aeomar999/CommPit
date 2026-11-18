@@ -454,8 +454,8 @@ Commit and push these on the branch of the milestone that is active when the wor
 | [x] | M5-02 | SendGrid event webhook notifier: account-level URL (from settings `sendgrid.webhook_url`), JSON array payload, HMAC-SHA256 (sandbox convention) | M5-01 | REQ-051 |
 | [ ] | M5-03 | SendGrid golden fixtures + contract tests against pinned sendgrid-oai spec | M5-01 | REQ-032 |
 | [ ] | M5-04 | SendGrid redirect snippet in `examples/sendgrid/` (Node) | M5-01 | REQ-030 |
-| [ ] | M5-05 | Email cost estimates: extend `estimate` package with SendGrid pricing table + email volume scaling; include in `GET /projects/{id}/estimate` | M5-01 | REQ-100 |
-| [ ] | M5-06 | Docs: SendGrid guide, fidelity.md entry, README | M5-01 | — |
+| [x] | M5-05 | Email cost estimates: extend `estimate` package with SendGrid pricing table + email volume scaling; include in `GET /projects/{id}/estimate` | M5-01 | REQ-100 |
+| [x] | M5-06 | Docs: SendGrid guide, fidelity.md entry, README | M5-01 | — |
 
 ## Later waves (epics, not broken down yet)
 

@@ -6,9 +6,9 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"log/slog"
 	"github.com/Aeomar999/CommPit/adapters/adapterkit"
 	"github.com/Aeomar999/CommPit/core"
+	"log/slog"
 )
 
 // webhookURLKey is the account-level event-webhook destination (SendGrid
@@ -48,9 +48,9 @@ func (a *Adapter) recordAPIKey(ctx context.Context, projectID, apiKey string) {
 
 // sendGridEvent is one entry in SendGrid's event-webhook JSON array.
 type sendGridEvent struct {
-	Email      string `json:"email"`
-	Timestamp  int64  `json:"timestamp"`
-	Event      string `json:"event"`
+	Email       string `json:"email"`
+	Timestamp   int64  `json:"timestamp"`
+	Event       string `json:"event"`
 	SGMessageID string `json:"sg_message_id"`
 }
 

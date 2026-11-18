@@ -38,6 +38,36 @@ Decisions (intentional, not Twilio behavior):
 
 Confirmed by contract tests (M2-05) against the pinned spec: message
 fields, status/direction enums, the `SM`+32-hex SID pattern, paging envelope
+
+## SendGrid Mail Send (M5-01)
+
+Implemented: `POST /v3/mail/send` returning `202 Accepted` with an
+`X-Message-Id` header of the form `msg_` + 32 hex chars. The request body's
+first personalization supplies `to`/`cc`/`bcc` recipients; `from.email`,
+top-level or personalization `subject`, and `content` entries of type
+`text/plain` and `text/html` are mapped onto the native email message.
+
+- Auth: `Authorization: Bearer <api_key>` or `X-Api-Key`. Missing credentials
+  return 401 (canonical `unauthorized`).
+- Multiple personalizations are not yet split into separate messages; only the
+  first personalization is used (documented gap).
+- `send_at`, `categories`, `custom_args`, `attachments`, `template_id` and
+  mail/tracking settings are accepted and ignored (no scheduling/templates).
+
+Unverified (no pinned spec or contract test yet):
+- Exact error envelope shape (`errors` array with `message`/`field`/`help`).
+- Whether `X-Message-Id` is returned as a bare id or a full URL.
+- Multi-personalization semantics.
+
+## SendGrid event webhook (M5-02)
+
+- Account-level URL from project settings `sendgrid.webhook_url`; no
+  per-request callback.
+- Payload is a JSON array with one entry per status transition
+  (`email`, `timestamp`, `event`, `sg_message_id`).
+- Signature: `X-SendGrid-Signature` = hex HMAC-SHA256 over the body, keyed
+  by the observed API key. SendGrid's real webhook uses ECDSA; the sandbox
+  convention is HMAC (unverified).
 keys, and account SIDs as `AC`+32 chars (34 total — the test suite
 previously used a 32-char account SID, fixed).
 
