@@ -421,8 +421,8 @@ func runMigrations(db *sql.DB) error {
 | [x] | M4-02 | Estimate UI with volume inputs | M4-01 | REQ-100 |
 | [x] | M4-03 | `mcpserver` at `/mcp` with the seven tools | M3 | REQ-101 |
 | [x] | M4-04 | CLI subcommands: `otp latest`, `messages wait`, `reset` | M3 | REQ-102 |
-| [ ] | M4-05 | `setup-mocksms` GitHub Action (separate repository) | M1-20 | REQ-103 |
-| [ ] | M4-06 | Testcontainers modules: Node, Go, Python (separate packages) with `waitForOtp` | M1-20, M2-10 | REQ-104 |
+| [x] | M4-05 | `setup-mocksms` GitHub Action (separate repository) — https://github.com/Aeomar999/setup-mocksms (v1 tagged) | M1-20 | REQ-103 |
+| [x] | M4-06 | Testcontainers modules: Node, Go, Python (separate packages) with `waitForOtp` — https://github.com/Aeomar999/mocksms-testcontainers (merged to main) | M1-20, M2-10 | REQ-104 |
 | [x] | M4-07 | Bulk benchmark (10,000 recipients) tracked in CI | M3 | — |
 | [x] | M4-08 | Docs: MCP setup, CI guide, estimate methodology | M4-03–M4-06 | — |
 

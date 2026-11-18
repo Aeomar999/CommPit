@@ -6,9 +6,9 @@ Single source of truth for where the project stands. Update it in every PR that 
 
 | | |
 |---|---|
-| **Phase** | Wave 1 complete (v0.4.1 released) |
+| **Phase** | Wave 1 complete (v0.4.1 released); M4-05 and M4-06 shipped |
 | **Current milestone** | — |
-| **Next action** | M4-05/M4-06 external repos, or next wave planning |
+| **Next action** | Blocked items (X-01 Termii account, X-02 legal, X-03 usability) or Wave 2 planning |
 | **Last updated** | 2026-11-18 |
 
 ## Milestones
@@ -18,7 +18,7 @@ Single source of truth for where the project stands. Update it in every PR that 
 | M1: Core, native API, SMTP, inbox | v0.1.0 | Done | 21 / 21 |
 | M2: Twilio, Termii, test API, inspector | v0.2.0 | In progress | 14 / 14 |
 | M3: Webhooks, failure simulation, inbound, batches | v0.3.0 | Done | 12 / 12 |
-| M4: Estimate, MCP, CI kit | v0.4.0 | Done | 6 / 6 |
+| M4: Estimate, MCP, CI kit | v0.4.1 | Done | 8 / 8 |
 
 ## Blockers and open items
 
