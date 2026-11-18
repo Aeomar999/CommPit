@@ -444,8 +444,21 @@ Commit and push these on the branch of the milestone that is active when the wor
 | [ ] | X-02 | Legal check on provider names in docs and marketing | PRD Open Question 5 |
 | [ ] | X-03 | Usability session with 5 developers at the end of each milestone | Milestone release |
 
+## M5: SendGrid + email cost estimates → v0.5.0 (Wave 2, part 1)
+
+**Branch:** `milestone/m5`. Commit and push every M5 task here.
+
+| | ID | Task | Depends on | REQ |
+|---|---|---|---|---|
+| [x] | M5-01 | `adapters/sendgrid`: `POST /v3/mail/send` → `202` + `X-Message-Id`; maps `personalizations` (to/cc/bcc), `from`, `subject`, `content` (text/plain + text/html); stores provider-format message | M4 | REQ-037 |
+| [ ] | M5-02 | SendGrid event webhook notifier: account-level URL (from settings `sendgrid.webhook_url`), JSON array payload (`email`, `timestamp`, `event`, `sg_message_id`, ...), HMAC-SHA256 via `X-Twilio-Email-Event-Webhook-Signature`? (actually SendGrid uses ECDSA; mock uses HMAC-SHA256 keyed by project) | M5-01 | REQ-051 |
+| [ ] | M5-03 | SendGrid golden fixtures + contract tests against pinned sendgrid-oai spec | M5-01 | REQ-032 |
+| [ ] | M5-04 | SendGrid redirect snippet in `examples/sendgrid/` (Node) | M5-01 | REQ-030 |
+| [ ] | M5-05 | Email cost estimates: extend `estimate` package with SendGrid pricing table + email volume scaling; include in `GET /projects/{id}/estimate` | M5-01 | REQ-100 |
+| [ ] | M5-06 | Docs: SendGrid guide, fidelity.md entry, README | M5-01 | — |
+
 ## Later waves (epics, not broken down yet)
 
-- **Wave 2:** SendGrid, Resend, Vonage (SMS + Verify), AWS SNS adapters; email cost estimates.
+- **Wave 2 (remaining):** Resend (M6), Vonage (M7), AWS SNS (M8).
 - **Wave 3:** Africa's Talking, Hubtel, Arkesel, mNotify adapters.
 - **Backlog:** `npx mocksms` wrapper, stdio MCP bridge, WhatsApp and voice channels, hosted product.

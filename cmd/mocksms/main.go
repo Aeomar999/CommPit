@@ -15,6 +15,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/Aeomar999/CommPit/adapters/adapterkit"
+	"github.com/Aeomar999/CommPit/adapters/sendgrid"
 	"github.com/Aeomar999/CommPit/adapters/termii"
 	"github.com/Aeomar999/CommPit/adapters/twilio"
 	"github.com/Aeomar999/CommPit/api"
@@ -221,6 +222,15 @@ func runWithContext(ctx context.Context, cfg *config.Config) error {
 	termiiKit := adapterkit.New(projectResolver, adapterkit.WithBus(eventBus), adapterkit.WithSink(termiiSink))
 	termiiHandler := termiiKit.Wrap(termiiAdapter, termii.Extractor(), adapterkit.WithRequired(true))
 
+	// SendGrid adapter: same middleware stack, Bearer-token credential from
+	// the Authorization header.
+	sendgridAdapter := sendgrid.New(service)
+	sendgridSink := adapterkit.RequestLogSinkFunc(func(ctx context.Context, entry *core.RequestLog) error {
+		return store.CreateRequestLog(ctx, entry)
+	})
+	sendgridKit := adapterkit.New(projectResolver, adapterkit.WithBus(eventBus), adapterkit.WithSink(sendgridSink))
+	sendgridHandler := sendgridKit.Wrap(sendgridAdapter, sendgrid.Extractor(), adapterkit.WithRequired(true))
+
 	// Provider formatters: status callbacks and inbound webhooks per
 	// provider, feeding the dispatcher and the worker's reply parsing.
 	nativeNotifier := api.NewNotifier(store)
@@ -233,6 +243,7 @@ func runWithContext(ctx context.Context, cfg *config.Config) error {
 	rootRouter := chi.NewRouter()
 	rootRouter.Mount("/twilio", middleware.SecurityMiddleware(&cfg.Security)(twilioHandler))
 	rootRouter.Mount("/termii", middleware.SecurityMiddleware(&cfg.Security)(termiiHandler))
+	rootRouter.Mount("/sendgrid", middleware.SecurityMiddleware(&cfg.Security)(sendgridHandler))
 	// MCP over streamable HTTP for coding agents; Host-protected, no
 	// X-Mocksms header needed (see the middleware exemption).
 	mcpServer := mcpserver.New(service)
